@@ -17,12 +17,15 @@
 package vm
 
 import (
+	"bytes"
 	"errors"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/crypto/sha3"
 )
@@ -30,6 +33,9 @@ import (
 var (
 	bigZero                  = new(big.Int)
 	tt255                    = math.BigPow(2, 255)
+	OvmSLOADMethodId         = crypto.Keccak256([]byte("ovmSLOAD()"))[0:4]
+	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
+	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
 	errWriteProtection       = errors.New("evm: write protection")
 	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
 	errExecutionReverted     = errors.New("evm: execution reverted")
@@ -757,22 +763,49 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 	// Get the arguments from the memory.
 	args := memory.GetPtr(inOffset.Int64(), inSize.Int64())
 
-	if value.Sign() != 0 {
-		gas += params.CallStipend
-	}
-	ret, returnGas, err := interpreter.evm.Call(contract, toAddr, args, gas, value)
-	if err != nil {
-		stack.push(interpreter.intPool.getZero())
-	} else {
+	if isCallTo(toAddr, args, OvmContractAddress, OvmSLOADMethodId) {
+		caller := &Contract{self: AccountRef(contract.Caller())}
+		storageSlot := new(big.Int).SetBytes(args[4:36])
+		stack.push(storageSlot)
+		opSload(pc, interpreter, caller, memory, stack)
+		storageValue := stack.peek()
+		memory.Set(retOffset.Uint64(), retSize.Uint64(), storageValue.Bytes())
+		return storageValue.Bytes(), nil
+	} else if isCallTo(toAddr, args, OvmContractAddress, OvmSSTOREMethodId) {
+		caller := &Contract{self: AccountRef(contract.Caller())}
+		storageSlot := new(big.Int).SetBytes(args[4:36])
+		storageValue := new(big.Int).SetBytes(args[36:68])
+		stack.push(storageValue)
+		stack.push(storageSlot)
+		opSstore(pc, interpreter, caller, memory, stack)
 		stack.push(interpreter.intPool.get().SetUint64(1))
-	}
-	if err == nil || err == errExecutionReverted {
-		memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
-	}
-	contract.Gas += returnGas
+		return nil, nil
+	} else {
+		if value.Sign() != 0 {
+			gas += params.CallStipend
+		}
+		ret, returnGas, err := interpreter.evm.Call(contract, toAddr, args, gas, value)
+		if err != nil {
+			stack.push(interpreter.intPool.getZero())
+		} else {
+			stack.push(interpreter.intPool.get().SetUint64(1))
+		}
+		if err == nil || err == errExecutionReverted {
+			memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
+		}
+		contract.Gas += returnGas
 
-	interpreter.intPool.put(addr, value, inOffset, inSize, retOffset, retSize)
-	return ret, nil
+		interpreter.intPool.put(addr, value, inOffset, inSize, retOffset, retSize)
+		return ret, nil
+	}
+}
+
+func isCallTo(addr common.Address, args []byte, testAddr common.Address, testMethodId []byte) bool {
+	if len(args) < 4 {
+		return false
+	}
+	methodId := args[0:4]
+	return addr == testAddr && bytes.Equal(methodId, testMethodId)
 }
 
 func opCallCode(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
