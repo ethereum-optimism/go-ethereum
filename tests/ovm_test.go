@@ -2,6 +2,7 @@ package tests
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -47,6 +48,7 @@ func call(addr []byte, value uint, inOffset uint, inSize uint, retOffset uint, r
 }
 
 func TestOvm(t *testing.T) {
+	fmt.Printf("%x", vm.OvmSSTOREMethodId)
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
 	address := common.HexToAddress("0x0a")
