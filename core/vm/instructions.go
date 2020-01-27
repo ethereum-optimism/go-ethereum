@@ -764,18 +764,20 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 	args := memory.GetPtr(inOffset.Int64(), inSize.Int64())
 
 	if isCallTo(toAddr, args, OvmContractAddress, OvmSLOADMethodId) {
+		caller := &Contract{self: AccountRef(contract.Caller())}
 		storageSlot := new(big.Int).SetBytes(args[4:36])
 		stack.push(storageSlot)
-		opSload(pc, interpreter, contract, memory, stack)
+		opSload(pc, interpreter, caller, memory, stack)
 		storageValue := stack.peek()
 		memory.Set(retOffset.Uint64(), retSize.Uint64(), storageValue.Bytes())
 		return storageValue.Bytes(), nil
 	} else if isCallTo(toAddr, args, OvmContractAddress, OvmSSTOREMethodId) {
+		caller := &Contract{self: AccountRef(contract.Caller())}
 		storageSlot := new(big.Int).SetBytes(args[4:36])
 		storageValue := new(big.Int).SetBytes(args[36:68])
 		stack.push(storageValue)
 		stack.push(storageSlot)
-		opSstore(pc, interpreter, contract, memory, stack)
+		opSstore(pc, interpreter, caller, memory, stack)
 		stack.push(interpreter.intPool.get().SetUint64(1))
 		return nil, nil
 	} else {
