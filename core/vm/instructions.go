@@ -35,7 +35,7 @@ var (
 	tt255                    = math.BigPow(2, 255)
 	OvmSLOADMethodId         = crypto.Keccak256([]byte("ovmSLOAD()"))[0:4]
 	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
-	OvmContractAddress       = common.FromHex(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
+	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
 	errWriteProtection       = errors.New("evm: write protection")
 	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
 	errExecutionReverted     = errors.New("evm: execution reverted")
@@ -762,16 +762,15 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 	value = math.U256(value)
 	// Get the arguments from the memory.
 	args := memory.GetPtr(inOffset.Int64(), inSize.Int64())
-	methodId := args[0:4]
 
-	if bytes.Equal(toAddr.Bytes(), OvmContractAddress) && bytes.Equal(methodId, OvmSLOADMethodId) {
+	if isCallTo(toAddr, args, OvmContractAddress, OvmSLOADMethodId) {
 		storageSlot := new(big.Int).SetBytes(args[4:36])
 		stack.push(storageSlot)
 		opSload(pc, interpreter, contract, memory, stack)
 		storageValue := stack.peek()
 		memory.Set(retOffset.Uint64(), retSize.Uint64(), storageValue.Bytes())
 		return storageValue.Bytes(), nil
-	} else if bytes.Equal(toAddr.Bytes(), OvmContractAddress) && bytes.Equal(methodId, OvmSSTOREMethodId) {
+	} else if isCallTo(toAddr, args, OvmContractAddress, OvmSSTOREMethodId) {
 		storageSlot := new(big.Int).SetBytes(args[4:36])
 		storageValue := new(big.Int).SetBytes(args[36:68])
 		stack.push(storageValue)
@@ -797,6 +796,14 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 		interpreter.intPool.put(addr, value, inOffset, inSize, retOffset, retSize)
 		return ret, nil
 	}
+}
+
+func isCallTo(addr common.Address, args []byte, testAddr common.Address, testMethodId []byte) bool {
+	if len(args) < 4 {
+		return false
+	}
+	methodId := args[0:4]
+	return addr == testAddr && bytes.Equal(methodId, testMethodId)
 }
 
 func opCallCode(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {

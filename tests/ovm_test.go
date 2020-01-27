@@ -2,7 +2,6 @@ package tests
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,7 +26,7 @@ func mstoreBytes(bytes []byte, offset int) []byte {
 	return output
 }
 
-func call(addr []byte, value uint, inOffset uint, inSize uint, retOffset uint, retSize uint) []byte {
+func call(addr common.Address, value uint, inOffset uint, inSize uint, retOffset uint, retSize uint) []byte {
 	output := []byte{
 		byte(vm.PUSH1), 0,
 		byte(vm.PUSH1), 0,
@@ -39,7 +38,7 @@ func call(addr []byte, value uint, inOffset uint, inSize uint, retOffset uint, r
 	}
 	output = append(output, []byte{
 		byte(vm.PUSH20)}...)
-	output = append(output, addr...)
+	output = append(output, addr.Bytes()...)
 	output = append(output, []byte{
 		byte(vm.GAS),
 		byte(vm.CALL),
@@ -48,7 +47,6 @@ func call(addr []byte, value uint, inOffset uint, inSize uint, retOffset uint, r
 }
 
 func TestOvm(t *testing.T) {
-	fmt.Printf("%x", vm.OvmSSTOREMethodId)
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
 	address := common.HexToAddress("0x0a")
