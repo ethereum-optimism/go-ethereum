@@ -2,6 +2,8 @@ package tests
 
 import (
 	"bytes"
+	"math"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,34 +11,46 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var KEY = common.FromHex("0102030000000000000000000000000000000000000000000000000000000000")
 var VALUE1 = common.FromHex("0405060000000000000000000000000000000000000000000000000000000000")
 var VALUE2 = common.FromHex("0708090000000000000000000000000000000000000000000000000000000000")
+var INIT_CODE = common.FromHex("608060405234801561001057600080fd5b5060405161026b38038061026b8339818101604052602081101561003357600080fd5b8101908080519060200190929190505050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550506101d7806100946000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80633408f73a1461003b578063d3404b6d14610045575b600080fd5b61004361004f565b005b61004d6100fa565b005b600060e060405180807f6f766d534c4f4144282900000000000000000000000000000000000000000000815250600a0190506040518091039020901c905060008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905060405136600082378260181c81538260101c60018201538260081c60028201538260038201536040516207a1208136846000875af160008114156100f657600080fd5b3d82f35b600060e060405180807f6f766d5353544f52452829000000000000000000000000000000000000000000815250600b0190506040518091039020901c905060008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905060405136600082378260181c81538260101c60018201538260081c600282015382600382015360008036836000865af1600081141561019c57600080fd5b5050505056fea265627a7a7231582047df4ba501514f65ab1e6f8215402e9240cb0cf954d608cdc4158258f468b12364736f6c634300050c0032000000000000000000000000fdfef9d10d929cb3905c71400ce6be1990ea0f34")
 
 func mstoreBytes(bytes []byte, offset int) []byte {
-	output := make([]byte, len(bytes)*5)
-	for i, b := range bytes {
-		output[i*5] = byte(vm.PUSH1)
-		output[i*5+1] = b
-		output[i*5+2] = byte(vm.PUSH1)
-		output[i*5+3] = byte(offset + i)
-		output[i*5+4] = byte(vm.MSTORE8)
+	output := []byte{}
+	for i := 0; i < len(bytes); i += vm.WORD_SIZE {
+		end := i + vm.WORD_SIZE
+		if end > len(bytes) {
+			end = len(bytes)
+		}
+		output = append(output, byte(vm.PUSH32))
+		output = append(output, common.RightPadBytes(bytes[i:end], vm.WORD_SIZE)...)
+		output = append(output, byte(vm.PUSH1))
+		output = append(output, byte(offset+i))
+		output = append(output, byte(vm.MSTORE))
 	}
 	return output
 }
 
-func call(addr common.Address, value uint, inOffset uint, inSize uint, retOffset uint, retSize uint) []byte {
-	output := []byte{
-		byte(vm.PUSH1), 0,
-		byte(vm.PUSH1), 0,
-		byte(vm.PUSH1), byte(retSize),
-		byte(vm.PUSH1), byte(retOffset),
-		byte(vm.PUSH1), byte(inSize),
-		byte(vm.PUSH1), byte(inOffset),
-		byte(vm.PUSH1), byte(value),
-	}
+func call(addr common.Address, value int64, inOffset int64, inSize int64, retOffset int64, retSize int64) []byte {
+	output := []byte{}
+	output = append(output, pushN(0))
+	output = append(output, int64ToBytes(0)...)
+	output = append(output, pushN(0))
+	output = append(output, int64ToBytes(0)...)
+	output = append(output, pushN(retSize))
+	output = append(output, int64ToBytes(retSize)...)
+	output = append(output, pushN(retOffset))
+	output = append(output, int64ToBytes(retOffset)...)
+	output = append(output, pushN(inSize))
+	output = append(output, int64ToBytes(inSize)...)
+	output = append(output, pushN(inOffset))
+	output = append(output, int64ToBytes(inOffset)...)
+	output = append(output, pushN(value))
+	output = append(output, int64ToBytes(value)...)
 	output = append(output, []byte{
 		byte(vm.PUSH20)}...)
 	output = append(output, addr.Bytes()...)
@@ -45,6 +59,56 @@ func call(addr common.Address, value uint, inOffset uint, inSize uint, retOffset
 		byte(vm.CALL),
 	}...)
 	return output
+}
+
+func int64ToBytes(n int64) []byte {
+	if bytes.Equal(big.NewInt(n).Bytes(), []byte{}) {
+		return []byte{0}
+	} else {
+		return big.NewInt(n).Bytes()
+	}
+}
+func pushN(n int64) byte {
+	return byte(int(vm.PUSH1) + byteLength(n) - 1)
+}
+func byteLength(n int64) int {
+	return int(math.Floor(float64(n)/256.0)) + 1
+}
+
+func TestCreate(t *testing.T) {
+	aliceAddr := common.HexToAddress("0x0a")
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	state, _ := state.New(common.Hash{}, db)
+	codeAddr := common.HexToAddress("0xC0")
+	initCode := storeCode(KEY, VALUE1)
+	code := mstoreBytes(vm.OvmCREATEMethodId, 0)
+	code = append(code, mstoreBytes(initCode, 4)...)
+	code = append(code,
+		call(
+			vm.OvmContractAddress,
+			0,
+			0,
+			int64(len(initCode))+4,
+			0,
+			32)...)
+	code = append(code, []byte{
+		byte(vm.POP),
+		byte(vm.PUSH1), 32,
+		byte(vm.PUSH1), 0,
+		byte(vm.RETURN),
+	}...)
+
+	state.SetCode(codeAddr, code)
+
+	returnVal, _, err := runtime.Call(codeAddr, nil, &runtime.Config{State: state, Debug: true, Origin: aliceAddr})
+	if err != nil {
+		t.Fatal("didn't expect error", err)
+	}
+
+	expectedVal := common.LeftPadBytes(crypto.CreateAddress(aliceAddr, 0).Bytes(), vm.WORD_SIZE)
+	if !bytes.Equal(expectedVal, returnVal) {
+		t.Errorf("Expected %020x; got %020x", expectedVal, returnVal)
+	}
 }
 
 func TestSloadAndStore(t *testing.T) {

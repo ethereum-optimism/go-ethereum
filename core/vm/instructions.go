@@ -33,6 +33,8 @@ import (
 var (
 	bigZero                  = new(big.Int)
 	tt255                    = math.BigPow(2, 255)
+	WORD_SIZE                = 32
+	OvmCREATEMethodId        = crypto.Keccak256([]byte("ovmCREATE()"))[0:4]
 	OvmSLOADMethodId         = crypto.Keccak256([]byte("ovmSLOAD()"))[0:4]
 	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
 	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
@@ -698,6 +700,7 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 		input        = memory.GetCopy(offset.Int64(), size.Int64())
 		gas          = contract.Gas
 	)
+
 	if interpreter.evm.chainRules.IsEIP150 {
 		gas -= gas / 64
 	}
@@ -780,6 +783,18 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 		opSstore(pc, interpreter, caller, memory, stack)
 		stack.push(interpreter.intPool.get().SetUint64(1))
 		return nil, nil
+	} else if isCallTo(toAddr, args, OvmContractAddress, OvmCREATEMethodId) {
+		caller := &Contract{self: AccountRef(contract.Caller())}
+		caller.Gas = contract.Gas
+		stack.push(inSize.Sub(inSize, big.NewInt(4)))
+		stack.push(inOffset.Add(inOffset, big.NewInt(4)))
+		stack.push(interpreter.intPool.getZero())
+		opCreate(pc, interpreter, caller, memory, stack)
+		address := stack.pop()
+		paddedAddress := common.LeftPadBytes(address.Bytes(), WORD_SIZE)
+		memory.Set(retOffset.Uint64(), retSize.Uint64(), paddedAddress)
+		stack.push(interpreter.intPool.get().SetUint64(1))
+		return address.Bytes(), nil
 	} else {
 		if value.Sign() != 0 {
 			gas += params.CallStipend
