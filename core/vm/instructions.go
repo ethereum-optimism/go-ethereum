@@ -39,6 +39,7 @@ var (
 	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
 	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
 	ContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
+	PurityCheckerAddress       = common.HexToAddress(os.Getenv("PURITY_CHECKER_ADDRESS"))
 	ContractCreatorAddress       = common.HexToAddress("0x0000000000000000000000000000000000000000")
 	errWriteProtection       = errors.New("evm: write protection")
 	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
@@ -788,8 +789,15 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 	} else if isCallTo(toAddr, args, OvmContractAddress, OvmCREATEMethodId) {
 		caller := &Contract{self: AccountRef(ContractCreatorAddress)}
 		caller.Gas = contract.Gas
-		stack.push(inSize.Sub(inSize, big.NewInt(4)))
-		stack.push(inOffset.Add(inOffset, big.NewInt(4)))
+		inSize.Sub(inSize, big.NewInt(4))
+		inOffset.Add(inOffset, big.NewInt(4))
+		isPure := isPure(pc, interpreter, caller, memory, stack, inSize, inOffset, big.NewInt(0), big.NewInt(1))
+		if(!isPure) {
+			stack.push(interpreter.intPool.getZero())
+			return nil, nil
+		}
+		stack.push(inSize)
+		stack.push(inOffset)
 		stack.push(interpreter.intPool.getZero())
 		opCreate(pc, interpreter, caller, memory, stack)
 		address := stack.pop()
@@ -815,6 +823,29 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 		interpreter.intPool.put(addr, value, inOffset, inSize, retOffset, retSize)
 		return ret, nil
 	}
+}
+
+func isPure(
+	pc *uint64,
+	interpreter *EVMInterpreter,
+	contract *Contract,
+	memory *Memory,
+	stack *Stack,
+	inSize *big.Int,
+	inOffset *big.Int,
+	outOffset *big.Int,
+	outSize *big.Int) bool {
+	stack.push(outSize)
+	stack.push(outOffset)
+	stack.push(inSize)
+	stack.push(inOffset)
+	stack.push(big.NewInt(0))
+	stack.push(new(big.Int).SetBytes(PurityCheckerAddress.Bytes()))
+	stack.push(interpreter.intPool.get().SetUint64(contract.Gas))
+	opCall(pc, interpreter, contract, memory, stack)
+	stack.pop()
+	result := memory.GetPtr(outOffset.Int64(), outSize.Int64())
+	return result[0] == 1
 }
 
 func isCallTo(addr common.Address, args []byte, testAddr common.Address, testMethodId []byte) bool {

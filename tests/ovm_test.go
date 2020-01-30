@@ -78,7 +78,70 @@ func byteLength(n int64) int {
  }
 }
 
+func mockPurityChecker(pure bool) []byte {
+  var pureByte byte
+
+  if pure {
+    pureByte = 1
+  } else {
+    pureByte = 0
+  }
+
+	return []byte{
+		byte(vm.PUSH1),
+    pureByte,
+		byte(vm.PUSH1),
+    0,
+		byte(vm.MSTORE8),
+		byte(vm.PUSH1),
+    1,
+		byte(vm.PUSH1),
+    0,
+		byte(vm.RETURN),
+  }
+}
+
+func TestCreateImpure(t *testing.T) {
+  vm.PurityCheckerAddress = common.HexToAddress("0x0A")
+	aliceAddr := common.HexToAddress("0x00")
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	state, _ := state.New(common.Hash{}, db)
+	codeAddr := common.HexToAddress("0xC0")
+	initCode := INIT_CODE
+	code := mstoreBytes(vm.OvmCREATEMethodId, 0)
+	code = append(code, mstoreBytes(initCode, 4)...)
+	code = append(code,
+		call(
+			vm.OvmContractAddress,
+			0,
+			0,
+			int64(len(initCode))+4,
+			0,
+			32)...)
+	code = append(code, []byte{
+		byte(vm.PUSH1), 0,
+		byte(vm.MSTORE8),
+		byte(vm.PUSH1), 1,
+		byte(vm.PUSH1), 0,
+		byte(vm.RETURN),
+	}...)
+
+	state.SetCode(codeAddr, code)
+	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(false))
+
+	returnVal, _, err := runtime.Call(codeAddr, nil, &runtime.Config{State: state, Debug: true, Origin: aliceAddr})
+	if err != nil {
+		t.Fatal("didn't expect error", err)
+	}
+
+	expectedVal := common.LeftPadBytes([]byte{0}, 1)
+	if !bytes.Equal(expectedVal, returnVal) {
+		t.Errorf("Expected %020x; got %020x", expectedVal, returnVal)
+	}
+}
+
 func TestCreate(t *testing.T) {
+  vm.PurityCheckerAddress = common.HexToAddress("0x0A")
 	aliceAddr := common.HexToAddress("0x00")
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
@@ -102,6 +165,7 @@ func TestCreate(t *testing.T) {
 	}...)
 
 	state.SetCode(codeAddr, code)
+	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(true))
 
 	returnVal, _, err := runtime.Call(codeAddr, nil, &runtime.Config{State: state, Debug: true, Origin: aliceAddr})
 	if err != nil {
