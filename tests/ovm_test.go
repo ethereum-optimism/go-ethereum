@@ -108,7 +108,7 @@ func TestCreate(t *testing.T) {
 		t.Fatal("didn't expect error", err)
 	}
 
-	expectedVal := common.LeftPadBytes(crypto.CreateAddress(aliceAddr, 0).Bytes(), vm.WORD_SIZE)
+	expectedVal := common.LeftPadBytes(crypto.CreateAddress(vm.ContractCreatorAddress, 0).Bytes(), vm.WORD_SIZE)
 	if !bytes.Equal(expectedVal, returnVal) {
 		t.Errorf("Expected %020x; got %020x", expectedVal, returnVal)
 	}

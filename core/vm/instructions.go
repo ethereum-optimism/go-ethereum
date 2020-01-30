@@ -39,6 +39,7 @@ var (
 	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
 	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
 	ContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
+	ContractCreatorAddress       = common.HexToAddress("0x0000000000000000000000000000000000000000")
 	errWriteProtection       = errors.New("evm: write protection")
 	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
 	errExecutionReverted     = errors.New("evm: execution reverted")
@@ -785,7 +786,7 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 		stack.push(interpreter.intPool.get().SetUint64(1))
 		return nil, nil
 	} else if isCallTo(toAddr, args, OvmContractAddress, OvmCREATEMethodId) {
-		caller := &Contract{self: AccountRef(contract.Caller())}
+		caller := &Contract{self: AccountRef(ContractCreatorAddress)}
 		caller.Gas = contract.Gas
 		stack.push(inSize.Sub(inSize, big.NewInt(4)))
 		stack.push(inOffset.Add(inOffset, big.NewInt(4)))
