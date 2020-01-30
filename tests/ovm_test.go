@@ -2,7 +2,6 @@ package tests
 
 import (
 	"bytes"
-	"math"
 	"math/big"
 	"testing"
 
@@ -28,8 +27,8 @@ func mstoreBytes(bytes []byte, offset int) []byte {
 		}
 		output = append(output, byte(vm.PUSH32))
 		output = append(output, common.RightPadBytes(bytes[i:end], vm.WORD_SIZE)...)
-		output = append(output, byte(vm.PUSH1))
-		output = append(output, byte(offset+i))
+		output = append(output, pushN(int64(offset+i)))
+		output = append(output, int64ToBytes(int64(offset+i))...)
 		output = append(output, byte(vm.MSTORE))
 	}
 	return output
@@ -72,15 +71,19 @@ func pushN(n int64) byte {
 	return byte(int(vm.PUSH1) + byteLength(n) - 1)
 }
 func byteLength(n int64) int {
-	return int(math.Floor(float64(n)/256.0)) + 1
+	if bytes.Equal(big.NewInt(n).Bytes(), []byte{}) {
+    return 1
+  } else {
+		return len(big.NewInt(n).Bytes())
+ }
 }
 
 func TestCreate(t *testing.T) {
-	aliceAddr := common.HexToAddress("0x0a")
+	aliceAddr := common.HexToAddress("0x00")
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
 	codeAddr := common.HexToAddress("0xC0")
-	initCode := storeCode(KEY, VALUE1)
+	initCode := INIT_CODE
 	code := mstoreBytes(vm.OvmCREATEMethodId, 0)
 	code = append(code, mstoreBytes(initCode, 4)...)
 	code = append(code,
