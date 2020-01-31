@@ -38,9 +38,9 @@ var (
 	OvmSLOADMethodId         = crypto.Keccak256([]byte("ovmSLOAD()"))[0:4]
 	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
 	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
-	ContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
-	PurityCheckerAddress       = common.HexToAddress(os.Getenv("PURITY_CHECKER_ADDRESS"))
-	ContractCreatorAddress       = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	ContractAddress          = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
+	PurityCheckerAddress     = common.HexToAddress(os.Getenv("PURITY_CHECKER_ADDRESS"))
+	ContractCreatorAddress   = common.HexToAddress("0x0000000000000000000000000000000000000000")
 	errWriteProtection       = errors.New("evm: write protection")
 	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
 	errExecutionReverted     = errors.New("evm: execution reverted")
@@ -769,60 +769,60 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 	// Get the arguments from the memory.
 	args := memory.GetPtr(inOffset.Int64(), inSize.Int64())
 
-	if isCallTo(toAddr, args, OvmContractAddress, OvmSLOADMethodId) {
-		caller := &Contract{self: AccountRef(contract.Caller())}
-		storageSlot := new(big.Int).SetBytes(args[4:36])
-		stack.push(storageSlot)
-		opSload(pc, interpreter, caller, memory, stack)
-		storageValue := stack.peek()
-		memory.Set(retOffset.Uint64(), retSize.Uint64(), storageValue.Bytes())
-		return storageValue.Bytes(), nil
-	} else if isCallTo(toAddr, args, OvmContractAddress, OvmSSTOREMethodId) {
-		caller := &Contract{self: AccountRef(contract.Caller())}
-		storageSlot := new(big.Int).SetBytes(args[4:36])
-		storageValue := new(big.Int).SetBytes(args[36:68])
-		stack.push(storageValue)
-		stack.push(storageSlot)
-		opSstore(pc, interpreter, caller, memory, stack)
-		stack.push(interpreter.intPool.get().SetUint64(1))
-		return nil, nil
-	} else if isCallTo(toAddr, args, OvmContractAddress, OvmCREATEMethodId) {
-		caller := &Contract{self: AccountRef(ContractCreatorAddress)}
-		caller.Gas = contract.Gas
-		inSize.Sub(inSize, big.NewInt(4))
-		inOffset.Add(inOffset, big.NewInt(4))
-		isPure := isPure(pc, interpreter, caller, memory, stack, inSize, inOffset, big.NewInt(0), big.NewInt(1))
-		if(!isPure) {
-			stack.push(interpreter.intPool.getZero())
-			return nil, nil
-		}
-		stack.push(inSize)
-		stack.push(inOffset)
-		stack.push(interpreter.intPool.getZero())
-		opCreate(pc, interpreter, caller, memory, stack)
-		address := stack.pop()
-		paddedAddress := common.LeftPadBytes(address.Bytes(), WORD_SIZE)
-		memory.Set(retOffset.Uint64(), retSize.Uint64(), paddedAddress)
-		stack.push(interpreter.intPool.get().SetUint64(1))
-		return address.Bytes(), nil
-	} else {
-		if value.Sign() != 0 {
-			gas += params.CallStipend
-		}
-		ret, returnGas, err := interpreter.evm.Call(contract, toAddr, args, gas, value)
-		if err != nil {
-			stack.push(interpreter.intPool.getZero())
-		} else {
-			stack.push(interpreter.intPool.get().SetUint64(1))
-		}
-		if err == nil || err == errExecutionReverted {
-			memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
-		}
-		contract.Gas += returnGas
-
-		interpreter.intPool.put(addr, value, inOffset, inSize, retOffset, retSize)
-		return ret, nil
+	// if isCallTo(toAddr, args, OvmContractAddress, OvmSLOADMethodId) {
+	// 	caller := &Contract{self: AccountRef(contract.Caller())}
+	// 	storageSlot := new(big.Int).SetBytes(args[4:36])
+	// 	stack.push(storageSlot)
+	// 	opSload(pc, interpreter, caller, memory, stack)
+	// 	storageValue := stack.peek()
+	// 	memory.Set(retOffset.Uint64(), retSize.Uint64(), storageValue.Bytes())
+	// 	return storageValue.Bytes(), nil
+	// } else if isCallTo(toAddr, args, OvmContractAddress, OvmSSTOREMethodId) {
+	// 	caller := &Contract{self: AccountRef(contract.Caller())}
+	// 	storageSlot := new(big.Int).SetBytes(args[4:36])
+	// 	storageValue := new(big.Int).SetBytes(args[36:68])
+	// 	stack.push(storageValue)
+	// 	stack.push(storageSlot)
+	// 	opSstore(pc, interpreter, caller, memory, stack)
+	// 	stack.push(interpreter.intPool.get().SetUint64(1))
+	// 	return nil, nil
+	// } else if isCallTo(toAddr, args, OvmContractAddress, OvmCREATEMethodId) {
+	// 	caller := &Contract{self: AccountRef(ContractCreatorAddress)}
+	// 	caller.Gas = contract.Gas
+	// 	inSize.Sub(inSize, big.NewInt(4))
+	// 	inOffset.Add(inOffset, big.NewInt(4))
+	// 	isPure := isPure(pc, interpreter, caller, memory, stack, inSize, inOffset, big.NewInt(0), big.NewInt(1))
+	// 	if(!isPure) {
+	// 		stack.push(interpreter.intPool.getZero())
+	// 		return nil, nil
+	// 	}
+	// 	stack.push(inSize)
+	// 	stack.push(inOffset)
+	// 	stack.push(interpreter.intPool.getZero())
+	// 	opCreate(pc, interpreter, caller, memory, stack)
+	// 	address := stack.pop()
+	// 	paddedAddress := common.LeftPadBytes(address.Bytes(), WORD_SIZE)
+	// 	memory.Set(retOffset.Uint64(), retSize.Uint64(), paddedAddress)
+	// 	stack.push(interpreter.intPool.get().SetUint64(1))
+	// 	return address.Bytes(), nil
+	// } else {
+	if value.Sign() != 0 {
+		gas += params.CallStipend
 	}
+	ret, returnGas, err := interpreter.evm.Call(contract, toAddr, args, gas, value)
+	if err != nil {
+		stack.push(interpreter.intPool.getZero())
+	} else {
+		stack.push(interpreter.intPool.get().SetUint64(1))
+	}
+	if err == nil || err == errExecutionReverted {
+		memory.Set(retOffset.Uint64(), retSize.Uint64(), ret)
+	}
+	contract.Gas += returnGas
+
+	interpreter.intPool.put(addr, value, inOffset, inSize, retOffset, retSize)
+	return ret, nil
+	// }
 }
 
 func isPure(

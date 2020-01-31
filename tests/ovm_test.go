@@ -72,37 +72,37 @@ func pushN(n int64) byte {
 }
 func byteLength(n int64) int {
 	if bytes.Equal(big.NewInt(n).Bytes(), []byte{}) {
-    return 1
-  } else {
+		return 1
+	} else {
 		return len(big.NewInt(n).Bytes())
- }
+	}
 }
 
 func mockPurityChecker(pure bool) []byte {
-  var pureByte byte
+	var pureByte byte
 
-  if pure {
-    pureByte = 1
-  } else {
-    pureByte = 0
-  }
+	if pure {
+		pureByte = 1
+	} else {
+		pureByte = 0
+	}
 
 	return []byte{
 		byte(vm.PUSH1),
-    pureByte,
+		pureByte,
 		byte(vm.PUSH1),
-    0,
+		0,
 		byte(vm.MSTORE8),
 		byte(vm.PUSH1),
-    1,
+		1,
 		byte(vm.PUSH1),
-    0,
+		0,
 		byte(vm.RETURN),
-  }
+	}
 }
 
 func TestCreateImpure(t *testing.T) {
-  vm.PurityCheckerAddress = common.HexToAddress("0x0A")
+	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
 	aliceAddr := common.HexToAddress("0x00")
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
@@ -141,7 +141,7 @@ func TestCreateImpure(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-  vm.PurityCheckerAddress = common.HexToAddress("0x0A")
+	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
 	aliceAddr := common.HexToAddress("0x00")
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
@@ -227,11 +227,32 @@ func TestSstoreDoesntOverwrite(t *testing.T) {
 	state, _ := state.New(common.Hash{}, db)
 	aliceAddr := common.HexToAddress("0x0a")
 	bobAddr := common.HexToAddress("0x0b")
-	store1CodeAddr := common.HexToAddress("0xC1")
-	store2CodeAddr := common.HexToAddress("0xC2")
-	loadCodeAddr := common.HexToAddress("0xC3")
-	store1Code := storeCode(KEY, VALUE1)
-	store2Code := storeCode(KEY, VALUE2)
+	storeCodeAddr1 := common.HexToAddress("0xC0")
+	storeCodeAddr2 := common.HexToAddress("0xC1")
+	loadCodeAddr := common.HexToAddress("0xC1")
+	storeCode := mstoreBytes(vm.OvmSSTOREMethodId, 0)
+	storeCode = append(storeCode, mstoreBytes(KEY, 4)...)
+	storeCode = append(storeCode, []byte{
+		byte(vm.PUSH1), byte(len(VALUE1)),
+		byte(vm.PUSH1), 0,
+		byte(vm.PUSH1), 36,
+		byte(vm.CALLDATACOPY),
+	}...)
+	storeCode = append(storeCode,
+		call(
+			vm.OvmContractAddress,
+			0,
+			0,
+			68,
+			0,
+			0)...)
+	storeCode = append(storeCode, []byte{
+		byte(vm.PUSH1), 32,
+		byte(vm.PUSH1), 0,
+		byte(vm.RETURN),
+	}...)
+	// store1Code := storeCode(KEY, VALUE1)
+	// store2Code := storeCode(KEY, VALUE2)
 	loadCode := mstoreBytes(vm.OvmSLOADMethodId, 0)
 	loadCode = append(loadCode, mstoreBytes(KEY, 4)...)
 	loadCode = append(loadCode,
@@ -248,15 +269,16 @@ func TestSstoreDoesntOverwrite(t *testing.T) {
 		byte(vm.PUSH1), 0,
 		byte(vm.RETURN),
 	}...)
-	state.SetCode(store1CodeAddr, store1Code)
-	state.SetCode(store2CodeAddr, store2Code)
+	state.SetCode(storeCodeAddr1, storeCode)
+	state.SetCode(storeCodeAddr2, storeCode)
 	state.SetCode(loadCodeAddr, loadCode)
-	_, _, err := runtime.Call(store1CodeAddr, nil, &runtime.Config{State: state, Origin: aliceAddr, Debug: true})
+	state.SetCode(vm.ExecutionManagerAddress, []byte{})
+	_, _, err := runtime.Call(storeCodeAddr1, VALUE1, &runtime.Config{State: state, Origin: aliceAddr, Debug: true})
 	if err != nil {
 		t.Fatal("didn't expect error", err)
 	}
 
-	_, _, err = runtime.Call(store2CodeAddr, nil, &runtime.Config{State: state, Origin: bobAddr, Debug: true})
+	_, _, err = runtime.Call(storeCodeAddr2, VALUE2, &runtime.Config{State: state, Origin: bobAddr, Debug: true})
 	if err != nil {
 		t.Fatal("didn't expect error", err)
 	}
