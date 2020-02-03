@@ -464,6 +464,7 @@ func opCallDataCopy(pc *uint64, interpreter *EVMInterpreter, contract *Contract,
 }
 
 func opReturnDataSize(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+  // fmt.Printf("RETURNDATASIZE %d\n", uint64(len(interpreter.returnData)))
 	stack.push(interpreter.intPool.get().SetUint64(uint64(len(interpreter.returnData))))
 	return nil, nil
 }
@@ -624,6 +625,7 @@ func opMstore(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	mStart, val := stack.pop(), stack.pop()
 	memory.Set32(mStart.Uint64(), val)
 
+	// fmt.Printf("MSTORE %d %d\n", mStart, val)
 	interpreter.intPool.put(mStart, val)
 	return nil, nil
 }
@@ -769,47 +771,11 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 	// Get the arguments from the memory.
 	args := memory.GetPtr(inOffset.Int64(), inSize.Int64())
 
-	// if isCallTo(toAddr, args, OvmContractAddress, OvmSLOADMethodId) {
-	// 	caller := &Contract{self: AccountRef(contract.Caller())}
-	// 	storageSlot := new(big.Int).SetBytes(args[4:36])
-	// 	stack.push(storageSlot)
-	// 	opSload(pc, interpreter, caller, memory, stack)
-	// 	storageValue := stack.peek()
-	// 	memory.Set(retOffset.Uint64(), retSize.Uint64(), storageValue.Bytes())
-	// 	return storageValue.Bytes(), nil
-	// } else if isCallTo(toAddr, args, OvmContractAddress, OvmSSTOREMethodId) {
-	// 	caller := &Contract{self: AccountRef(contract.Caller())}
-	// 	storageSlot := new(big.Int).SetBytes(args[4:36])
-	// 	storageValue := new(big.Int).SetBytes(args[36:68])
-	// 	stack.push(storageValue)
-	// 	stack.push(storageSlot)
-	// 	opSstore(pc, interpreter, caller, memory, stack)
-	// 	stack.push(interpreter.intPool.get().SetUint64(1))
-	// 	return nil, nil
-	// } else if isCallTo(toAddr, args, OvmContractAddress, OvmCREATEMethodId) {
-	// 	caller := &Contract{self: AccountRef(ContractCreatorAddress)}
-	// 	caller.Gas = contract.Gas
-	// 	inSize.Sub(inSize, big.NewInt(4))
-	// 	inOffset.Add(inOffset, big.NewInt(4))
-	// 	isPure := isPure(pc, interpreter, caller, memory, stack, inSize, inOffset, big.NewInt(0), big.NewInt(1))
-	// 	if(!isPure) {
-	// 		stack.push(interpreter.intPool.getZero())
-	// 		return nil, nil
-	// 	}
-	// 	stack.push(inSize)
-	// 	stack.push(inOffset)
-	// 	stack.push(interpreter.intPool.getZero())
-	// 	opCreate(pc, interpreter, caller, memory, stack)
-	// 	address := stack.pop()
-	// 	paddedAddress := common.LeftPadBytes(address.Bytes(), WORD_SIZE)
-	// 	memory.Set(retOffset.Uint64(), retSize.Uint64(), paddedAddress)
-	// 	stack.push(interpreter.intPool.get().SetUint64(1))
-	// 	return address.Bytes(), nil
-	// } else {
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
 	ret, returnGas, err := interpreter.evm.Call(contract, toAddr, args, gas, value)
+
 	if err != nil {
 		stack.push(interpreter.intPool.getZero())
 	} else {
@@ -822,30 +788,6 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 
 	interpreter.intPool.put(addr, value, inOffset, inSize, retOffset, retSize)
 	return ret, nil
-	// }
-}
-
-func isPure(
-	pc *uint64,
-	interpreter *EVMInterpreter,
-	contract *Contract,
-	memory *Memory,
-	stack *Stack,
-	inSize *big.Int,
-	inOffset *big.Int,
-	outOffset *big.Int,
-	outSize *big.Int) bool {
-	stack.push(outSize)
-	stack.push(outOffset)
-	stack.push(inSize)
-	stack.push(inOffset)
-	stack.push(big.NewInt(0))
-	stack.push(new(big.Int).SetBytes(PurityCheckerAddress.Bytes()))
-	stack.push(interpreter.intPool.get().SetUint64(contract.Gas))
-	opCall(pc, interpreter, contract, memory, stack)
-	stack.pop()
-	result := memory.GetPtr(outOffset.Int64(), outSize.Int64())
-	return result[0] == 1
 }
 
 func isCallTo(addr common.Address, args []byte, testAddr common.Address, testMethodId []byte) bool {
