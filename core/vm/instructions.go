@@ -464,7 +464,7 @@ func opCallDataCopy(pc *uint64, interpreter *EVMInterpreter, contract *Contract,
 }
 
 func opReturnDataSize(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-  // fmt.Printf("RETURNDATASIZE %d\n", uint64(len(interpreter.returnData)))
+	// fmt.Printf("RETURNDATASIZE %d\n", uint64(len(interpreter.returnData)))
 	stack.push(interpreter.intPool.get().SetUint64(uint64(len(interpreter.returnData))))
 	return nil, nil
 }

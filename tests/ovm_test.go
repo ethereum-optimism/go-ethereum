@@ -33,21 +33,6 @@ func init() {
 		EIP158Block:         new(big.Int),
 	}
 }
-func mstoreBytes(bytes []byte, offset int) []byte {
-	output := []byte{}
-	for i := 0; i < len(bytes); i += vm.WORD_SIZE {
-		end := i + vm.WORD_SIZE
-		if end > len(bytes) {
-			end = len(bytes)
-		}
-		output = append(output, byte(vm.PUSH32))
-		output = append(output, common.RightPadBytes(bytes[i:end], vm.WORD_SIZE)...)
-		output = append(output, pushN(int64(offset+i)))
-		output = append(output, int64ToBytes(int64(offset+i))...)
-		output = append(output, byte(vm.MSTORE))
-	}
-	return output
-}
 
 /*
   callCode generates EVM bytecode which makes a single CALL with call data as
