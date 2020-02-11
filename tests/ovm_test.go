@@ -34,6 +34,111 @@ func init() {
 	}
 }
 
+func TestCreate(t *testing.T) {
+	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	codeAddr := common.HexToAddress("0xC0")
+	state, _ := state.New(common.Hash{}, db)
+	createCode := ovmMethodId("CREATE")
+	createCode = append(createCode, INIT_CODE...)
+	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(true))
+	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
+	returnVal, _ := call(t, state, codeAddr, createCode)
+	expectedVal := crypto.CreateAddress(codeAddr, 0).Bytes()
+	if !bytes.Equal(expectedVal, returnVal) {
+		t.Errorf("Expected %020x; got %020x", expectedVal, returnVal)
+	}
+}
+
+func TestCreateImpure(t *testing.T) {
+	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	codeAddr := common.HexToAddress("0xC0")
+	state, _ := state.New(common.Hash{}, db)
+	createCode := ovmMethodId("CREATE")
+	createCode = append(createCode, INIT_CODE...)
+	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(false))
+	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
+	returnVal, _ := call(t, state, codeAddr, createCode)
+	expectedVal := []byte{}
+	if !bytes.Equal(expectedVal, returnVal) {
+		t.Errorf("Expected %x; got %x", expectedVal, returnVal)
+	}
+}
+
+func TestCreate2(t *testing.T) {
+	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	codeAddr := common.HexToAddress("0xC0")
+	state, _ := state.New(common.Hash{}, db)
+	createCode := ovmMethodId("CREATE2")
+	createCode = append(createCode, INIT_CODE...)
+	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(true))
+	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
+	returnVal, _ := call(t, state, codeAddr, createCode)
+	salt := [32]byte{}
+	expectedVal := crypto.CreateAddress2(codeAddr, salt, crypto.Keccak256(INIT_CODE)).Bytes()
+	if !bytes.Equal(expectedVal, returnVal) {
+		t.Errorf("Expected %020x; got %020x", expectedVal, returnVal)
+	}
+}
+
+func TestSloadAndStore(t *testing.T) {
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	state, _ := state.New(common.Hash{}, db)
+	codeAddr := common.HexToAddress("0xC0")
+	storeCode := ovmMethodId("SSTORE")
+	storeCode = append(storeCode, KEY...)
+	storeCode = append(storeCode, VALUE1...)
+	loadCode := ovmMethodId("SLOAD")
+	loadCode = append(loadCode, KEY...)
+	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
+	call(t, state, codeAddr, storeCode)
+	returnValue, _ := call(t, state, codeAddr, loadCode)
+	if !bytes.Equal(VALUE1, returnValue) {
+		t.Errorf("Expected %020x; got %020x", VALUE1, returnValue)
+	}
+}
+
+func call(t *testing.T, state *state.StateDB, address common.Address, callData []byte) ([]byte, error) {
+	returnValue, _, err := runtime.Call(address, callData, &runtime.Config{
+		State:       state,
+		ChainConfig: &chainConfig,
+	})
+
+	return returnValue, err
+}
+
+func TestSstoreDoesntOverwrite(t *testing.T) {
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	state, _ := state.New(common.Hash{}, db)
+	codeAddr1 := common.HexToAddress("0xC1")
+	codeAddr2 := common.HexToAddress("0xC2")
+	storeCode1 := ovmMethodId("SSTORE")
+	storeCode1 = append(storeCode1, KEY...)
+	storeCode1 = append(storeCode1, VALUE1...)
+	storeCode2 := ovmMethodId("SSTORE")
+	storeCode2 = append(storeCode2, KEY...)
+	storeCode2 = append(storeCode2, VALUE2...)
+	loadCode := ovmMethodId("SLOAD")
+	loadCode = append(loadCode, KEY...)
+	state.SetCode(codeAddr1, callCode(vm.ExecutionManagerAddress))
+	state.SetCode(codeAddr2, callCode(vm.ExecutionManagerAddress))
+
+	state.SetCode(vm.ExecutionManagerAddress, []byte{})
+	call(t, state, codeAddr1, storeCode1)
+	call(t, state, codeAddr2, storeCode2)
+	code1ReturnValue, _ := call(t, state, codeAddr1, loadCode)
+	code2ReturnValue, _ := call(t, state, codeAddr2, loadCode)
+
+	if !bytes.Equal(VALUE1, code1ReturnValue) {
+		t.Errorf("Expected %020x; got %020x", VALUE1, code1ReturnValue)
+	}
+	if !bytes.Equal(VALUE2, code2ReturnValue) {
+		t.Errorf("Expected %020x; got %020x", VALUE2, code2ReturnValue)
+	}
+}
+
 /*
   callCode generates EVM bytecode which makes a single CALL with call data as
   it's input.
@@ -118,107 +223,7 @@ func mockPurityChecker(pure bool) []byte {
 	}
 }
 
-func TestCreateImpure(t *testing.T) {
-	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
-	codeAddr := common.HexToAddress("0xC0")
-	state, _ := state.New(common.Hash{}, db)
-	createCode := vm.OvmCREATEMethodId
-	createCode = append(createCode, INIT_CODE...)
-	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(false))
-	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
-	returnVal, _ := call(t, state, codeAddr, createCode)
-	expectedVal := []byte{}
-	if !bytes.Equal(expectedVal, returnVal) {
-		t.Errorf("Expected %x; got %x", expectedVal, returnVal)
-	}
-}
-
-func TestCreate(t *testing.T) {
-	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
-	codeAddr := common.HexToAddress("0xC0")
-	state, _ := state.New(common.Hash{}, db)
-	createCode := vm.OvmCREATEMethodId
-	createCode = append(createCode, INIT_CODE...)
-	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(true))
-	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
-	returnVal, _ := call(t, state, codeAddr, createCode)
-	expectedVal := crypto.CreateAddress(codeAddr, 0).Bytes()
-	if !bytes.Equal(expectedVal, returnVal) {
-		t.Errorf("Expected %020x; got %020x", expectedVal, returnVal)
-	}
-}
-
-func TestCreate2(t *testing.T) {
-	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
-	codeAddr := common.HexToAddress("0xC0")
-	state, _ := state.New(common.Hash{}, db)
-	createCode := vm.OvmCREATE2MethodId
-	createCode = append(createCode, INIT_CODE...)
-	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(true))
-	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
-	returnVal, _ := call(t, state, codeAddr, createCode)
-  salt := [32]byte{}
-	expectedVal := crypto.CreateAddress2(codeAddr, salt, crypto.Keccak256(INIT_CODE)).Bytes()
-	if !bytes.Equal(expectedVal, returnVal) {
-		t.Errorf("Expected %020x; got %020x", expectedVal, returnVal)
-	}
-}
-
-func TestSloadAndStore(t *testing.T) {
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
-	state, _ := state.New(common.Hash{}, db)
-	codeAddr := common.HexToAddress("0xC0")
-	storeCode := vm.OvmSSTOREMethodId
-	storeCode = append(storeCode, KEY...)
-	storeCode = append(storeCode, VALUE1...)
-	loadCode := vm.OvmSLOADMethodId
-	loadCode = append(loadCode, KEY...)
-	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
-	call(t, state, codeAddr, storeCode)
-	returnValue, _ := call(t, state, codeAddr, loadCode)
-	if !bytes.Equal(VALUE1, returnValue) {
-		t.Errorf("Expected %020x; got %020x", VALUE1, returnValue)
-	}
-}
-
-func call(t *testing.T, state *state.StateDB, address common.Address, callData []byte) ([]byte, error) {
-	returnValue, _, err := runtime.Call(address, callData, &runtime.Config{
-		State:       state,
-		ChainConfig: &chainConfig,
-	})
-
-	return returnValue, err
-}
-
-func TestSstoreDoesntOverwrite(t *testing.T) {
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
-	state, _ := state.New(common.Hash{}, db)
-	codeAddr1 := common.HexToAddress("0xC1")
-	codeAddr2 := common.HexToAddress("0xC2")
-	storeCode1 := vm.OvmSSTOREMethodId
-	storeCode1 = append(storeCode1, KEY...)
-	storeCode1 = append(storeCode1, VALUE1...)
-	storeCode2 := vm.OvmSSTOREMethodId
-	storeCode2 = append(storeCode2, KEY...)
-	storeCode2 = append(storeCode2, VALUE2...)
-	loadCode := vm.OvmSLOADMethodId
-	loadCode = append(loadCode, KEY...)
-	state.SetCode(codeAddr1, callCode(vm.ExecutionManagerAddress))
-	state.SetCode(codeAddr2, callCode(vm.ExecutionManagerAddress))
-
-	state.SetCode(vm.ExecutionManagerAddress, []byte{})
-	call(t, state, codeAddr1, storeCode1)
-	call(t, state, codeAddr2, storeCode2)
-	code1ReturnValue, _ := call(t, state, codeAddr1, loadCode)
-	code2ReturnValue, _ := call(t, state, codeAddr2, loadCode)
-
-	if !bytes.Equal(VALUE1, code1ReturnValue) {
-		t.Errorf("Expected %020x; got %020x", VALUE1, code1ReturnValue)
-	}
-	if !bytes.Equal(VALUE2, code2ReturnValue) {
-		t.Errorf("Expected %020x; got %020x", VALUE2, code2ReturnValue)
-	}
+func ovmMethodId(methodName string) []byte {
+	fixedBytes := vm.OvmMethodId(methodName)
+	return fixedBytes[:]
 }

@@ -31,7 +31,6 @@ import (
 var (
 	bigZero                  = new(big.Int)
 	tt255                    = math.BigPow(2, 255)
-	WORD_SIZE                = 32
 	errWriteProtection       = errors.New("evm: write protection")
 	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
 	errExecutionReverted     = errors.New("evm: execution reverted")
@@ -455,7 +454,6 @@ func opCallDataCopy(pc *uint64, interpreter *EVMInterpreter, contract *Contract,
 }
 
 func opReturnDataSize(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	// fmt.Printf("RETURNDATASIZE %d\n", uint64(len(interpreter.returnData)))
 	stack.push(interpreter.intPool.get().SetUint64(uint64(len(interpreter.returnData))))
 	return nil, nil
 }
@@ -616,7 +614,6 @@ func opMstore(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	mStart, val := stack.pop(), stack.pop()
 	memory.Set32(mStart.Uint64(), val)
 
-	// fmt.Printf("MSTORE %d %d\n", mStart, val)
 	interpreter.intPool.put(mStart, val)
 	return nil, nil
 }
@@ -696,7 +693,6 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 		input        = memory.GetCopy(offset.Int64(), size.Int64())
 		gas          = contract.Gas
 	)
-
 	if interpreter.evm.chainRules.IsEIP150 {
 		gas -= gas / 64
 	}

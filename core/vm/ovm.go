@@ -11,36 +11,36 @@ import (
 )
 
 var (
-	ErrImpureInitcode = errors.New("initCode is impure")
-	OvmCREATEMethodId        = crypto.Keccak256([]byte("ovmCREATE()"))[0:4]
-	OvmCREATE2MethodId        = crypto.Keccak256([]byte("ovmCREATE2()"))[0:4]
-	OvmSLOADMethodId         = crypto.Keccak256([]byte("ovmSLOAD()"))[0:4]
-	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
-	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
-	ContractAddress          = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
-	PurityCheckerAddress     = common.HexToAddress(os.Getenv("PURITY_CHECKER_ADDRESS"))
-	ContractCreatorAddress   = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	ErrImpureInitcode      = errors.New("initCode is impure")
+	ExecutionManagerAddress     = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
+	PurityCheckerAddress   = common.HexToAddress(os.Getenv("PURITY_CHECKER_ADDRESS"))
+	ContractCreatorAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	WORD_SIZE              = 32
 )
 
-var ExecutionManagerAddress = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
-
 type ovmOperation func(*EVM, ContractRef, *Contract, []byte) ([]byte, error)
+type methodId [4]byte
 
 var funcs = map[string]ovmOperation{
-	"ovmSSTORE()": sStore,
-	"ovmSLOAD()":  sLoad,
-	"ovmCREATE()": create,
-	"ovmCREATE2()": create2,
+	"SSTORE":  sStore,
+	"SLOAD":   sLoad,
+	"CREATE":  create,
+	"CREATE2": create2,
 }
 var methodIds map[[4]byte]ovmOperation
 
 func init() {
-	methodIds = make(map[[4]byte]ovmOperation, 4)
-	var methodId [4]byte
+	methodIds = make(map[[4]byte]ovmOperation, len(funcs))
 	for methodName, f := range funcs {
-		copy(methodId[:], crypto.Keccak256([]byte(methodName)))
-		methodIds[methodId] = f
+		methodIds[OvmMethodId(methodName)] = f
 	}
+}
+
+func OvmMethodId(methodName string) [4]byte {
+	var methodId [4]byte
+	var fullMethodName = "ovm" + methodName + "()"
+	copy(methodId[:], crypto.Keccak256([]byte(fullMethodName)))
+	return methodId
 }
 
 func isOvmOperation(contract *Contract, input []byte) bool {
@@ -96,11 +96,6 @@ func create2(evm *EVM, caller ContractRef, contract *Contract, input []byte) (re
 	}
 }
 
-func isPure(evm *EVM, caller ContractRef, gas uint64, code []byte) bool {
-	returnValue, _, _ := evm.Call(caller, PurityCheckerAddress, code, gas, big.NewInt(0))
-	return bytes.Equal(returnValue, []byte{1})
-}
-
 func sLoad(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret []byte, err error) {
 	key := common.BytesToHash(input[4:36])
 	val := evm.StateDB.GetState(caller.Address(), key)
@@ -112,3 +107,9 @@ func sStore(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret
 	evm.StateDB.SetState(caller.Address(), key, val)
 	return []byte{}, nil
 }
+
+func isPure(evm *EVM, caller ContractRef, gas uint64, code []byte) bool {
+	returnValue, _, _ := evm.Call(caller, PurityCheckerAddress, code, gas, big.NewInt(0))
+	return bytes.Equal(returnValue, []byte{1})
+}
+
