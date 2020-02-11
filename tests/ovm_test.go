@@ -100,15 +100,6 @@ func TestSloadAndStore(t *testing.T) {
 	}
 }
 
-func call(t *testing.T, state *state.StateDB, address common.Address, callData []byte) ([]byte, error) {
-	returnValue, _, err := runtime.Call(address, callData, &runtime.Config{
-		State:       state,
-		ChainConfig: &chainConfig,
-	})
-
-	return returnValue, err
-}
-
 func TestSstoreDoesntOverwrite(t *testing.T) {
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
@@ -181,6 +172,16 @@ func callCode(addr common.Address) []byte {
 	}...)
 	return output
 }
+
+func call(t *testing.T, state *state.StateDB, address common.Address, callData []byte) ([]byte, error) {
+	returnValue, _, err := runtime.Call(address, callData, &runtime.Config{
+		State:       state,
+		ChainConfig: &chainConfig,
+	})
+
+	return returnValue, err
+}
+
 
 func int64ToBytes(n int64) []byte {
 	if bytes.Equal(big.NewInt(n).Bytes(), []byte{}) {
