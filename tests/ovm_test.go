@@ -35,10 +35,9 @@ func init() {
 }
 
 func TestCreate(t *testing.T) {
+  state := newState()
 	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	codeAddr := common.HexToAddress("0xC0")
-	state, _ := state.New(common.Hash{}, db)
 	createCode := ovmMethodId("CREATE")
 	createCode = append(createCode, INIT_CODE...)
 	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(true))
@@ -51,10 +50,9 @@ func TestCreate(t *testing.T) {
 }
 
 func TestCreateImpure(t *testing.T) {
+  state := newState()
 	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	codeAddr := common.HexToAddress("0xC0")
-	state, _ := state.New(common.Hash{}, db)
 	createCode := ovmMethodId("CREATE")
 	createCode = append(createCode, INIT_CODE...)
 	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(false))
@@ -67,10 +65,9 @@ func TestCreateImpure(t *testing.T) {
 }
 
 func TestCreate2(t *testing.T) {
+  state := newState()
 	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	codeAddr := common.HexToAddress("0xC0")
-	state, _ := state.New(common.Hash{}, db)
 	createCode := ovmMethodId("CREATE2")
 	createCode = append(createCode, INIT_CODE...)
 	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(true))
@@ -84,8 +81,7 @@ func TestCreate2(t *testing.T) {
 }
 
 func TestSloadAndStore(t *testing.T) {
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
-	state, _ := state.New(common.Hash{}, db)
+  state := newState()
 	codeAddr := common.HexToAddress("0xC0")
 	storeCode := ovmMethodId("SSTORE")
 	storeCode = append(storeCode, KEY...)
@@ -101,8 +97,7 @@ func TestSloadAndStore(t *testing.T) {
 }
 
 func TestSstoreDoesntOverwrite(t *testing.T) {
-	db := state.NewDatabase(rawdb.NewMemoryDatabase())
-	state, _ := state.New(common.Hash{}, db)
+  state := newState()
 	codeAddr1 := common.HexToAddress("0xC1")
 	codeAddr2 := common.HexToAddress("0xC2")
 	storeCode1 := ovmMethodId("SSTORE")
@@ -173,6 +168,11 @@ func callCode(addr common.Address) []byte {
 	return output
 }
 
+func newState() *state.StateDB {
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	state, _ := state.New(common.Hash{}, db)
+  return state
+}
 func call(t *testing.T, state *state.StateDB, address common.Address, callData []byte) ([]byte, error) {
 	returnValue, _, err := runtime.Call(address, callData, &runtime.Config{
 		State:       state,
