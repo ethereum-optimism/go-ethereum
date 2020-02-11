@@ -20,12 +20,10 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/crypto/sha3"
 )
@@ -34,13 +32,6 @@ var (
 	bigZero                  = new(big.Int)
 	tt255                    = math.BigPow(2, 255)
 	WORD_SIZE                = 32
-	OvmCREATEMethodId        = crypto.Keccak256([]byte("ovmCREATE()"))[0:4]
-	OvmSLOADMethodId         = crypto.Keccak256([]byte("ovmSLOAD()"))[0:4]
-	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
-	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
-	ContractAddress          = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
-	PurityCheckerAddress     = common.HexToAddress(os.Getenv("PURITY_CHECKER_ADDRESS"))
-	ContractCreatorAddress   = common.HexToAddress("0x0000000000000000000000000000000000000000")
 	errWriteProtection       = errors.New("evm: write protection")
 	errReturnDataOutOfBounds = errors.New("evm: return data out of bounds")
 	errExecutionReverted     = errors.New("evm: execution reverted")

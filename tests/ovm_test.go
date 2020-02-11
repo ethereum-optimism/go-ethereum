@@ -150,6 +150,23 @@ func TestCreate(t *testing.T) {
 	}
 }
 
+func TestCreate2(t *testing.T) {
+	vm.PurityCheckerAddress = common.HexToAddress("0x0A")
+	db := state.NewDatabase(rawdb.NewMemoryDatabase())
+	codeAddr := common.HexToAddress("0xC0")
+	state, _ := state.New(common.Hash{}, db)
+	createCode := vm.OvmCREATE2MethodId
+	createCode = append(createCode, INIT_CODE...)
+	state.SetCode(vm.PurityCheckerAddress, mockPurityChecker(true))
+	state.SetCode(codeAddr, callCode(vm.ExecutionManagerAddress))
+	returnVal, _ := call(t, state, codeAddr, createCode)
+  salt := [32]byte{}
+	expectedVal := crypto.CreateAddress2(codeAddr, salt, crypto.Keccak256(INIT_CODE)).Bytes()
+	if !bytes.Equal(expectedVal, returnVal) {
+		t.Errorf("Expected %020x; got %020x", expectedVal, returnVal)
+	}
+}
+
 func TestSloadAndStore(t *testing.T) {
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)

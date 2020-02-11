@@ -12,6 +12,14 @@ import (
 
 var (
 	ErrImpureInitcode = errors.New("initCode is impure")
+	OvmCREATEMethodId        = crypto.Keccak256([]byte("ovmCREATE()"))[0:4]
+	OvmCREATE2MethodId        = crypto.Keccak256([]byte("ovmCREATE2()"))[0:4]
+	OvmSLOADMethodId         = crypto.Keccak256([]byte("ovmSLOAD()"))[0:4]
+	OvmSSTOREMethodId        = crypto.Keccak256([]byte("ovmSSTORE()"))[0:4]
+	OvmContractAddress       = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
+	ContractAddress          = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
+	PurityCheckerAddress     = common.HexToAddress(os.Getenv("PURITY_CHECKER_ADDRESS"))
+	ContractCreatorAddress   = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
 var ExecutionManagerAddress = common.HexToAddress(os.Getenv("EXECUTION_MANAGER_ADDRESS"))
@@ -22,6 +30,7 @@ var funcs = map[string]ovmOperation{
 	"ovmSSTORE()": sStore,
 	"ovmSLOAD()":  sLoad,
 	"ovmCREATE()": create,
+	"ovmCREATE2()": create2,
 }
 var methodIds map[[4]byte]ovmOperation
 
@@ -65,6 +74,22 @@ func create(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret
 
 	if isPure(evm, caller, gas, initCode) {
 		_, address, _, _ := evm.Create(caller, initCode, contract.Gas, big.NewInt(0))
+		return address.Bytes(), nil
+	} else {
+		return nil, ErrImpureInitcode
+	}
+}
+
+func create2(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret []byte, err error) {
+	initCode := input[4:]
+	gas := contract.Gas
+	if evm.chainRules.IsEIP150 {
+		gas -= gas / 64
+	}
+	contract.UseGas(gas)
+
+	if isPure(evm, caller, gas, initCode) {
+		_, address, _, _ := evm.Create2(caller, initCode, contract.Gas, big.NewInt(0), big.NewInt(0))
 		return address.Bytes(), nil
 	} else {
 		return nil, ErrImpureInitcode
