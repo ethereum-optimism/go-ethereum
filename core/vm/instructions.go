@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"bytes"
 	"errors"
 	"math/big"
 
@@ -762,7 +761,6 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 		gas += params.CallStipend
 	}
 	ret, returnGas, err := interpreter.evm.Call(contract, toAddr, args, gas, value)
-
 	if err != nil {
 		stack.push(interpreter.intPool.getZero())
 	} else {
@@ -775,14 +773,6 @@ func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 
 	interpreter.intPool.put(addr, value, inOffset, inSize, retOffset, retSize)
 	return ret, nil
-}
-
-func isCallTo(addr common.Address, args []byte, testAddr common.Address, testMethodId []byte) bool {
-	if len(args) < 4 {
-		return false
-	}
-	methodId := args[0:4]
-	return addr == testAddr && bytes.Equal(methodId, testMethodId)
 }
 
 func opCallCode(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
