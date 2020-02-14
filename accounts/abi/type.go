@@ -233,7 +233,7 @@ func (t Type) String() (out string) {
 	return t.stringKind
 }
 
-func (t Type) pack(v reflect.Value) ([]byte, error) {
+func (t Type) Pack(v reflect.Value) ([]byte, error) {
 	// dereference pointer first if it's a pointer
 	v = indirect(v)
 	if err := typeCheck(t, v); err != nil {
@@ -257,7 +257,7 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 		}
 		var tail []byte
 		for i := 0; i < v.Len(); i++ {
-			val, err := t.Elem.pack(v.Index(i))
+			val, err := t.Elem.Pack(v.Index(i))
 			if err != nil {
 				return nil, err
 			}
@@ -295,7 +295,7 @@ func (t Type) pack(v reflect.Value) ([]byte, error) {
 			if !field.IsValid() {
 				return nil, fmt.Errorf("field %s for tuple not found in the given struct", t.TupleRawNames[i])
 			}
-			val, err := elem.pack(field)
+			val, err := elem.Pack(field)
 			if err != nil {
 				return nil, err
 			}

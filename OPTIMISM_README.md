@@ -6,7 +6,7 @@ Running the Optimism Execution Manager Node:
 
 2. Initialize the node
 
-       $ ./build/bin/geth init etc/optimism.json
+       $ ./build/bin/geth init etc/govm.json
 
 3. Import the signers private key (ask in Slack for the private key file):
 

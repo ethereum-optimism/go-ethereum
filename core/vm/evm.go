@@ -17,6 +17,7 @@
 package vm
 
 import (
+	// "fmt"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -42,6 +43,7 @@ type (
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, caller ContractRef, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
+	// fmt.Printf("Running: %020x\n", contract.Address())
 	if isOvmOperation(contract, input) {
 		return runOvmOperation(input, evm, caller, contract)
 	}

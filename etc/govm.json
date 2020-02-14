@@ -1,6 +1,6 @@
 {
   "config": {
-    "chainId": 12,
+    "chainId": 108,
     "homesteadBlock": 0,
     "eip150Block": 0,
     "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -11,7 +11,7 @@
     "petersburgBlock": 0,
     "istanbulBlock": 0,
     "clique": {
-      "period": 2,
+      "period": 0,
       "epoch": 30000
     }
   },

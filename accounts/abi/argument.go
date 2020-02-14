@@ -344,7 +344,7 @@ func (arguments Arguments) Pack(args ...interface{}) ([]byte, error) {
 	for i, a := range args {
 		input := abiArgs[i]
 		// pack the input
-		packed, err := input.Type.pack(reflect.ValueOf(a))
+		packed, err := input.Type.Pack(reflect.ValueOf(a))
 		if err != nil {
 			return nil, err
 		}
