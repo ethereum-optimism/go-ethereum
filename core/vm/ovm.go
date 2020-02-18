@@ -25,9 +25,10 @@ type ovmOperation func(*EVM, ContractRef, *Contract, []byte) ([]byte, error)
 type methodId [4]byte
 
 var funcs = map[string]ovmOperation{
-	"SSTORE":  sStore,
-	"SLOAD":   sLoad,
-	"CREATE":  create,
+	"SSTORE": sStore,
+	"SLOAD":  sLoad,
+	// "CREATE":  create,
+	// "CALL":  call,
 	"CREATE2": create2,
 }
 var methodIds map[[4]byte]ovmOperation
@@ -70,35 +71,28 @@ func isOvmOperation(contract *Contract, input []byte) bool {
 }
 
 func runOvmOperation(input []byte, evm *EVM, caller ContractRef, contract *Contract) (ret []byte, err error) {
-	fmt.Println("runOvmOperation")
 	var methodId [4]byte
 	copy(methodId[:], input[:4])
 	return methodIds[methodId](evm, caller, contract, input)
 }
 
 func create(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret []byte, err error) {
-	fmt.Println("ovmCREATE")
 	initCode := input[4:]
 	gas := contract.Gas
 	if evm.chainRules.IsEIP150 {
 		gas -= gas / 64
 	}
 	contract.UseGas(gas)
+	activeContractHash := evm.StateDB.GetState(ExecutionManagerAddress, common.BigToHash(big.NewInt(9)))
+	activeContract := common.BytesToAddress(activeContractHash.Bytes())
+	activeContractRef := &Contract{self: AccountRef(activeContract)}
 
-	// contractRef := &Contract{self: AccountRef(contract.Address())}
-	// if isPure(evm, contractRef, gas, initCode) {
-	_, address, _, _ := evm.Create(caller, initCode, contract.Gas, big.NewInt(0))
-	// fmt.Printf("Pure %x\n", address.Bytes())
-	// emitEvent(evm, contract, "test", []byte{})
-	// emitActiveContract(address)
-	// emitCreatedContract(address,a
-	emitActiveContract(evm, contract, address)
-	emitCreatedContract(evm, contract, address, address, [32]byte{1})
+	_, address, _, _ := evm.Create(activeContractRef, initCode, contract.Gas, big.NewInt(0))
+	// key :=  common.BigToHash(big.NewInt(0))
+
+	emitActiveContract(evm, contract, caller.Address())
+	emitCreatedContract(evm, contract, caller.Address(), address, [32]byte{1})
 	return address.Bytes(), nil
-	// return nil, nil
-	// } else {
-	//   return nil, ErrImpureInitcode
-	// }
 }
 
 func create2(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret []byte, err error) {
@@ -117,17 +111,26 @@ func create2(evm *EVM, caller ContractRef, contract *Contract, input []byte) (re
 	// }
 }
 
+func call(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret []byte, err error) {
+
+	to := common.BytesToAddress(input[0:20])
+	args := input[20:]
+	// fmt.Printf("Calling address %x\n", to.Bytes())
+	ret, _, err = evm.Call(contract, to, args, contract.Gas, big.NewInt(0))
+	return ret, err
+}
+
 func sLoad(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret []byte, err error) {
 	key := common.BytesToHash(input[4:36])
 	val := evm.StateDB.GetState(caller.Address(), key)
-	fmt.Printf("%x > %x\n", key, val)
+	// fmt.Printf("%x > %x\n", key, val)
 	return val.Bytes(), nil
 }
 func sStore(evm *EVM, caller ContractRef, contract *Contract, input []byte) (ret []byte, err error) {
 	key := common.BytesToHash(input[4:36])
 	val := common.BytesToHash(input[36:68])
 	evm.StateDB.SetState(caller.Address(), key, val)
-	fmt.Printf("%x = %x\n", key, val)
+	// fmt.Printf("%x = %x\n", key, val)
 	return []byte{}, nil
 }
 

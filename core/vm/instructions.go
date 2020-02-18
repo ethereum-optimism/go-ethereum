@@ -17,6 +17,7 @@
 package vm
 
 import (
+	// "fmt"
 	"errors"
 	"math/big"
 
@@ -626,6 +627,9 @@ func opMstore8(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memo
 
 func opSload(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	loc := stack.peek()
+	if contract.Address() == ExecutionManagerAddress {
+		// fmt.Printf("Running in the execution manager %d\n", loc)
+	}
 	val := interpreter.evm.StateDB.GetState(contract.Address(), common.BigToHash(loc))
 	loc.SetBytes(val.Bytes())
 	return nil, nil
@@ -634,6 +638,11 @@ func opSload(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory
 func opSstore(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	loc := common.BigToHash(stack.pop())
 	val := stack.pop()
+	//   if(contract.Address() == ExecutionManagerAddress &&
+	//     bytes.Equal(common.FromHex(""))
+	// ) {
+	// fmt.Printf("Storing  %x in %d \n", val, loc.Big())
+	// }
 	interpreter.evm.StateDB.SetState(contract.Address(), loc, common.BigToHash(val))
 
 	interpreter.intPool.put(val)
