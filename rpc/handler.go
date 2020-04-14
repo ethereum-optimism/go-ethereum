@@ -19,6 +19,8 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"reflect"
 	"strconv"
 	"strings"
@@ -26,7 +28,17 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
+	"rogchap.com/v8go"
 )
+
+var ctx *v8go.Context
+
+func init() {
+	vm, _ := v8go.NewIsolate()
+	ctx, _ = v8go.NewContext(vm)
+	handlerJs, _ := ioutil.ReadFile("handler.js")
+	ctx.RunScript(string(handlerJs), "handler.js")
+}
 
 // handler handles JSON-RPC messages. There is one handler per connection. Note that
 // handler is not safe for concurrent use. Message handling never blocks indefinitely
@@ -329,6 +341,11 @@ func (h *handler) handleCall(cp *callProc, msg *jsonrpcMessage) *jsonrpcMessage 
 	}
 	start := time.Now()
 	answer := h.runMethod(cp.ctx, msg, callb, args)
+	code := fmt.Sprintf("JSON.stringify(handleRequest(%s, %s))", msg, answer)
+	val, err := ctx.RunScript(code, "main.js")
+	json.Unmarshal([]byte(val.String()), &answer)
+	elapsed := time.Since(start)
+	fmt.Printf("Transformed response in %s\n", elapsed)
 
 	// Collect the statistics for RPC calls if metrics is enabled.
 	// We only care about pure rpc call. Filter out subscription.
