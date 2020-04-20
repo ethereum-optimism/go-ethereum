@@ -395,7 +395,7 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 		ExtraData:  append(append(make([]byte, 32), faucet[:]...), make([]byte, crypto.SignatureLength)...),
 		// Changed GasLimit & added ChainID
 		// GasLimit:   6283185, // Old value
-		GasLimit:   471238800, // New value
+		GasLimit:   4294967295, // New value
 		// ChainID: big.NewInt(108), // New value
 		Difficulty: big.NewInt(1),
 		Alloc: map[common.Address]GenesisAccount{
