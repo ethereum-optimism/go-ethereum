@@ -8,12 +8,14 @@ import (
     "github.com/ethereum/go-ethereum/core"
     "github.com/ethereum/go-ethereum/core/types"
     "github.com/ethereum/go-ethereum/ethdb"
+    "github.com/ethereum/go-ethereum/log"
     "sync"
     "time"
 )
 
 var (
     ErrTransactionLimitReached = errors.New("transaction limit reached")
+    ErrMoreThanOneTxInBlock = errors.New("block contains more than one transaction")
     LastProcessedDBKey = []byte("lastProcessedRollupBlock")
     MinTxGas = uint64(21000)
 )
@@ -153,11 +155,15 @@ func (b *RollupBlockBuilder) buildLoop(maxBlockTime time.Duration) {
 }
 
 func (b *RollupBlockBuilder) handleNewBlock(block *types.Block) (bool, error) {
+    log.Debug("handling new block in rollup block builder", "block", block)
     if block.NumberU64() <= b.lastProcessedBlockNumber {
+        log.Debug("handling old block -- ignoring", "block", block)
         return false, nil
     }
     if txCount := len(block.Transactions()); txCount > 1 {
-        panic(fmt.Errorf("received block with more than 1 tx: %+v", block))
+        // should never happen
+        log.Error("received block with more than one transaction", "block", block)
+        return false, ErrMoreThanOneTxInBlock
     } else if txCount == 0 {
         b.lastProcessedBlockNumber = block.NumberU64()
         return false, nil
@@ -166,33 +172,42 @@ func (b *RollupBlockBuilder) handleNewBlock(block *types.Block) (bool, error) {
     switch err := b.addBlock(block); err {
     case core.ErrGasLimitReached, ErrTransactionLimitReached:
         if e := b.buildRollupBlock(); e != nil {
-            panic(fmt.Errorf("unable to build rollup block. Error: %v, rollup block: %+v", e, b.blockInProgress))
+            log.Error("unable to build rollup block", "error", e, "rollup block", b.blockInProgress)
+            return false, e
         }
         if addErr := b.addBlock(block); addErr != nil {
             // TODO: Retry and whatnot instead of instant panic
-            panic(fmt.Errorf("unable to build rollup block. Error: %v, rollup block: %+v", addErr, b.blockInProgress))
+            log.Error("unable to build rollup block", "error", addErr, "rollup block", b.blockInProgress)
+            return false, addErr
         }
     default:
         if err != nil {
-            panic(fmt.Errorf("unrecognized error adding to rollup block in progress. Error: %v, rollup block: %+v", err, b.blockInProgress))
+            log.Error("unrecognized error adding to rollup block in progress", "error", err, "rollup block", b.blockInProgress)
+            return false, err
+        } else {
+            log.Debug("successfully added block to rollup block in progress", "number", block.NumberU64())
         }
     }
 
     built, err := b.tryBuildRollupBlock()
     if err != nil {
-        panic(fmt.Errorf("error buidling block: %v. Block: %+v ", err, block))
+        log.Error("error building block", "error", err, "block", block)
+        return false, err
     }
     return built, nil
 }
 
 func (b *RollupBlockBuilder) sync() error {
+    log.Info("syncing blocks in rollup block builder", "starting block", b.lastProcessedBlockNumber)
+
     for {
         block := b.blockchain.GetBlockByNumber(b.lastProcessedBlockNumber + uint64(1))
         if block == nil {
+            log.Info("done syncing blocks in rollup block builder", "number", b.lastProcessedBlockNumber)
             break
         }
         if _, err := b.handleNewBlock(block); err != nil {
-            panic(fmt.Errorf("error handling block: %v. Block: %+v ", err, block))
+            return err
         }
     }
     return nil
@@ -207,8 +222,10 @@ func (b *RollupBlockBuilder) addBlock(block *types.Block) error {
 func (b *RollupBlockBuilder) tryBuildRollupBlock() (bool, error) {
     b.pendingMu.RLock()
     if len(b.blockInProgress.rollupBlock.transitions) < b.maxRollupBlockTransactions && b.blockInProgress.gasUsed + MinTxGas <= b.maxRollupBlockGas {
+        log.Debug("rollup block is not full, so not finalizing it")
         return false, nil
     }
+    log.Debug("rollup block is full, finalizing it")
     b.pendingMu.RUnlock()
 
     return true, b.buildRollupBlock()
@@ -220,30 +237,42 @@ func (b *RollupBlockBuilder) buildRollupBlock() error {
 
     toSubmit = b.blockInProgress
     b.blockInProgress = newBuildingBlock(b.maxRollupBlockTransactions)
+    if err := b.submit(toSubmit); err != nil {
+        return err
+    }
     b.pendingMu.Unlock()
 
-    go b.submit(toSubmit)
     return nil
 }
 
-func (b *RollupBlockBuilder) submit(block *BuildingBlock) {
+func (b *RollupBlockBuilder) submit(block *BuildingBlock) error {
     // TODO: Submit to chain & get hash
-
-    b.db.Put(LastProcessedDBKey, serializeBlockNumber(b.blockInProgress.lastBlockNumber))
+    log.Debug("submitting rollup block", "block", block)
+    if err := b.db.Put(LastProcessedDBKey, serializeBlockNumber(b.blockInProgress.lastBlockNumber)); err != nil {
+        log.Error("error saving last processed rollup block", "block", block)
+        // TODO: Something here
+    }
+    log.Debug("rollup block submitted", "block", block)
+    return nil
 }
 
 func fetchLastProcessed(db ethdb.Database) (uint64, error) {
     has, err := db.Has(LastProcessedDBKey)
     if err != nil {
-        panic(fmt.Errorf("error checking if last processed block number was set: %v", err))
+        log.Error("received error checking if LastProcessedDBKey exists in DB", "error", err)
+        return 0, err
     }
     if has {
         lastProcessedBytes, e := db.Get(LastProcessedDBKey)
         if e != nil {
-            panic(fmt.Errorf("error fetching last processed block number: %v", err))
+            log.Error("error fetching LastProcessedDBKey from DB", "error", err)
+            return 0, err
         }
-        return deserializeBlockNumber(lastProcessedBytes), nil
+        lastProcessedBlock := deserializeBlockNumber(lastProcessedBytes)
+        log.Info("fetched last processed block from database", "number", lastProcessedBlock)
+        return lastProcessedBlock, nil
     } else {
+        log.Info("no last processed block found in the db -- returning 0")
         return 0, nil
     }
 }
