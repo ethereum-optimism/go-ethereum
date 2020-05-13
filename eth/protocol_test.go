@@ -18,6 +18,7 @@ package eth
 
 import (
 	"fmt"
+	"github.com/ethereum/go-ethereum/rollup"
 	"math/big"
 	"sync"
 	"testing"
@@ -180,8 +181,11 @@ func TestForkIDSplit(t *testing.T) {
 		blocksNoFork, _  = core.GenerateChain(configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
 		blocksProFork, _ = core.GenerateChain(configProFork, genesisProFork, engine, dbProFork, 2, nil)
 
-		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil)
-		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil)
+		rollupBlockBuilderNoFork, _ = rollup.NewRollupBlockBuilder(dbNoFork, chainNoFork, 5 * time.Minute, 9_000_000_000, 200)
+		rollupBlockBuilderProFork, _ = rollup.NewRollupBlockBuilder(dbProFork, chainProFork, 5 * time.Minute, 9_000_000_000, 200)
+
+		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil, rollupBlockBuilderNoFork)
+		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil, rollupBlockBuilderProFork)
 	)
 	ethNoFork.Start(1000)
 	ethProFork.Start(1000)
