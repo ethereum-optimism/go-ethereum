@@ -18,4 +18,4 @@ fi
 
 echo "Starting Geth..."
 ## Command to kick off geth
-geth --dev --datadir $VOLUME_PATH --rpc --rpcaddr $HOSTNAME --rpcvhosts=* --rpcport $PORT --networkid $NETWORK_ID --rpcapi 'eth,net' --gasprice '0' --targetgaslimit $TARGET_GAS_LIMIT --nousb --gcmode=archive
+geth --dev --datadir $VOLUME_PATH --rpc --rpcaddr $HOSTNAME --rpcvhosts=* --rpcport $PORT --networkid $NETWORK_ID --rpcapi 'eth,net' --gasprice '0' --targetgaslimit $TARGET_GAS_LIMIT --nousb --gcmode=archive --verbosity "6"
