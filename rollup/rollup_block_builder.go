@@ -14,13 +14,21 @@ import (
 	"time"
 )
 
-var (
-	ErrTransactionLimitReached = errors.New("transaction limit reached")
-	ErrMoreThanOneTxInBlock    = errors.New("block contains more than one transaction")
-	LastProcessedDBKey         = []byte("lastProcessedRollupBlock")
+type BlockStore interface {
+	GetBlockByNumber(number uint64) *types.Block
+}
+
+const (
 	MinTxBytes                 = uint64(100)
 	MinTxGas                   = MinTxBytes*params.TxDataNonZeroGasEIP2028 + params.SstoreSetGas
 	RollupBlockGasBuffer       = uint64(1_000_000)
+)
+
+var (
+	logger = log.New(RollupBlockBuilder{})
+	ErrTransactionLimitReached = errors.New("transaction limit reached")
+	ErrMoreThanOneTxInBlock    = errors.New("block contains more than one transaction")
+	LastProcessedDBKey         = []byte("lastProcessedRollupBlock")
 )
 
 type Transition struct {
@@ -68,12 +76,13 @@ func (b *BuildingBlock) addBlock(block *types.Block, maxBlockGas uint64, maxBloc
 	if maxBlockTransactions < len(b.rollupBlock.transitions)+1 {
 		return ErrTransactionLimitReached
 	}
-	if maxBlockGas < b.gasUsed+block.GasUsed() {
+	blockGasCost := GetBlockRollupGasUsage(block)
+	if maxBlockGas < b.gasUsed + blockGasCost {
 		return core.ErrGasLimitReached
 	}
 
 	b.rollupBlock.addBlock(block)
-	b.gasUsed += params.SstoreSetGas + uint64(len(block.Transactions()[0].Data()))*params.TxDataNonZeroGasEIP2028
+	b.gasUsed += blockGasCost
 	if b.firstBlockNumber == 0 {
 		b.firstBlockNumber = block.NumberU64()
 	}
@@ -83,10 +92,12 @@ func (b *BuildingBlock) addBlock(block *types.Block, maxBlockGas uint64, maxBloc
 }
 
 type RollupBlockBuilder struct {
-	db         ethdb.Database
-	blockchain *core.BlockChain
-	newBlockCh chan *types.Block
-	pendingMu  sync.RWMutex
+	db            ethdb.Database
+	blockProvider        BlockStore
+	rollupBlockSubmitter RollupBlockSubmitter
+	pendingMu     sync.RWMutex
+
+	newBlockCh    chan *types.Block
 
 	maxRollupBlockTime         time.Duration
 	maxRollupBlockGas          uint64
@@ -96,16 +107,17 @@ type RollupBlockBuilder struct {
 	blockInProgress          *BuildingBlock
 }
 
-func NewRollupBlockBuilder(db ethdb.Database, blockchain *core.BlockChain, maxBlockTime time.Duration, maxBlockGas uint64, maxBlockTransactions int) (*RollupBlockBuilder, error) {
+func NewRollupBlockBuilder(db ethdb.Database, blockStore interface{}, rollupBlockSubmitter interface{}, maxBlockTime time.Duration, maxBlockGas uint64, maxBlockTransactions int) (*RollupBlockBuilder, error) {
 	lastBlock, err := fetchLastProcessed(db)
 	if err != nil {
 		return nil, err
 	}
 
 	builder := &RollupBlockBuilder{
-		db:         db,
-		blockchain: blockchain,
-		newBlockCh: make(chan *types.Block),
+		db:            db,
+		blockProvider: blockStore.(BlockStore),
+		rollupBlockSubmitter: rollupBlockSubmitter.(RollupBlockSubmitter),
+		newBlockCh:    make(chan *types.Block, 10_000),
 
 		maxRollupBlockTime:         maxBlockTime,
 		maxRollupBlockGas:          maxBlockGas,
@@ -124,6 +136,10 @@ func (b *RollupBlockBuilder) NewBlock(block *types.Block) {
 	b.newBlockCh <- block
 }
 
+func (b *RollupBlockBuilder) Stop() {
+	close(b.newBlockCh)
+}
+
 func (b *RollupBlockBuilder) buildLoop(maxBlockTime time.Duration) {
 	lastProcessed := b.lastProcessedBlockNumber
 
@@ -136,7 +152,13 @@ func (b *RollupBlockBuilder) buildLoop(maxBlockTime time.Duration) {
 
 	for {
 		select {
-		case block := <-b.newBlockCh:
+		case block, ok := <-b.newBlockCh:
+			if !ok {
+				timer.Stop()
+				logger.Info("Closing rollup block builder new block channel. If not shutting down, this is an error")
+				return
+			}
+
 			built, err := b.handleNewBlock(block)
 			if err != nil {
 				panic(fmt.Errorf("error handling new block. Error: %v. Block: %+v", err, block))
@@ -158,18 +180,18 @@ func (b *RollupBlockBuilder) buildLoop(maxBlockTime time.Duration) {
 }
 
 func (b *RollupBlockBuilder) handleNewBlock(block *types.Block) (bool, error) {
-	log.Debug("handling new block in rollup block builder", "block", block)
+	logger.Debug("handling new block in rollup block builder", "block", block)
 	if block.NumberU64() <= b.lastProcessedBlockNumber {
-		log.Debug("handling old block -- ignoring", "block", block)
+		logger.Debug("handling old block -- ignoring", "block", block)
 		return false, nil
 	}
 
 	if txCount := len(block.Transactions()); txCount > 1 {
 		// should never happen
-		log.Error("received block with more than one transaction", "block", block)
+		logger.Error("received block with more than one transaction", "block", block)
 		return false, ErrMoreThanOneTxInBlock
 	} else if txCount == 0 {
-		log.Debug("handling empty block -- ignoring", "block", block)
+		logger.Debug("handling empty block -- ignoring", "block", block)
 		b.lastProcessedBlockNumber = block.NumberU64()
 		return false, nil
 	}
@@ -177,26 +199,26 @@ func (b *RollupBlockBuilder) handleNewBlock(block *types.Block) (bool, error) {
 	switch err := b.addBlock(block); err {
 	case core.ErrGasLimitReached, ErrTransactionLimitReached:
 		if _, e := b.buildRollupBlock(false); e != nil {
-			log.Error("unable to build rollup block", "error", e, "rollup block", b.blockInProgress)
+			logger.Error("unable to build rollup block", "error", e, "rollup block", b.blockInProgress)
 			return false, e
 		}
 		if addErr := b.addBlock(block); addErr != nil {
 			// TODO: Retry and whatnot instead of instant panic
-			log.Error("unable to build rollup block", "error", addErr, "rollup block", b.blockInProgress)
+			logger.Error("unable to build rollup block", "error", addErr, "rollup block", b.blockInProgress)
 			return false, addErr
 		}
 	default:
 		if err != nil {
-			log.Error("unrecognized error adding to rollup block in progress", "error", err, "rollup block", b.blockInProgress)
+			logger.Error("unrecognized error adding to rollup block in progress", "error", err, "rollup block", b.blockInProgress)
 			return false, err
 		} else {
-			log.Debug("successfully added block to rollup block in progress", "number", block.NumberU64())
+			logger.Debug("successfully added block to rollup block in progress", "number", block.NumberU64())
 		}
 	}
 
 	built, err := b.tryBuildRollupBlock()
 	if err != nil {
-		log.Error("error building block", "error", err, "block", block)
+		logger.Error("error building block", "error", err, "block", block)
 		return false, err
 	}
 
@@ -204,21 +226,21 @@ func (b *RollupBlockBuilder) handleNewBlock(block *types.Block) (bool, error) {
 }
 
 func (b *RollupBlockBuilder) sync() error {
-	log.Info("syncing blocks in rollup block builder", "starting block", b.lastProcessedBlockNumber)
+	logger.Info("syncing blocks in rollup block builder", "starting block", b.lastProcessedBlockNumber)
 
 	for {
 		blockNum := b.lastProcessedBlockNumber + uint64(1)
-		block := b.blockchain.GetBlockByNumber(blockNum)
-		log.Info("got block number", "number", blockNum, "block", block)
+		block := b.blockProvider.GetBlockByNumber(blockNum)
+		logger.Info("got block number", "number", blockNum, "block", block)
 		if block == nil {
-			log.Info("done syncing blocks in rollup block builder", "number", b.lastProcessedBlockNumber)
+			logger.Info("done syncing blocks in rollup block builder", "number", b.lastProcessedBlockNumber)
 			return nil
 		}
 		if _, err := b.handleNewBlock(block); err != nil {
-			log.Error("Error handling new block", "error", err)
+			logger.Error("Error handling new block", "error", err)
 			return err
 		} else {
-			log.Debug("successfully synced block", "number", blockNum, "last processed", b.lastProcessedBlockNumber)
+			logger.Debug("successfully synced block", "number", blockNum, "last processed", b.lastProcessedBlockNumber)
 		}
 	}
 }
@@ -237,10 +259,10 @@ func (b *RollupBlockBuilder) tryBuildRollupBlock() (bool, error) {
 	txCount := len(b.blockInProgress.rollupBlock.transitions)
 	gasAfterOneMoreTx := b.blockInProgress.gasUsed + MinTxGas
 	if txCount < b.maxRollupBlockTransactions && gasAfterOneMoreTx <= b.maxRollupBlockGas {
-		log.Debug("rollup block is not full, so not finalizing it", "txCount", txCount, "gasAfterOneMoreTx", gasAfterOneMoreTx)
+		logger.Debug("rollup block is not full, so not finalizing it", "txCount", txCount, "gasAfterOneMoreTx", gasAfterOneMoreTx)
 		return false, nil
 	}
-	log.Debug("rollup block is full, finalizing it", "txCount", txCount, "gasAfterOneMoreTx", gasAfterOneMoreTx)
+	logger.Debug("rollup block is full, finalizing it", "txCount", txCount, "gasAfterOneMoreTx", gasAfterOneMoreTx)
 
 	return b.buildRollupBlock(false)
 }
@@ -251,65 +273,76 @@ func (b *RollupBlockBuilder) buildRollupBlock(force bool) (bool, error) {
 	defer b.pendingMu.Unlock()
 
 	txCount := len(b.blockInProgress.rollupBlock.transitions)
+
 	if force && txCount == 0 {
-		log.Debug("rollup block is empty so not finalizing it, even though force = true")
+		logger.Debug("rollup block is empty so not finalizing it, even though force = true")
 		return false, nil
 	}
 	if txCount < b.maxRollupBlockTransactions && b.blockInProgress.gasUsed+MinTxGas <= b.maxRollupBlockGas {
-		log.Debug("rollup block is not full, so not finalizing it")
+		logger.Debug("rollup block is not full, so not finalizing it")
 		return false, nil
 	}
-	log.Debug("building rollup block")
+	logger.Debug("building rollup block")
 
 	toSubmit = b.blockInProgress
 	b.blockInProgress = newBuildingBlock(b.maxRollupBlockTransactions)
-	if err := b.submit(toSubmit); err != nil {
-		log.Error("error submitting rollup block", "lastBlockNumber", toSubmit.lastBlockNumber, "error", err)
+
+	if err := b.submitBlock(toSubmit); err != nil {
+		logger.Error("error submitting rollup block", "lastBlockNumber", toSubmit.lastBlockNumber, "error", err)
 		return false, err
 	}
-	log.Debug("successfully built rollup block", "lastBlockNumber", toSubmit.lastBlockNumber)
+	logger.Debug("successfully built rollup block", "lastBlockNumber", toSubmit.lastBlockNumber)
 
 	return true, nil
 }
 
-func (b *RollupBlockBuilder) submit(block *BuildingBlock) error {
+func (b *RollupBlockBuilder) submitBlock(block *BuildingBlock) error {
 	// TODO: Submit to chain & get hash
-	log.Debug("submitting rollup block", "block", block)
-	if err := b.db.Put(LastProcessedDBKey, serializeBlockNumber(block.lastBlockNumber)); err != nil {
-		log.Error("error saving last processed rollup block", "block", block)
+	logger.Debug("submitting rollup block", "block", block)
+
+	if err := b.rollupBlockSubmitter.submit(block.rollupBlock); err != nil {
+		return err
+	}
+
+	if err := b.db.Put(LastProcessedDBKey, SerializeBlockNumber(block.lastBlockNumber)); err != nil {
+		logger.Error("error saving last processed rollup block", "block", block)
 		// TODO: Something here
 	}
-	log.Debug("rollup block submitted", "block", block)
+	logger.Debug("rollup block submitted", "block", block)
 	return nil
 }
 
 func fetchLastProcessed(db ethdb.Database) (uint64, error) {
 	has, err := db.Has(LastProcessedDBKey)
 	if err != nil {
-		log.Error("received error checking if LastProcessedDBKey exists in DB", "error", err)
+		logger.Error("received error checking if LastProcessedDBKey exists in DB", "error", err)
 		return 0, err
 	}
 	if has {
 		lastProcessedBytes, e := db.Get(LastProcessedDBKey)
 		if e != nil {
-			log.Error("error fetching LastProcessedDBKey from DB", "error", err)
+			logger.Error("error fetching LastProcessedDBKey from DB", "error", err)
 			return 0, err
 		}
-		lastProcessedBlock := deserializeBlockNumber(lastProcessedBytes)
-		log.Info("fetched last processed block from database", "number", lastProcessedBlock)
+		lastProcessedBlock := DeserializeBlockNumber(lastProcessedBytes)
+		logger.Info("fetched last processed block from database", "number", lastProcessedBlock)
 		return lastProcessedBlock, nil
 	} else {
-		log.Info("no last processed block found in the db -- returning 0")
+		logger.Info("no last processed block found in the db -- returning 0")
 		return 0, nil
 	}
 }
 
-func serializeBlockNumber(blockNumber uint64) []byte {
+func SerializeBlockNumber(blockNumber uint64) []byte {
 	numberAsByteArray := make([]byte, 8)
 	binary.LittleEndian.PutUint64(numberAsByteArray, blockNumber)
 	return numberAsByteArray
 }
 
-func deserializeBlockNumber(blockNumber []byte) uint64 {
+func DeserializeBlockNumber(blockNumber []byte) uint64 {
 	return binary.LittleEndian.Uint64(blockNumber)
+}
+
+func GetBlockRollupGasUsage(block *types.Block) uint64 {
+	return params.SstoreSetGas + uint64(len(block.Transactions()[0].Data()))*params.TxDataNonZeroGasEIP2028
 }

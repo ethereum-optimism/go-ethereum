@@ -271,6 +271,8 @@ func (pm *ProtocolManager) Stop() {
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
 
+	pm.rollupBlockBuilder.Stop()
+
 	// Quit the sync loop.
 	// After this send has completed, no new peers will be accepted.
 	pm.noMorePeers <- struct{}{}

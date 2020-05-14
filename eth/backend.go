@@ -209,8 +209,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	if checkpoint == nil {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
-
-	rollupBlockBuilder, e := rollup.NewRollupBlockBuilder(chainDb, eth.blockchain, 5 * time.Minute, 100_000_000_000, 200)
+	blockSubmitter := rollup.NewBlockSubmitter()
+	rollupBlockBuilder, e := rollup.NewRollupBlockBuilder(chainDb, eth.blockchain, blockSubmitter, 5 * time.Minute, 100_000_000_000, 200)
 	if e != nil {
 		return nil, e
 	}
