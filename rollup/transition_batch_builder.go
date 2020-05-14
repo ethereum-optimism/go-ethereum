@@ -14,12 +14,11 @@ import (
 )
 
 var (
-	logger = log.New(TransitionBatchBuilder{})
+	logger                     = log.New(TransitionBatchBuilder{})
 	ErrTransactionLimitReached = errors.New("transaction limit reached")
 	ErrMoreThanOneTxInBlock    = errors.New("block contains more than one transaction")
 	LastProcessedDBKey         = []byte("lastProcessedRollupBlock")
 )
-
 
 type ActiveBatch struct {
 	firstBlockNumber uint64
@@ -47,7 +46,7 @@ func (b *ActiveBatch) addBlock(block *types.Block, maxBlockGas uint64, maxBlockT
 		return ErrTransactionLimitReached
 	}
 	blockGasCost := GetBlockRollupGasUsage(block)
-	if maxBlockGas < b.gasUsed + blockGasCost {
+	if maxBlockGas < b.gasUsed+blockGasCost {
 		return core.ErrGasLimitReached
 	}
 
@@ -61,14 +60,13 @@ func (b *ActiveBatch) addBlock(block *types.Block, maxBlockGas uint64, maxBlockT
 	return nil
 }
 
-
 type TransitionBatchBuilder struct {
 	db                   ethdb.Database
 	blockProvider        BlockStore
 	rollupBatchSubmitter RollupTransitionBatchSubmitter
 	pendingMu            sync.RWMutex
 
-	newBlockCh    chan *types.Block
+	newBlockCh chan *types.Block
 
 	maxTransitionBatchTime         time.Duration
 	maxTransitionBatchGas          uint64
@@ -162,8 +160,8 @@ func (b *TransitionBatchBuilder) handleNewBlock(block *types.Block) (bool, error
 		logger.Debug("handling old block -- ignoring", "block", block)
 		return false, nil
 	}
-	if block.NumberU64() > b.lastProcessedBlockNumber + 1 {
-		logger.Error("received future block", "block", block, "expectedNumber", b.lastProcessedBlockNumber + 1)
+	if block.NumberU64() > b.lastProcessedBlockNumber+1 {
+		logger.Error("received future block", "block", block, "expectedNumber", b.lastProcessedBlockNumber+1)
 		// TODO: add to queue and/or try to fetch blocks in between.
 		return false, nil
 	}
