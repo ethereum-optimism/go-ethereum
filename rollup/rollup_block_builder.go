@@ -51,6 +51,7 @@ func newRollupBlock(defaultSize int) *RollupBlock {
 	return &RollupBlock{transitions: make([]*Transition, 0, defaultSize)}
 }
 
+// addBlock adds a Geth Block to the Rollup Block. This is just its transaction and state root.
 func (r *RollupBlock) addBlock(block *types.Block) {
 	r.transitions = append(r.transitions, newTransition(block.Transactions()[0], block.Root()))
 }
@@ -72,6 +73,10 @@ func newBuildingBlock(defaultTxCapacity int) *BuildingBlock {
 	}
 }
 
+// addBlock adds a Geth Block to the BuildingBlock in question, only if it fits.
+// Cases in which it would not fit are if it would put the block above the configured
+// max number of transactions or max block gas, resulting in
+// ErrTransactionLimitReached and core.ErrGasLimitReached, respectively.
 func (b *BuildingBlock) addBlock(block *types.Block, maxBlockGas uint64, maxBlockTransactions int) error {
 	if maxBlockTransactions < len(b.rollupBlock.transitions)+1 {
 		return ErrTransactionLimitReached
@@ -132,14 +137,19 @@ func NewRollupBlockBuilder(db ethdb.Database, blockStore interface{}, rollupBloc
 	return builder, nil
 }
 
+// NewBlock handles new blocks from Geth by adding them to the newBlockCh channel
+// for processing and returning so as to not delay the caller.
 func (b *RollupBlockBuilder) NewBlock(block *types.Block) {
 	b.newBlockCh <- block
 }
 
+// Stop handles graceful shutdown of the RollupBlockBuilder.
 func (b *RollupBlockBuilder) Stop() {
 	close(b.newBlockCh)
 }
 
+// buildLoop initiates RollupBlock production and submission either based on
+// a new Geth Block being received or the maxBlockTime being reached.
 func (b *RollupBlockBuilder) buildLoop(maxBlockTime time.Duration) {
 	lastProcessed := b.lastProcessedBlockNumber
 
@@ -147,8 +157,7 @@ func (b *RollupBlockBuilder) buildLoop(maxBlockTime time.Duration) {
 		panic(fmt.Errorf("error syncing: %+v", err))
 	}
 
-	timer := time.NewTimer(0)
-	<-timer.C // discard the initial tick
+	timer := time.NewTimer(maxBlockTime)
 
 	for {
 		select {
@@ -179,10 +188,17 @@ func (b *RollupBlockBuilder) buildLoop(maxBlockTime time.Duration) {
 	}
 }
 
+// handleNewBlock processes a newly received Geth Block, ignoring old / future blocks
+// and building and submitting Rollup Blocks if the pending Rollup Block is full.
 func (b *RollupBlockBuilder) handleNewBlock(block *types.Block) (bool, error) {
 	logger.Debug("handling new block in rollup block builder", "block", block)
 	if block.NumberU64() <= b.lastProcessedBlockNumber {
 		logger.Debug("handling old block -- ignoring", "block", block)
+		return false, nil
+	}
+	if block.NumberU64() > b.lastProcessedBlockNumber + 1 {
+		logger.Error("received future block", "block", block, "expectedNumber", b.lastProcessedBlockNumber + 1)
+		// TODO: add to queue and/or try to fetch blocks in between.
 		return false, nil
 	}
 
@@ -225,6 +241,9 @@ func (b *RollupBlockBuilder) handleNewBlock(block *types.Block) (bool, error) {
 	return built, nil
 }
 
+// sync catches the RollupBlockBuilder up to the Geth chain by fetching all Geth Blocks between
+// its last processed Block and the current Block, building and submitting RollupBlocks if/when
+// they are full.
 func (b *RollupBlockBuilder) sync() error {
 	logger.Info("syncing blocks in rollup block builder", "starting block", b.lastProcessedBlockNumber)
 
@@ -245,6 +264,7 @@ func (b *RollupBlockBuilder) sync() error {
 	}
 }
 
+// addBlock adds a Geth Block to the RollupBlock if it fits. If not, it will return an error.
 func (b *RollupBlockBuilder) addBlock(block *types.Block) error {
 	b.pendingMu.Lock()
 	defer b.pendingMu.Unlock()
@@ -255,6 +275,7 @@ func (b *RollupBlockBuilder) addBlock(block *types.Block) error {
 	return nil
 }
 
+// tryBuildRollupBlock builds and submits a RollupBlock if the pending RollupBlock is full.
 func (b *RollupBlockBuilder) tryBuildRollupBlock() (bool, error) {
 	txCount := len(b.blockInProgress.rollupBlock.transitions)
 	gasAfterOneMoreTx := b.blockInProgress.gasUsed + MinTxGas
@@ -267,6 +288,8 @@ func (b *RollupBlockBuilder) tryBuildRollupBlock() (bool, error) {
 	return b.buildRollupBlock(false)
 }
 
+// buildRollupBlock builds a RollupBlock if the pending RollupBlock is full or if force is true
+// and the pending RollupBlock is not empty.
 func (b *RollupBlockBuilder) buildRollupBlock(force bool) (bool, error) {
 	var toSubmit *BuildingBlock
 	b.pendingMu.Lock()
@@ -278,7 +301,7 @@ func (b *RollupBlockBuilder) buildRollupBlock(force bool) (bool, error) {
 		logger.Debug("rollup block is empty so not finalizing it, even though force = true")
 		return false, nil
 	}
-	if txCount < b.maxRollupBlockTransactions && b.blockInProgress.gasUsed+MinTxGas <= b.maxRollupBlockGas {
+	if !force && txCount < b.maxRollupBlockTransactions && b.blockInProgress.gasUsed+MinTxGas <= b.maxRollupBlockGas {
 		logger.Debug("rollup block is not full, so not finalizing it")
 		return false, nil
 	}
@@ -296,6 +319,8 @@ func (b *RollupBlockBuilder) buildRollupBlock(force bool) (bool, error) {
 	return true, nil
 }
 
+// submitBlock submits a RollupBlock to the RollupBlockSubmitter and updates the DB
+// to indicate the last processed Geth Block included in the RollupBlock.
 func (b *RollupBlockBuilder) submitBlock(block *BuildingBlock) error {
 	// TODO: Submit to chain & get hash
 	logger.Debug("submitting rollup block", "block", block)
@@ -312,6 +337,7 @@ func (b *RollupBlockBuilder) submitBlock(block *BuildingBlock) error {
 	return nil
 }
 
+// fetchLastProcessed fetches the last processed Geth Block # from the DB.
 func fetchLastProcessed(db ethdb.Database) (uint64, error) {
 	has, err := db.Has(LastProcessedDBKey)
 	if err != nil {
@@ -333,16 +359,20 @@ func fetchLastProcessed(db ethdb.Database) (uint64, error) {
 	}
 }
 
+// SerializeBlockNumber serializes the number for DB storage
 func SerializeBlockNumber(blockNumber uint64) []byte {
 	numberAsByteArray := make([]byte, 8)
 	binary.LittleEndian.PutUint64(numberAsByteArray, blockNumber)
 	return numberAsByteArray
 }
 
+// DeserializeBlockNumber deserializes the number from DB storage
 func DeserializeBlockNumber(blockNumber []byte) uint64 {
 	return binary.LittleEndian.Uint64(blockNumber)
 }
 
+// GetBlockRollupGasUsage determines the amount of L1 gas the provided Geth Block will use
+// when submitted to mainnet.
 func GetBlockRollupGasUsage(block *types.Block) uint64 {
 	return params.SstoreSetGas + uint64(len(block.Transactions()[0].Data()))*params.TxDataNonZeroGasEIP2028
 }

@@ -12,7 +12,7 @@ import (
 )
 
 var (
-    timeoutDuration = time.Second * 1
+    timeoutDuration = time.Millisecond * 100
 
     testTxPoolConfig  core.TxPoolConfig
     cliqueChainConfig *params.ChainConfig
@@ -72,13 +72,15 @@ func (t *TestBlockSubmitter) submit(block *RollupBlock) error {
     return nil
 }
 
-func createBlocks(number int, startIndex int) types.Blocks {
+func createBlocks(number int, startIndex int, withTx bool) types.Blocks {
     blocks := make(types.Blocks, number)
     for i := 0; i < number; i++ {
         header := &types.Header{Number: big.NewInt(int64(i + startIndex))}
-        txs := make(types.Transactions, 1)
-        tx, _ := types.SignTx(types.NewTransaction(uint64(i), testUserAddress, big.NewInt(1), params.TxGas, big.NewInt(0), nil), types.HomesteadSigner{}, testBankKey)
-        txs[0] = tx
+        txs := make(types.Transactions, 0)
+        if withTx {
+            tx, _ := types.SignTx(types.NewTransaction(uint64(i), testUserAddress, big.NewInt(1), params.TxGas, big.NewInt(0), nil), types.HomesteadSigner{}, testBankKey)
+            txs = append(txs, tx)
+        }
         block := types.NewBlock(header, txs, make([]*types.Header,0), make([]*types.Receipt, 0))
         blocks[i] = block
     }
@@ -112,7 +114,8 @@ func getSubmitChBlockStoreAndSubmitter() (chan *RollupBlock, *TestBlockStore, *T
  * Tests Start *
  ***************/
 
-// Single block submission
+// Single block submission tests
+
 func TestBlockSubmissionMaxTransactions(t *testing.T) {
     blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
     blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Minute * 1, 1_000_000_000, 1)
@@ -120,8 +123,7 @@ func TestBlockSubmissionMaxTransactions(t *testing.T) {
         t.Fatalf("unable to make test block builder, error: %v", err)
     }
 
-    // TODO: Build fake blockchain & blocks
-    blocks := createBlocks(1, 1)
+    blocks := createBlocks(1, 1, true)
     blockBuilder.NewBlock(blocks[0])
 
     timeout := time.After(timeoutDuration)
@@ -144,7 +146,7 @@ func TestBlockLessThanMaxTransactions(t *testing.T) {
         t.Fatalf("unable to make test block builder, error: %v", err)
     }
 
-    blocks := createBlocks(1, 1)
+    blocks := createBlocks(1, 1, true)
     blockBuilder.NewBlock(blocks[0])
 
     timeout := time.After(timeoutDuration)
@@ -159,7 +161,7 @@ func TestBlockLessThanMaxTransactions(t *testing.T) {
 func TestBlockSubmissionMaxGas(t *testing.T) {
     blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
 
-    blocks := createBlocks(1, 1)
+    blocks := createBlocks(1, 1, true)
     gasLimit := GetBlockRollupGasUsage(blocks[0]) + RollupBlockGasBuffer
 
     blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Minute * 1, gasLimit, 2)
@@ -185,7 +187,7 @@ func TestBlockSubmissionMaxGas(t *testing.T) {
 func TestBlockLessThanMaxGas(t *testing.T) {
     blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
 
-    blocks := createBlocks(1, 1)
+    blocks := createBlocks(1, 1, true)
     gasLimit := GetBlockRollupGasUsage(blocks[0]) + RollupBlockGasBuffer + MinTxGas
 
     blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Minute * 1, gasLimit, 2)
@@ -205,7 +207,8 @@ func TestBlockLessThanMaxGas(t *testing.T) {
 }
 
 
-// Multiple block submission
+// Multiple block submission tests
+
 func TestMultipleBlockSubmissionMaxTransactions(t *testing.T) {
   blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
   blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Minute * 1, 1_000_000_000, 1)
@@ -213,7 +216,7 @@ func TestMultipleBlockSubmissionMaxTransactions(t *testing.T) {
       t.Fatalf("unable to make test block builder, error: %v", err)
   }
 
-  blocks := createBlocks(2, 1)
+  blocks := createBlocks(2, 1, true)
   blockBuilder.NewBlock(blocks[0])
   blockBuilder.NewBlock(blocks[1])
 
@@ -221,6 +224,7 @@ func TestMultipleBlockSubmissionMaxTransactions(t *testing.T) {
   select {
   case rollupBlock := <-blockSubmitCh:
       assertTransitionFromBlock(t, rollupBlock.transitions[0], blocks[0])
+      time.Sleep(time.Microsecond * 10)
       if len(blockSubmitter.submittedBlocks) != 2 {
           t.Fatal("Expected 2 block to have been submitted", "numSubmitted", len(blockSubmitter.submittedBlocks))
       }
@@ -238,7 +242,7 @@ func TestMultipleBlocksLessThanMaxTransactions(t *testing.T) {
         t.Fatalf("unable to make test block builder, error: %v", err)
     }
 
-    blocks := createBlocks(2, 1)
+    blocks := createBlocks(2, 1, true)
     blockBuilder.NewBlock(blocks[0])
     blockBuilder.NewBlock(blocks[1])
 
@@ -254,7 +258,7 @@ func TestMultipleBlocksLessThanMaxTransactions(t *testing.T) {
 func TestMultipleBlockSubmissionMaxGas(t *testing.T) {
     blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
 
-    blocks := createBlocks(2, 1)
+    blocks := createBlocks(2, 1, true)
     gasLimit := GetBlockRollupGasUsage(blocks[0]) + RollupBlockGasBuffer
 
     blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Minute * 1, gasLimit, 3)
@@ -269,6 +273,7 @@ func TestMultipleBlockSubmissionMaxGas(t *testing.T) {
     select {
     case rollupBlock := <-blockSubmitCh:
         assertTransitionFromBlock(t, rollupBlock.transitions[0], blocks[0])
+        time.Sleep(time.Microsecond * 10)
         if len(blockSubmitter.submittedBlocks) != 2 {
             t.Fatal("Expected 2 block to have been submitted", "numSubmitted", len(blockSubmitter.submittedBlocks))
         }
@@ -282,7 +287,7 @@ func TestMultipleBlockSubmissionMaxGas(t *testing.T) {
 func TestMultipleBlocksLessThanMaxGas(t *testing.T) {
     blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
 
-    blocks := createBlocks(2, 1)
+    blocks := createBlocks(2, 1, true)
     gasLimit := 2*(GetBlockRollupGasUsage(blocks[0]) + RollupBlockGasBuffer + MinTxGas)
 
     blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Minute * 1, gasLimit, 3)
@@ -299,5 +304,128 @@ func TestMultipleBlocksLessThanMaxGas(t *testing.T) {
         t.Fatalf("should not have submitted a block")
     case <-timeout:
         return
+    }
+}
+
+// Empty block tests
+
+func TestEmptyBlocksIgnored(t *testing.T) {
+    blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
+    blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Minute * 1, 1_000_000_000, 1)
+    if err != nil {
+        t.Fatalf("unable to make test block builder, error: %v", err)
+    }
+
+    blocks := createBlocks(2, 1, false)
+    blockBuilder.NewBlock(blocks[0])
+    blockBuilder.NewBlock(blocks[1])
+
+    timeout := time.After(timeoutDuration)
+    select {
+    case <-blockSubmitCh:
+        t.Fatalf("should not have submitted a block")
+    case <-timeout:
+        return
+    }
+}
+
+func TestEmptyBlocksIgnoredWithNonEmpty(t *testing.T) {
+    blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
+
+    blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Minute * 1, 1_000_000_000, 1)
+    if err != nil {
+        t.Fatalf("unable to make test block builder, error: %v", err)
+    }
+
+    emptyBlocks := createBlocks(2, 1, false)
+
+    blockBuilder.NewBlock(emptyBlocks[0])
+    blockBuilder.NewBlock(emptyBlocks[1])
+
+    nonEmpty :=createBlocks(1, 3, true)[0]
+    blockBuilder.NewBlock(nonEmpty)
+
+    timeout := time.After(timeoutDuration)
+    select {
+    case rollupBlock := <-blockSubmitCh:
+        assertTransitionFromBlock(t, rollupBlock.transitions[0], nonEmpty)
+        if len(blockSubmitter.submittedBlocks) > 1 {
+            t.Fatal("Expected 1 block to have been submitted", "numSubmitted", len(blockSubmitter.submittedBlocks))
+        }
+        return
+    case <-timeout:
+        t.Fatalf("test timeout")
+    }
+}
+
+// timer submission
+
+func TestBlockSubmissionMaxTimeBetweenBlocks(t *testing.T) {
+    blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
+    blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Microsecond * 1, 1_000_000_000, 10)
+    if err != nil {
+        t.Fatalf("unable to make test block builder, error: %v", err)
+    }
+
+    blocks := createBlocks(2, 1, true)
+    blockBuilder.NewBlock(blocks[0])
+    blockBuilder.NewBlock(blocks[1])
+
+    timeout := time.After(timeoutDuration)
+    select {
+    case rollupBlock := <-blockSubmitCh:
+        assertTransitionFromBlock(t, rollupBlock.transitions[0], blocks[0])
+        time.Sleep(time.Microsecond * 10)
+        if len(blockSubmitter.submittedBlocks) != 2 && len(rollupBlock.transitions) != 2 {
+            t.Fatal("Expected 2 transitions to have been submitted", "blocksSubmitted", len(blockSubmitter.submittedBlocks), "transitionsInFirst", len(rollupBlock.transitions))
+        }
+        var secondTransition *Transition
+        switch true {
+        case len(blockSubmitter.submittedBlocks) == 2:
+            secondTransition = blockSubmitter.submittedBlocks[1].transitions[0]
+        case len(rollupBlock.transitions) == 2:
+            secondTransition = rollupBlock.transitions[1]
+        }
+        assertTransitionFromBlock(t, secondTransition, blocks[1])
+        return
+    case <-timeout:
+        t.Fatalf("test timeout")
+    }
+}
+
+
+func TestBlockSubmissionMaxTimeBetweenBlocksReset(t *testing.T) {
+    blockSubmitCh, blockStore, blockSubmitter := getSubmitChBlockStoreAndSubmitter()
+    blockBuilder, err := newTestBlockBuilder(blockStore, blockSubmitter, 0, time.Microsecond * 1, 1_000_000_000, 10)
+    if err != nil {
+        t.Fatalf("unable to make test block builder, error: %v", err)
+    }
+
+    blocks := createBlocks(2, 1, true)
+    blockBuilder.NewBlock(blocks[0])
+
+    timeout := time.After(timeoutDuration)
+    select {
+    case rollupBlock := <-blockSubmitCh:
+        assertTransitionFromBlock(t, rollupBlock.transitions[0], blocks[0])
+        if len(blockSubmitter.submittedBlocks) != 1{
+            t.Fatal("Expected 1 block to have been submitted", "blocksSubmitted", len(blockSubmitter.submittedBlocks))
+        }
+        return
+    case <-timeout:
+        t.Fatalf("test timeout")
+    }
+
+    blockBuilder.NewBlock(blocks[1])
+
+    select {
+    case rollupBlock := <-blockSubmitCh:
+        assertTransitionFromBlock(t, rollupBlock.transitions[0], blocks[1])
+        if len(blockSubmitter.submittedBlocks) != 2{
+            t.Fatal("Expected 2 blocks to have been submitted", "blocksSubmitted", len(blockSubmitter.submittedBlocks))
+        }
+        return
+    case <-timeout:
+        t.Fatalf("test timeout")
     }
 }
