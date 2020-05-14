@@ -497,7 +497,7 @@ func testCheckpointChallenge(t *testing.T, syncmode downloader.SyncMode, checkpo
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
 	blockSubmitter := rollup.NewBlockSubmitter()
-	rollupBlockBuilder, err := rollup.NewRollupBlockBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
+	rollupBlockBuilder, err := rollup.NewTransitionBatchBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
 	if err != nil {
 		t.Fatalf("failed to create Rollup Block Builder: %v", err)
 	}
@@ -589,7 +589,7 @@ func testBroadcastBlock(t *testing.T, totalPeers, broadcastExpected int) {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
 	blockSubmitter := rollup.NewBlockSubmitter()
-	rollupBlockBuilder, err := rollup.NewRollupBlockBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
+	rollupBlockBuilder, err := rollup.NewTransitionBatchBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
 	if err != nil {
 		t.Fatalf("failed to create Rollup Block Builder: %v", err)
 	}
@@ -662,7 +662,7 @@ func TestBroadcastMalformedBlock(t *testing.T) {
 		t.Fatalf("failed to create new blockchain: %v", err)
 	}
 	blockSubmitter := rollup.NewBlockSubmitter()
-	rollupBlockBuilder, err := rollup.NewRollupBlockBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
+	rollupBlockBuilder, err := rollup.NewTransitionBatchBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
 	if err != nil {
 		t.Fatalf("failed to create Rollup Block Builder: %v", err)
 	}

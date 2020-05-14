@@ -184,8 +184,8 @@ func TestForkIDSplit(t *testing.T) {
 		blockSubmitterNoFork = rollup.NewBlockSubmitter()
 		blockSubmitterProFork = rollup.NewBlockSubmitter()
 
-		rollupBlockBuilderNoFork, _ = rollup.NewRollupBlockBuilder(dbNoFork, chainNoFork, blockSubmitterNoFork, 5 * time.Minute, 9_000_000_000, 200)
-		rollupBlockBuilderProFork, _ = rollup.NewRollupBlockBuilder(dbProFork, chainProFork, blockSubmitterProFork, 5 * time.Minute, 9_000_000_000, 200)
+		rollupBlockBuilderNoFork, _ = rollup.NewTransitionBatchBuilder(dbNoFork, chainNoFork, blockSubmitterNoFork, 5 * time.Minute, 9_000_000_000, 200)
+		rollupBlockBuilderProFork, _ = rollup.NewTransitionBatchBuilder(dbProFork, chainProFork, blockSubmitterProFork, 5 * time.Minute, 9_000_000_000, 200)
 
 		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil, rollupBlockBuilderNoFork)
 		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil, rollupBlockBuilderProFork)

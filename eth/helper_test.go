@@ -71,7 +71,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 		panic(err)
 	}
 	blockSubmitter := rollup.NewBlockSubmitter()
-	rollupBlockBuilder, err := rollup.NewRollupBlockBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
+	rollupBlockBuilder, err := rollup.NewTransitionBatchBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
 	if err != nil {
 		panic(fmt.Errorf("failed to create Rollup Block Builder: %v", err)
 	}
