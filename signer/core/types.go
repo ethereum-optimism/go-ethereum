@@ -69,6 +69,7 @@ func (v *ValidationMessages) getWarnings() error {
 type SendTxArgs struct {
 	From     common.MixedcaseAddress  `json:"from"`
 	To       *common.MixedcaseAddress `json:"to"`
+	L1MessageSender       *common.MixedcaseAddress `json:"l1MessageSender"`
 	Gas      hexutil.Uint64           `json:"gas"`
 	GasPrice hexutil.Big              `json:"gasPrice"`
 	Value    hexutil.Big              `json:"value"`
@@ -96,5 +97,6 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
 		return types.NewContractCreation(uint64(args.Nonce), (*big.Int)(&args.Value), uint64(args.Gas), (*big.Int)(&args.GasPrice), input)
 	}
-	return types.NewTransaction(uint64(args.Nonce), args.To.Address(), (*big.Int)(&args.Value), (uint64)(args.Gas), (*big.Int)(&args.GasPrice), input)
+	l1MessageSender := args.L1MessageSender.Address()
+	return types.NewTransaction(uint64(args.Nonce), args.To.Address(), (*big.Int)(&args.Value), (uint64)(args.Gas), (*big.Int)(&args.GasPrice), input, &l1MessageSender)
 }

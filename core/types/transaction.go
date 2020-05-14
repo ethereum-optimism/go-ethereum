@@ -50,6 +50,7 @@ type txdata struct {
 	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
+	L1MessageSender *common.Address `json:"l1MessageSender" rlp:"nil"`
 
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
@@ -71,21 +72,28 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
+func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address) *Transaction {
+	if l1MessageSender == nil {
+		return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, nil)
+	} else {
+		sender := new(common.Address)
+		*sender = *l1MessageSender
+		return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, sender)
+	}
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, nil)
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
 	d := txdata{
 		AccountNonce: nonce,
 		Recipient:    to,
+		L1MessageSender:    l1MessageSender,
 		Payload:      data,
 		Amount:       new(big.Int),
 		GasLimit:     gasLimit,
@@ -189,6 +197,16 @@ func (tx *Transaction) To() *common.Address {
 	return &to
 }
 
+// L1MessageSender returns the L1 message sender address of the transaction if one exists.
+// It returns nil if this transaction was not from an L1 contract..
+func (tx *Transaction) L1MessageSender() *common.Address {
+	if tx.data.L1MessageSender == nil {
+		return nil
+	}
+	l1MessagSender := *tx.data.L1MessageSender
+	return &l1MessagSender
+}
+
 // Hash hashes the RLP encoding of tx.
 // It uniquely identifies the transaction.
 func (tx *Transaction) Hash() common.Hash {
@@ -223,6 +241,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		gasLimit:   tx.data.GasLimit,
 		gasPrice:   new(big.Int).Set(tx.data.Price),
 		to:         tx.data.Recipient,
+		l1MessageSender:         tx.data.L1MessageSender,
 		amount:     tx.data.Amount,
 		data:       tx.data.Payload,
 		checkNonce: true,
@@ -387,6 +406,7 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 // NOTE: In a future PR this will be removed.
 type Message struct {
 	to         *common.Address
+	l1MessageSender         *common.Address
 	from       common.Address
 	nonce      uint64
 	amount     *big.Int
@@ -396,7 +416,7 @@ type Message struct {
 	checkNonce bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address) Message {
 	return Message{
 		from:       from,
 		to:         to,
@@ -411,6 +431,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 
 func (m Message) From() common.Address { return m.from }
 func (m Message) To() *common.Address  { return m.to }
+func (m Message) L1MessageSender() *common.Address  { return m.l1MessageSender }
 func (m Message) GasPrice() *big.Int   { return m.gasPrice }
 func (m Message) Value() *big.Int      { return m.amount }
 func (m Message) Gas() uint64          { return m.gasLimit }
