@@ -69,7 +69,6 @@ func (v *ValidationMessages) getWarnings() error {
 type SendTxArgs struct {
 	From     common.MixedcaseAddress  `json:"from"`
 	To       *common.MixedcaseAddress `json:"to"`
-	L1MessageSender       *common.MixedcaseAddress `json:"l1MessageSender"`
 	Gas      hexutil.Uint64           `json:"gas"`
 	GasPrice hexutil.Big              `json:"gasPrice"`
 	Value    hexutil.Big              `json:"value"`
@@ -77,6 +76,7 @@ type SendTxArgs struct {
 	// We accept "data" and "input" for backwards-compatibility reasons.
 	Data  *hexutil.Bytes `json:"data"`
 	Input *hexutil.Bytes `json:"input,omitempty"`
+	L1MessageSender       *common.MixedcaseAddress `json:"l1MessageSender,omitempty" rlp:"nil,?"`
 }
 
 func (args SendTxArgs) String() string {

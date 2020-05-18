@@ -50,7 +50,6 @@ type txdata struct {
 	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
-	L1MessageSender *common.Address `json:"l1MessageSender" rlp:"nil"`
 
 	// Signature values
 	V *big.Int `json:"v" gencodec:"required"`
@@ -59,6 +58,7 @@ type txdata struct {
 
 	// This is only used when marshaling to JSON.
 	Hash *common.Hash `json:"hash" rlp:"-"`
+	L1MessageSender *common.Address `json:"l1MessageSender,omitempty" rlp:"nil,?"`
 }
 
 type txdataMarshaling struct {
@@ -213,7 +213,17 @@ func (tx *Transaction) Hash() common.Hash {
 	if hash := tx.hash.Load(); hash != nil {
 		return hash.(common.Hash)
 	}
+
+	var sender *common.Address
+	if tx != nil {
+		sender = tx.data.L1MessageSender
+		tx.data.L1MessageSender = nil
+	}
 	v := rlpHash(tx)
+
+	if tx != nil {
+		tx.data.L1MessageSender = sender
+	}
 	tx.hash.Store(v)
 	return v
 }
