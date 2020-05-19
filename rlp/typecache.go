@@ -210,6 +210,8 @@ func (i *typeinfo) generate(typ reflect.Type, tags tags) {
 	}
 }
 
+// wrapDecoderToAccountForOmitted handles decoding nullable types that are omitted when empty.
+// If omitted, this decoder will set the value to nil.
 func wrapDecoderToAccountForOmitted(typ reflect.Type, decoder decoder) (decoder, error) {
 	nilPtr := reflect.Zero(typ)
 	return func(s *Stream, val reflect.Value) (err error) {
@@ -221,6 +223,8 @@ func wrapDecoderToAccountForOmitted(typ reflect.Type, decoder decoder) (decoder,
 	}, nil
 }
 
+// wrapWriterToAccountForOmitted handles writing nullable types that are omitted when empty.
+// If omitted, this writer omit it from the encoded buffer.
 func wrapWriterToAccountForOmitted(writer writer) (writer, error) {
 	return func(val reflect.Value, w *encbuf) (err error) {
 		if val.IsNil() {
