@@ -1361,7 +1361,6 @@ func (s *PublicTransactionPoolAPI) sign(addr common.Address, tx *types.Transacti
 type SendTxArgs struct {
 	From     common.Address  `json:"from"`
 	To       *common.Address `json:"to"`
-	L1MessageSender       *common.Address `json:"l1MessageSender"`
 	Gas      *hexutil.Uint64 `json:"gas"`
 	GasPrice *hexutil.Big    `json:"gasPrice"`
 	Value    *hexutil.Big    `json:"value"`
@@ -1370,6 +1369,7 @@ type SendTxArgs struct {
 	// newer name and should be preferred by clients.
 	Data  *hexutil.Bytes `json:"data"`
 	Input *hexutil.Bytes `json:"input"`
+	L1MessageSender       *common.Address `json:"l1MessageSender,omitempty" rlp:"nil,?"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
