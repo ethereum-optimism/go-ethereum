@@ -220,7 +220,7 @@ func TestTransactionJSON(t *testing.T) {
 		if tx.ChainId().Cmp(parsedTx.ChainId()) != 0 {
 			t.Errorf("invalid chain id, want %d, got %d", tx.ChainId(), parsedTx.ChainId())
 		}
-		if tx.L1MessageSender() != nil && parsedTx.L1MessageSender() != nil && *tx.L1MessageSender() != *parsedTx.L1MessageSender() {
+		if tx.L1MessageSender() == nil && parsedTx.L1MessageSender() != nil || tx.L1MessageSender() != nil && parsedTx.L1MessageSender() == nil || (tx.L1MessageSender() != nil && parsedTx.L1MessageSender() != nil && *tx.L1MessageSender() != *parsedTx.L1MessageSender()) {
 			t.Errorf("invalid L1MessageSender, want %x, got %x", tx.L1MessageSender(), parsedTx.L1MessageSender())
 		}
 	}
