@@ -198,7 +198,7 @@ func (tx *Transaction) To() *common.Address {
 }
 
 // L1MessageSender returns the L1 message sender address of the transaction if one exists.
-// It returns nil if this transaction was not from an L1 contract..
+// It returns nil if this transaction was not from an L1 contract.
 func (tx *Transaction) L1MessageSender() *common.Address {
 	if tx.data.L1MessageSender == nil {
 		return nil
