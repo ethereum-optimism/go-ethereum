@@ -223,10 +223,10 @@ func wrapDecoderToAccountForOmitted(typ reflect.Type, decoder decoder) (decoder,
 
 func wrapWriterToAccountForOmitted(writer writer) (writer, error) {
 	return func (val reflect.Value, w *encbuf) (err error) {
-		//if val.IsNil() {
-		//	// Omit if nil
-		//	return nil
-		//}
+		if val.IsNil() {
+			// Omit if nil
+			return nil
+		}
 		return writer(val, w)
 	}, nil
 }
