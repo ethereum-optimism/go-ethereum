@@ -73,7 +73,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 	blockSubmitter := rollup.NewBlockSubmitter()
 	rollupBlockBuilder, err := rollup.NewTransitionBatchBuilder(db, blockchain, blockSubmitter, 5 * time.Minute, 9_000_000_000, 200)
 	if err != nil {
-		panic(fmt.Errorf("failed to create Rollup Block Builder: %v", err)
+		panic(fmt.Errorf("failed to create Rollup Block Builder: %v", err))
 	}
 	pm, err := NewProtocolManager(gspec.Config, nil, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db, 1, nil, rollupBlockBuilder)
 	if err != nil {
