@@ -73,13 +73,7 @@ type txdataMarshaling struct {
 }
 
 func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address) *Transaction {
-	if l1MessageSender == nil {
-		return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, nil)
-	} else {
-		sender := new(common.Address)
-		*sender = *l1MessageSender
-		return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, sender)
-	}
+	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, l1MessageSender)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
