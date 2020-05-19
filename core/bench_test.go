@@ -119,7 +119,7 @@ func genTxRing(naccounts int) func(int, *BlockGen) {
 				break
 			}
 			to := (from + 1) % naccounts
-			tx := types.NewTransaction(gen.TxNonce(ringAddrs[from]), ringAddrs[to], benchRootFunds, params.TxGas, nil, nil, nil, )
+			tx := types.NewTransaction(gen.TxNonce(ringAddrs[from]), ringAddrs[to], benchRootFunds, params.TxGas, nil, nil, nil)
 			tx, _ = types.SignTx(tx, types.HomesteadSigner{}, ringKeys[from])
 			gen.AddTx(tx)
 			from = to

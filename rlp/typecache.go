@@ -213,7 +213,7 @@ func (i *typeinfo) generate(typ reflect.Type, tags tags) {
 func wrapDecoderToAccountForOmitted(typ reflect.Type, decoder decoder) (decoder, error) {
 	nilPtr := reflect.Zero(typ)
 	return func(s *Stream, val reflect.Value) (err error) {
-		if err = decoder(s, val); err != nil && err== EOL {
+		if err = decoder(s, val); err != nil && err == EOL {
 			val.Set(nilPtr)
 			return nil
 		}
@@ -222,7 +222,7 @@ func wrapDecoderToAccountForOmitted(typ reflect.Type, decoder decoder) (decoder,
 }
 
 func wrapWriterToAccountForOmitted(writer writer) (writer, error) {
-	return func (val reflect.Value, w *encbuf) (err error) {
+	return func(val reflect.Value, w *encbuf) (err error) {
 		if val.IsNil() {
 			// Omit if nil
 			return nil

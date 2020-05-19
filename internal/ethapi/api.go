@@ -1367,9 +1367,9 @@ type SendTxArgs struct {
 	Nonce    *hexutil.Uint64 `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
-	Data  *hexutil.Bytes `json:"data"`
-	Input *hexutil.Bytes `json:"input"`
-	L1MessageSender       *common.Address `json:"l1MessageSender,omitempty" rlp:"nil,?"`
+	Data            *hexutil.Bytes  `json:"data"`
+	Input           *hexutil.Bytes  `json:"input"`
+	L1MessageSender *common.Address `json:"l1MessageSender,omitempty" rlp:"nil,?"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
