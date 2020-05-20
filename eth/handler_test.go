@@ -18,12 +18,13 @@ package eth
 
 import (
 	"fmt"
-	"github.com/ethereum/go-ethereum/rollup"
 	"math"
 	"math/big"
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/rollup"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
