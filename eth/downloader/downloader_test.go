@@ -694,12 +694,10 @@ func testBoundedForkedSync(t *testing.T, protocol int, mode SyncMode) {
 func TestBoundedHeavyForkedSync62(t *testing.T)     { testBoundedHeavyForkedSync(t, 62, FullSync) }
 func TestBoundedHeavyForkedSync63Full(t *testing.T) { testBoundedHeavyForkedSync(t, 63, FullSync) }
 func TestBoundedHeavyForkedSync63Fast(t *testing.T) {
-
 	// TODO: SKIPPING
 	t.Skip("This test fails on the last pre-fork commit. It may be OS X related")
 
 	testBoundedHeavyForkedSync(t, 63, FastSync)
-
 }
 func TestBoundedHeavyForkedSync64Full(t *testing.T)  { testBoundedHeavyForkedSync(t, 64, FullSync) }
 func TestBoundedHeavyForkedSync64Fast(t *testing.T)  { testBoundedHeavyForkedSync(t, 64, FastSync) }
