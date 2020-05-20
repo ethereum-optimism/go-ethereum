@@ -20,6 +20,17 @@ var (
 	LastProcessedDBKey         = []byte("lastProcessedRollupBlock")
 )
 
+type RollupTransitionBatchBuilder interface {
+	Stop()
+	NewBlock(block *types.Block)
+}
+
+type DummyBatchBuilder struct{}
+
+func NewDummyBatchBuilder() *DummyBatchBuilder           { return &DummyBatchBuilder{} }
+func (d *DummyBatchBuilder) Stop()                       {}
+func (d *DummyBatchBuilder) NewBlock(block *types.Block) {}
+
 type ActiveBatch struct {
 	firstBlockNumber uint64
 	lastBlockNumber  uint64
