@@ -7,7 +7,7 @@ jobs:
     - stage: lint
       os: linux
       dist: xenial
-      go: 1.13.x
+      go: 1.14.x
       env:
         - lint
       git:
@@ -15,32 +15,32 @@ jobs:
       script:
         - go run build/ci.go lint
 
-    - stage: build
-      os: linux
-      dist: xenial
-      go: 1.11.x
-      env:
-        - GO111MODULE=on
-      script:
-        - go run build/ci.go install
-        - go run build/ci.go test -coverage $TEST_PACKAGES
-
-    - stage: build
-      os: linux
-      dist: xenial
-      go: 1.12.x
-      env:
-        - GO111MODULE=on
-      script:
-        - go run build/ci.go install
-        - go run build/ci.go test -coverage $TEST_PACKAGES
+#    - stage: build
+#      os: linux
+#      dist: xenial
+#      go: 1.11.x
+#      env:
+#        - GO111MODULE=on
+#      script:
+#        - go run build/ci.go install
+#        - go run build/ci.go test -coverage $TEST_PACKAGES
+#
+#    - stage: build
+#      os: linux
+#      dist: xenial
+#      go: 1.12.x
+#      env:
+#        - GO111MODULE=on
+#      script:
+#        - go run build/ci.go install
+#        - go run build/ci.go test -coverage $TEST_PACKAGES
 
     # These are the latest Go versions.
     - stage: build
       os: linux
       arch: amd64
       dist: xenial
-      go: 1.13.x
+      go: 1.14.x
       script:
         - go run build/ci.go install
         - go run build/ci.go test -coverage $TEST_PACKAGES
@@ -50,7 +50,7 @@ jobs:
       os: linux
       arch: arm64
       dist: xenial
-      go: 1.13.x
+      go: 1.14.x
       script:
         - go run build/ci.go install
         - go run build/ci.go test -coverage $TEST_PACKAGES
@@ -58,7 +58,7 @@ jobs:
     - stage: build
       os: osx
       osx_image: xcode11.3
-      go: 1.13.x
+      go: 1.14.x
       script:
         - echo "Increase the maximum number of open file descriptors on macOS"
         - NOFILE=20480
@@ -77,7 +77,7 @@ jobs:
       if: type = push
       os: linux
       dist: xenial
-      go: 1.13.x
+      go: 1.14.x
       env:
         - ubuntu-ppa
       git:
@@ -101,7 +101,7 @@ jobs:
       os: linux
       dist: xenial
       sudo: required
-      go: 1.13.x
+      go: 1.14.x
       env:
         - azure-linux
       git:
@@ -137,7 +137,7 @@ jobs:
       dist: xenial
       services:
         - docker
-      go: 1.13.x
+      go: 1.14.x
       env:
         - azure-linux-mips
       git:
@@ -160,82 +160,82 @@ jobs:
         - go run build/ci.go archive -arch mips64le -type tar -signer LINUX_SIGNING_KEY -upload gethstore/builds
 
     # This builder does the Android Maven and Azure uploads
-    - stage: build
-      if: type = push
-      os: linux
-      dist: xenial
-      addons:
-        apt:
-          packages:
-            - oracle-java8-installer
-            - oracle-java8-set-default
-      language: android
-      android:
-        components:
-          - platform-tools
-          - tools
-          - android-15
-          - android-19
-          - android-24
-      env:
-        - azure-android
-        - maven-android
-      git:
-        submodules: false # avoid cloning ethereum/tests
-      before_install:
-        - curl https://dl.google.com/go/go1.13.6.linux-amd64.tar.gz | tar -xz
-        - export PATH=`pwd`/go/bin:$PATH
-        - export GOROOT=`pwd`/go
-        - export GOPATH=$HOME/go
-      script:
-        # Build the Android archive and upload it to Maven Central and Azure
-        - curl https://dl.google.com/android/repository/android-ndk-r19b-linux-x86_64.zip -o android-ndk-r19b.zip
-        - unzip -q android-ndk-r19b.zip && rm android-ndk-r19b.zip
-        - mv android-ndk-r19b $ANDROID_HOME/ndk-bundle
+#    - stage: build
+#      if: type = push
+#      os: linux
+#      dist: xenial
+#      addons:
+#        apt:
+#          packages:
+#            - oracle-java8-installer
+#            - oracle-java8-set-default
+#      language: android
+#      android:
+#        components:
+#          - platform-tools
+#          - tools
+#          - android-15
+#          - android-19
+#          - android-24
+#      env:
+#        - azure-android
+#        - maven-android
+#      git:
+#        submodules: false # avoid cloning ethereum/tests
+#      before_install:
+#        - curl https://dl.google.com/go/go1.13.6.linux-amd64.tar.gz | tar -xz
+#        - export PATH=`pwd`/go/bin:$PATH
+#        - export GOROOT=`pwd`/go
+#        - export GOPATH=$HOME/go
+#      script:
+#        # Build the Android archive and upload it to Maven Central and Azure
+#        - curl https://dl.google.com/android/repository/android-ndk-r19b-linux-x86_64.zip -o android-ndk-r19b.zip
+#        - unzip -q android-ndk-r19b.zip && rm android-ndk-r19b.zip
+#        - mv android-ndk-r19b $ANDROID_HOME/ndk-bundle
+#
+#        - mkdir -p $GOPATH/src/github.com/ethereum
+#        - ln -s `pwd` $GOPATH/src/github.com/ethereum/go-ethereum
+#        - go run build/ci.go aar -signer ANDROID_SIGNING_KEY -deploy https://oss.sonatype.org -upload gethstore/builds
 
-        - mkdir -p $GOPATH/src/github.com/ethereum
-        - ln -s `pwd` $GOPATH/src/github.com/ethereum/go-ethereum
-        - go run build/ci.go aar -signer ANDROID_SIGNING_KEY -deploy https://oss.sonatype.org -upload gethstore/builds
-
-    # This builder does the OSX Azure, iOS CocoaPods and iOS Azure uploads
-    - stage: build
-      if: type = push
-      os: osx
-      go: 1.13.x
-      env:
-        - azure-osx
-        - azure-ios
-        - cocoapods-ios
-      git:
-        submodules: false # avoid cloning ethereum/tests
-      script:
-        - go run build/ci.go install
-        - go run build/ci.go archive -type tar -signer OSX_SIGNING_KEY -upload gethstore/builds
-
-        # Build the iOS framework and upload it to CocoaPods and Azure
-        - gem uninstall cocoapods -a -x
-        - gem install cocoapods
-
-        - mv ~/.cocoapods/repos/master ~/.cocoapods/repos/master.bak
-        - sed -i '.bak' 's/repo.join/!repo.join/g' $(dirname `gem which cocoapods`)/cocoapods/sources_manager.rb
-        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then git clone --depth=1 https://github.com/CocoaPods/Specs.git ~/.cocoapods/repos/master && pod setup --verbose; fi
-
-        - xctool -version
-        - xcrun simctl list
-
-        # Workaround for https://github.com/golang/go/issues/23749
-        - export CGO_CFLAGS_ALLOW='-fmodules|-fblocks|-fobjc-arc'
-        - go run build/ci.go xcode -signer IOS_SIGNING_KEY -deploy trunk -upload gethstore/builds
-
-    # This builder does the Azure archive purges to avoid accumulating junk
-    - stage: build
-      if: type = cron
-      os: linux
-      dist: xenial
-      go: 1.13.x
-      env:
-        - azure-purge
-      git:
-        submodules: false # avoid cloning ethereum/tests
-      script:
-        - go run build/ci.go purge -store gethstore/builds -days 14
+#    # This builder does the OSX Azure, iOS CocoaPods and iOS Azure uploads
+#    - stage: build
+#      if: type = push
+#      os: osx
+#      go: 1.14.x
+#      env:
+#        - azure-osx
+#        - azure-ios
+#        - cocoapods-ios
+#      git:
+#        submodules: false # avoid cloning ethereum/tests
+#      script:
+#        - go run build/ci.go install
+#        - go run build/ci.go archive -type tar -signer OSX_SIGNING_KEY -upload gethstore/builds
+#
+#        # Build the iOS framework and upload it to CocoaPods and Azure
+#        - gem uninstall cocoapods -a -x
+#        - gem install cocoapods
+#
+#        - mv ~/.cocoapods/repos/master ~/.cocoapods/repos/master.bak
+#        - sed -i '.bak' 's/repo.join/!repo.join/g' $(dirname `gem which cocoapods`)/cocoapods/sources_manager.rb
+#        - if [ "$TRAVIS_PULL_REQUEST" = "false" ]; then git clone --depth=1 https://github.com/CocoaPods/Specs.git ~/.cocoapods/repos/master && pod setup --verbose; fi
+#
+#        - xctool -version
+#        - xcrun simctl list
+#
+#        # Workaround for https://github.com/golang/go/issues/23749
+#        - export CGO_CFLAGS_ALLOW='-fmodules|-fblocks|-fobjc-arc'
+#        - go run build/ci.go xcode -signer IOS_SIGNING_KEY -deploy trunk -upload gethstore/builds
+#
+#    # This builder does the Azure archive purges to avoid accumulating junk
+#    - stage: build
+#      if: type = cron
+#      os: linux
+#      dist: xenial
+#      go: 1.14.x
+#      env:
+#        - azure-purge
+#      git:
+#        submodules: false # avoid cloning ethereum/tests
+#      script:
+#        - go run build/ci.go purge -store gethstore/builds -days 14
