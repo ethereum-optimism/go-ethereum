@@ -153,7 +153,7 @@ func (b *TransitionBatchBuilder) buildLoop(maxBlockTime time.Duration) {
 		case <-timer.C:
 			if lastProcessed != b.lastProcessedBlockNumber && b.activeBatch.firstBlockNumber != 0 {
 				if _, err := b.buildRollupBlock(true); err != nil {
-					panic(fmt.Errorf("error buidling block: %v", err))
+					panic(fmt.Errorf("error building block: %v", err))
 				}
 			}
 

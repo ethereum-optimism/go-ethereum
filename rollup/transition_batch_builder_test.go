@@ -14,13 +14,10 @@ import (
 var (
 	timeoutDuration = time.Millisecond * 100
 
-	testTxPoolConfig  core.TxPoolConfig
 	cliqueChainConfig *params.ChainConfig
 
 	// Test accounts
 	testBankKey, _  = crypto.GenerateKey()
-	testBankAddress = crypto.PubkeyToAddress(testBankKey.PublicKey)
-	testBankFunds   = big.NewInt(1000000000000000000)
 
 	testUserKey, _  = crypto.GenerateKey()
 	testUserAddress = crypto.PubkeyToAddress(testUserKey.PublicKey)
