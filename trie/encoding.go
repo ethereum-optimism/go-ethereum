@@ -16,6 +16,8 @@
 
 package trie
 
+import "fmt"
+
 // Trie keys are dealt with in three distinct encodings:
 //
 // KEYBYTES encoding contains the actual key and nothing else. This encoding is the
@@ -36,7 +38,7 @@ package trie
 
 func hexToCompact(hex []byte) []byte {
 	terminator := byte(0)
-	if hasTerm(hex) {
+	if hasBinTerm(hex) {
 		terminator = 1
 		hex = hex[:len(hex)-1]
 	}
@@ -73,6 +75,7 @@ func keybytesToHex(str []byte) []byte {
 		nibbles[i*2+1] = b % 16
 	}
 	nibbles[l-1] = 16
+	//println(fmt.Sprintf("key bytes to hex. Start: %x, End: %x", str, nibbles))
 	return nibbles
 }
 
@@ -88,6 +91,68 @@ func hexToKeybytes(hex []byte) []byte {
 	key := make([]byte, len(hex)/2)
 	decodeNibbles(hex, key)
 	return key
+}
+
+// Converts a []byte key with hex granularity (4 unused bits + 4 used bits)
+// to a []byte key with bit granularity (7 unused bits + 1 used bit).
+func hexKeyBytesToBinary(hexKey []byte) (bitKey []byte) {
+	length := len(hexKey) * 4
+	if hasTerm(hexKey) {
+		length -= 3
+	}
+	if hexKey == nil || len(hexKey) == 0 {
+		ret := make([]byte, 1)
+		ret[0] = binTerminator
+		return ret
+	}
+
+	bitKey = make([]byte, length)
+
+
+	for bite := 0; bite < length / 4; bite++ {
+		for bit := 0; bit < 4; bit++ {
+			// set right-most bit to 0 or 1 based whether the bit index of hexKey[bite] is set
+			bitKey[(bite * 4) + bit] = (hexKey[bite] & uint8(8 >> bit)) >> (3-bit)
+		}
+	}
+
+	if length % 2 != 0 {
+		bitKey[len(bitKey) -1] = binTerminator
+	}
+	// println(fmt.Sprintf("hex key bytes to bin. Start: %x, End: %x, length: %d", hexKey, bitKey, length))
+
+	return bitKey
+}
+
+// Converts a []byte key with bit granularity (max of one bit per byte set) to the half-packed bytes
+// representing the hex-encoded version of the key.
+func binaryToHexKeyBytes(bitKey []byte) (hexKey []byte) {
+
+	if hasBinTerm(bitKey) {
+		bitKey = bitKey[:len(bitKey)-1]
+	}
+	if bitKey == nil || len(bitKey) == 0 {
+		return make([]byte, 0)
+	}
+	if len(bitKey) % 4 != 0 {
+		panic(fmt.Sprintf("can't convert binary key of length %d to hex. Key: %x", len(bitKey), bitKey))
+	}
+
+	hexKey = make([]byte, len(bitKey) / 4 + 1)
+
+	nibbleInt := uint8(0)
+	for bit := 0; bit < len(bitKey) - 1; bit++ {
+		nibbleBit := bit % 4
+		if nibbleBit == 0 && bit != 0 {
+			hexKey[(bit / 4) - 1] = nibbleInt
+			nibbleInt = 0
+		}
+		nibbleInt += uint8(2^nibbleBit) * bitKey[bit]
+	}
+	hexKey[len(hexKey) - 2] = nibbleInt
+	hexKey[len(hexKey) - 1] = terminator
+
+	return hexKey
 }
 
 func decodeNibbles(nibbles []byte, bytes []byte) {
@@ -110,7 +175,14 @@ func prefixLen(a, b []byte) int {
 	return i
 }
 
+const terminator = 16
 // hasTerm returns whether a hex key has the terminator flag.
 func hasTerm(s []byte) bool {
-	return len(s) > 0 && s[len(s)-1] == 16
+	return len(s) > 0 && s[len(s)-1] == terminator
+}
+
+const binTerminator = 2
+// hasTerm returns whether a hex key has the terminator flag.
+func hasBinTerm(s []byte) bool {
+	return len(s) > 0 && s[len(s)-1] == binTerminator
 }

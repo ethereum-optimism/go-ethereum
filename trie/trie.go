@@ -97,8 +97,8 @@ func (t *Trie) Get(key []byte) []byte {
 // The value bytes must not be modified by the caller.
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *Trie) TryGet(key []byte) ([]byte, error) {
-	key = keybytesToHex(key)
-	value, newroot, didResolve, err := t.tryGet(t.root, key, 0)
+	k := hexKeyBytesToBinary(keybytesToHex(key))
+	value, newroot, didResolve, err := t.tryGet(t.root, k, 0)
 	if err == nil && didResolve {
 		t.root = newroot
 	}
@@ -162,7 +162,8 @@ func (t *Trie) Update(key, value []byte) {
 //
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *Trie) TryUpdate(key, value []byte) error {
-	k := keybytesToHex(key)
+	k := hexKeyBytesToBinary(keybytesToHex(key))
+	// println(fmt.Sprintf("TryUpdate key & value: [ %x , %x ]", k, value))
 	if len(value) != 0 {
 		_, n, err := t.insert(t.root, nil, k, valueNode(value))
 		if err != nil {
@@ -258,7 +259,7 @@ func (t *Trie) Delete(key []byte) {
 // TryDelete removes any existing value for key from the trie.
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *Trie) TryDelete(key []byte) error {
-	k := keybytesToHex(key)
+	k := hexKeyBytesToBinary(keybytesToHex(key))
 	_, n, err := t.delete(t.root, nil, k)
 	if err != nil {
 		return err
@@ -331,7 +332,7 @@ func (t *Trie) delete(n node, prefix, key []byte) (bool, node, error) {
 			}
 		}
 		if pos >= 0 {
-			if pos != 16 {
+			if pos != 2 {
 				// If the remaining entry is a short node, it replaces
 				// n and its key gets the missing nibble tacked to the
 				// front. This avoids creating an invalid
