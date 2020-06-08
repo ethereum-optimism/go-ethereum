@@ -40,7 +40,6 @@ func TestIterator(t *testing.T) {
 	all := make(map[string]string)
 	for _, val := range vals {
 		all[val.k] = val.v
-		println("\nKey: *", val.k, "*as bytes: ", fmt.Sprintf("%x",[]byte(val.k)))
 		trie.Update([]byte(val.k), []byte(val.v))
 	}
 	trie.Commit(nil)
@@ -77,9 +76,7 @@ func TestIteratorLargeData(t *testing.T) {
 	}
 
 	it := NewIterator(trie.NodeIterator(nil))
-	println("about to iterate")
 	for it.Next() {
-		println(fmt.Sprintf("it.Key: %x, string: %s, vals val: %v", it.Key, string(it.Key), vals[string(it.Key)]))
 		vals[string(it.Key)].t = true
 	}
 

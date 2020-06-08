@@ -16,7 +16,7 @@
 
 package trie
 
-import "fmt"
+import "math"
 
 // Trie keys are dealt with in three distinct encodings:
 //
@@ -38,7 +38,7 @@ import "fmt"
 
 func hexToCompact(hex []byte) []byte {
 	terminator := byte(0)
-	if hasBinTerm(hex) {
+	if hasTerm(hex) {
 		terminator = 1
 		hex = hex[:len(hex)-1]
 	}
@@ -99,6 +99,9 @@ func hexKeyBytesToBinary(hexKey []byte) (bitKey []byte) {
 	length := len(hexKey) * 4
 	if hasTerm(hexKey) {
 		length -= 3
+	} else {
+		// add terminator byte
+		length += 1
 	}
 	if hexKey == nil || len(hexKey) == 0 {
 		ret := make([]byte, 1)
@@ -127,30 +130,35 @@ func hexKeyBytesToBinary(hexKey []byte) (bitKey []byte) {
 // Converts a []byte key with bit granularity (max of one bit per byte set) to the half-packed bytes
 // representing the hex-encoded version of the key.
 func binaryToHexKeyBytes(bitKey []byte) (hexKey []byte) {
-
+	addTerminator := 0
 	if hasBinTerm(bitKey) {
 		bitKey = bitKey[:len(bitKey)-1]
+		addTerminator = 1
 	}
 	if bitKey == nil || len(bitKey) == 0 {
 		return make([]byte, 0)
 	}
-	if len(bitKey) % 4 != 0 {
-		panic(fmt.Sprintf("can't convert binary key of length %d to hex. Key: %x", len(bitKey), bitKey))
-	}
 
-	hexKey = make([]byte, len(bitKey) / 4 + 1)
+	paddingBits := len(bitKey) % 4
+	//if len(bitKey) % 4 != 0 {
+	//	panic(fmt.Sprintf("can't convert binary key of length %d to hex. Key: %x", len(bitKey), bitKey))
+	//}
+	hexKey = make([]byte, len(bitKey) / 4 + paddingBits + 1 * addTerminator)
 
 	nibbleInt := uint8(0)
-	for bit := 0; bit < len(bitKey) - 1; bit++ {
+	for bit := 0; bit < len(bitKey); bit++ {
 		nibbleBit := bit % 4
 		if nibbleBit == 0 && bit != 0 {
 			hexKey[(bit / 4) - 1] = nibbleInt
 			nibbleInt = 0
 		}
-		nibbleInt += uint8(2^nibbleBit) * bitKey[bit]
+		nibbleInt += uint8(math.Pow(2, float64(3-nibbleBit))) * bitKey[bit]
 	}
-	hexKey[len(hexKey) - 2] = nibbleInt
-	hexKey[len(hexKey) - 1] = terminator
+
+	hexKey[len(hexKey) -1 -addTerminator] = nibbleInt
+	if addTerminator > 0 {
+		hexKey[len(hexKey) - 1] = terminator
+	}
 
 	return hexKey
 }
