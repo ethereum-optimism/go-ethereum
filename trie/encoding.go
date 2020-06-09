@@ -74,6 +74,7 @@ func binaryToCompact(bin []byte) []byte {
 	return returnBytes
 }
 
+// Converts from the compact encoding specified above to the binary key format of 1 bit per byte
 func compactToBinary(compact []byte) []byte {
 	addTerminator := compact[0] >> 7
 	lastByteUnusedBits := (compact[0] << 1) >> 5
