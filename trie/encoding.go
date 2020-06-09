@@ -94,7 +94,7 @@ func compactToBinary(compact []byte) []byte {
 			byteIndex++
 			currentByte = compact[byteIndex]
 		}
-		returnBytes[returnIndex] = uint8((currentByte & (1 << shift)) >> shift)
+		returnBytes[returnIndex] = (currentByte & (1 << shift)) >> shift
 		returnIndex++
 	}
 
@@ -140,7 +140,7 @@ func hexKeyBytesToBinary(hexKey []byte) (bitKey []byte) {
 		// add terminator byte
 		length += 1
 	}
-	if hexKey == nil || len(hexKey) == 0 {
+	if len(hexKey) == 0 {
 		ret := make([]byte, 1)
 		ret[0] = binTerminator
 		return ret
@@ -169,7 +169,7 @@ func binaryToHexKeyBytes(bitKey []byte) (hexKey []byte) {
 		bitKey = bitKey[:len(bitKey)-1]
 		addTerminator = 1
 	}
-	if bitKey == nil || len(bitKey) == 0 {
+	if len(bitKey) == 0 {
 		if addTerminator > 0 {
 			ret := make([]byte, 1)
 			ret[0] = terminator
