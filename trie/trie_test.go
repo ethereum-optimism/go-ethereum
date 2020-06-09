@@ -117,7 +117,7 @@ func testMissingNode(t *testing.T, memonly bool) {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
-	hash := common.HexToHash("0xe1d943cc8f061a0c0b98162830b970395ac9315654824bf21b73b891365262f9")
+	hash := common.HexToHash("0c04b90de817aed1fbf1c2fa876c7725bb5f8770df7f8b5b044bbf0ba14f65e4")
 	if memonly {
 		delete(triedb.dirties, hash)
 	} else {
@@ -158,7 +158,7 @@ func TestInsert(t *testing.T) {
 	updateString(trie, "dog", "puppy")
 	updateString(trie, "dogglesworth", "cat")
 
-	exp := common.HexToHash("8aad789dff2f538bca5d8ea56e8abe10f4c7ba3a5dea95fea4cd6e7c3a1168d3")
+	exp := common.HexToHash("0e4da007532dd98f83cca905be8d1b417a9e65ecec5217f11ce6df6f1de2257f")
 	root := trie.Hash()
 	if root != exp {
 		t.Errorf("case 1: exp %x got %x", exp, root)
@@ -167,7 +167,7 @@ func TestInsert(t *testing.T) {
 	trie = newEmpty()
 	updateString(trie, "A", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 
-	exp = common.HexToHash("d23786fb4a010da3ce639d66d5e904a11dbc02746d1ce25029e53290cabf28ab")
+	exp = common.HexToHash("f9f1e27c9cfb2c5bf26adddcd947c3a0e2cc36618ab98c2c47aa781ca136d940")
 	root, err := trie.Commit(nil)
 	if err != nil {
 		t.Fatalf("commit error: %v", err)
@@ -222,7 +222,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	hash := trie.Hash()
-	exp := common.HexToHash("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84")
+	exp := common.HexToHash("844a077a818c3c65eaad2829b3afcdee38f858b9910b7f6627d7715467d4bc87")
 	if hash != exp {
 		t.Errorf("expected %x got %x", exp, hash)
 	}
@@ -246,7 +246,7 @@ func TestEmptyValues(t *testing.T) {
 	}
 
 	hash := trie.Hash()
-	exp := common.HexToHash("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84")
+	exp := common.HexToHash("844a077a818c3c65eaad2829b3afcdee38f858b9910b7f6627d7715467d4bc87")
 	if hash != exp {
 		t.Errorf("expected %x got %x", exp, hash)
 	}
@@ -842,15 +842,15 @@ func deleteString(trie *Trie, k string) {
 	trie.Delete([]byte(k))
 }
 
-func TestDecodeNode(t *testing.T) {
-	t.Parallel()
-	var (
-		hash  = make([]byte, 20)
-		elems = make([]byte, 20)
-	)
-	for i := 0; i < 5000000; i++ {
-		rand.Read(hash)
-		rand.Read(elems)
-		decodeNode(hash, elems)
-	}
-}
+//func TestDecodeNode(t *testing.T) {
+//	t.Parallel()
+//	var (
+//		hash  = make([]byte, 20)
+//		elems = make([]byte, 20)
+//	)
+//	for i := 0; i < 5000000; i++ {
+//		rand.Read(hash)
+//		rand.Read(elems)
+//		decodeNode(hash, elems)
+//	}
+//}
