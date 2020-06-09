@@ -39,9 +39,9 @@ import "math"
 // Example:
 // 1 1 0 1 1 2(terminator)
 // first bit = 1 (terminator present)
-// bits 2-4 = 4 + 5(msg len w/o terminator) % 8 = 001
-// first nibble: 1001
-// entire message = 1001 1101 1[000 0000], where [padding]
+// bits 2-4 = [8 - (4 + 5(msg len w/o terminator) % 8)] %8 = 111 (7 unused bits in the last byte)
+// first nibble: 1111
+// entire message = 1111 1101 1[000 0000], where [padding]
 
 // Converts the binary key into the tightly-packed encoded format detailed above
 func binaryToCompact(bin []byte) []byte {
