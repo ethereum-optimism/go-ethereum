@@ -207,6 +207,13 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 			return false, nil, err
 		}
 		_, branch.Children[key[matchlen]], err = t.insert(nil, append(prefix, key[:matchlen+1]...), key[matchlen+1:], value)
+
+
+		//h := newHasher(nil)
+		//defer returnHasherToPool(h)
+		//hashy, _, _ := h.hash(branch.Children[key[matchlen]], t.db, true)
+		//println(fmt.Sprintf("Hashing node with key %b, hash: %v", key, hashy))
+
 		if err != nil {
 			return false, nil, err
 		}

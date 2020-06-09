@@ -61,6 +61,7 @@ func TestProof(t *testing.T) {
 	root := trie.Hash()
 	for i, prover := range makeProvers(trie) {
 		for _, kv := range vals {
+			// println(fmt.Sprintf("TestProof kv: %v", kv))
 			proof := prover(kv.k)
 			if proof == nil {
 				t.Fatalf("prover %d: missing key %x while constructing proof", i, kv.k)
@@ -118,6 +119,7 @@ func TestBadProof(t *testing.T) {
 			mutateByte(val)
 			proof.Put(crypto.Keccak256(val), val)
 
+			//if node, _, err := VerifyProof(root, kv.k, proof); node != nil && err == nil {
 			if _, _, err := VerifyProof(root, kv.k, proof); err == nil {
 				t.Fatalf("prover %d: expected proof to fail for key %x", i, kv.k)
 			}

@@ -140,8 +140,8 @@ func decodeShort(hash, elems []byte) (node, error) {
 		return nil, err
 	}
 	flag := nodeFlag{hash: hash}
-	key := compactToHex(kbuf)
-	if hasBinTerm(key) {
+	key := compactToBinary(kbuf)
+	if hasBinaryTerminator(key) {
 		// value node
 		val, _, err := rlp.SplitString(rest)
 		if err != nil {

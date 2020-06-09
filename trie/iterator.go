@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"container/heap"
 	"errors"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -158,7 +157,7 @@ func (it *nodeIterator) Parent() common.Hash {
 }
 
 func (it *nodeIterator) Leaf() bool {
-	return hasBinTerm(it.path)
+	return hasBinaryTerminator(it.path)
 }
 
 func (it *nodeIterator) LeafKey() []byte {
@@ -246,6 +245,7 @@ func (it *nodeIterator) seek(prefix []byte) error {
 	// Move forward until we're just before the closest match to key.
 	for {
 		state, parentIndex, path, err := it.peek(bytes.HasPrefix(key, it.path))
+		//println(fmt.Sprintf("**path[%b], key[%b]**", path, key))
 		if err == errIteratorEnd {
 			return errIteratorEnd
 		} else if err != nil {
@@ -253,6 +253,7 @@ func (it *nodeIterator) seek(prefix []byte) error {
 		} else if bytes.Compare(path, key) >= 0 {
 			return nil
 		}
+		// println(fmt.Sprintf("%x   %v", state.hash, state.hash))
 		it.push(state, parentIndex, path)
 	}
 }
