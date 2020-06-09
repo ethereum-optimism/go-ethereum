@@ -243,7 +243,7 @@ func expandNode(hash hashNode, n node) node {
 	case *rawShortNode:
 		// Short nodes need key and child expansion
 		return &shortNode{
-			Key: compactToBinary(n.Key),
+			Key: compactKeyToBinaryKey(n.Key),
 			Val: expandNode(nil, n.Val),
 			flags: nodeFlag{
 				hash: hash,

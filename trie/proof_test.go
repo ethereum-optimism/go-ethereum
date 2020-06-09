@@ -118,7 +118,6 @@ func TestBadProof(t *testing.T) {
 			mutateByte(val)
 			proof.Put(crypto.Keccak256(val), val)
 
-			//if node, _, err := VerifyProof(root, kv.k, proof); node != nil && err == nil {
 			if _, _, err := VerifyProof(root, kv.k, proof); err == nil {
 				t.Fatalf("prover %d: expected proof to fail for key %x", i, kv.k)
 			}

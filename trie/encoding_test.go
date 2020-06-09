@@ -23,7 +23,7 @@ import (
 
 func TestBinCompact(t *testing.T) {
 	tests := []struct{ bin, compact []byte }{
-		//empty keys, with and without terminator
+		// empty keys, with and without terminator
 		{bin: []byte{}, compact: []byte{0x40}},  // 0100 0000
 		{bin: []byte{2}, compact: []byte{0xc0}}, // 1100 0000
 
@@ -58,105 +58,53 @@ func TestBinCompact(t *testing.T) {
 		// length 8 with and without terminator
 		{bin: []byte{1, 0, 1, 0, 1, 0, 1, 0}, compact: []byte{0x4a, 0xa0}},    // 0100 1010 1010 0000
 		{bin: []byte{1, 0, 1, 0, 1, 0, 1, 0, 2}, compact: []byte{0xca, 0xa0}}, // 1100 1010 1010 0000
+
+		// 32-byte key with and without terminator
+		{
+			bin: bytes.Repeat([]byte{1, 0}, 4 * 32),
+			compact: append(append([]byte{0x4a}, bytes.Repeat([]byte{0xaa}, 31)...), 0xa0),
+		},
+		{
+			bin: append(bytes.Repeat([]byte{1, 0}, 4*32), 0x2),
+			compact: append(append([]byte{0xca}, bytes.Repeat([]byte{0xaa}, 31)...), 0xa0),
+		},
 	}
 	for _, test := range tests {
-		if c := binaryToCompact(test.bin); !bytes.Equal(c, test.compact) {
-			t.Errorf("binaryToCompact(%x) -> %x, want %x", test.bin, c, test.compact)
+		if c := binaryKeyToCompactKey(test.bin); !bytes.Equal(c, test.compact) {
+			t.Errorf("binaryKeyToCompactKey(%x) -> %x, want %x", test.bin, c, test.compact)
 		}
-		if h := compactToBinary(test.compact); !bytes.Equal(h, test.bin) {
-			t.Errorf("compactToBinary(%x) -> %x, want %x", test.compact, h, test.bin)
+		if h := compactKeyToBinaryKey(test.compact); !bytes.Equal(h, test.bin) {
+			t.Errorf("compactKeyToBinaryKey(%x) -> %x, want %x", test.compact, h, test.bin)
 		}
 	}
 }
 
-func TestHexKeybytes(t *testing.T) {
-	tests := []struct{ key, hexIn, hexOut []byte }{
-		{key: []byte{}, hexIn: []byte{16}, hexOut: []byte{16}},
-		{key: []byte{}, hexIn: []byte{}, hexOut: []byte{16}},
-		{
-			key:    []byte{0x12, 0x34, 0x56},
-			hexIn:  []byte{1, 2, 3, 4, 5, 6, 16},
-			hexOut: []byte{1, 2, 3, 4, 5, 6, 16},
-		},
-		{
-			key:    []byte{0x12, 0x34, 0x5},
-			hexIn:  []byte{1, 2, 3, 4, 0, 5, 16},
-			hexOut: []byte{1, 2, 3, 4, 0, 5, 16},
-		},
-		{
-			key:    []byte{0x12, 0x34, 0x56},
-			hexIn:  []byte{1, 2, 3, 4, 5, 6},
-			hexOut: []byte{1, 2, 3, 4, 5, 6, 16},
-		},
-	}
-	for _, test := range tests {
-		if h := keybytesToHex(test.key); !bytes.Equal(h, test.hexOut) {
-			t.Errorf("keybytesToHex(%x) -> %x, want %x", test.key, h, test.hexOut)
-		}
-		if k := hexToKeybytes(test.hexIn); !bytes.Equal(k, test.key) {
-			t.Errorf("hexToKeybytes(%x) -> %x, want %x", test.hexIn, k, test.key)
-		}
-	}
-}
-
-func TestBinaryKeybytes(t *testing.T) {
+func TestBinaryKeyBytes(t *testing.T) {
 	tests := []struct{ key, binaryIn, binaryOut []byte }{
-		{key: []byte{16}, binaryIn: []byte{2}, binaryOut: []byte{2}},
+		{key: []byte{}, binaryIn: []byte{2}, binaryOut: []byte{2}},
 		{key: []byte{}, binaryIn: []byte{}, binaryOut: []byte{2}},
 		{
-			key:       []byte{1, 2, 3, 4, 5, 6, 16},
+			key:       []byte{0x12, 0x34, 0x56},
 			binaryIn:  []byte{0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 2},
 			binaryOut: []byte{0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 2},
 		},
 		{
-			key:       []byte{1, 2, 3, 4, 0, 5, 16},
+			key:       []byte{0x12, 0x34, 0x5},
 			binaryIn:  []byte{0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 2},
 			binaryOut: []byte{0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 2},
 		},
 		{
-			key:       []byte{1, 2, 3, 4, 5, 6},
+			key:       []byte{0x12, 0x34, 0x56},
 			binaryIn:  []byte{0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0},
 			binaryOut: []byte{0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 2},
 		},
 	}
 	for _, test := range tests {
-		if h := hexKeyBytesToBinary(test.key); !bytes.Equal(h, test.binaryOut) {
-			t.Errorf("hexKeyBytesToBinary(%x) -> %b, want %b", test.key, h, test.binaryOut)
+		if h := keyBytesToBinaryKey(test.key); !bytes.Equal(h, test.binaryOut) {
+			t.Errorf("keyBytesToBinaryKey(%x) -> %b, want %b", test.key, h, test.binaryOut)
 		}
-		if k := binaryToHexKeyBytes(test.binaryIn); !bytes.Equal(k, test.key) {
-			t.Errorf("binaryToHexKeyBytes(%b) -> %x, want %x", test.binaryIn, k, test.key)
+		if k := binaryKeyToKeyBytes(test.binaryIn); !bytes.Equal(k, test.key) {
+			t.Errorf("binaryKeyToKeyBytes(%b) -> %x, want %x", test.binaryIn, k, test.key)
 		}
-	}
-}
-
-func TestBinaryToHexKeyBytesWithPadding(t *testing.T) {
-	tests := []struct{ binaryIn, hexOut []byte }{
-		{
-			binaryIn: []byte{0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1},
-			hexOut:   []byte{1, 2, 3, 4, 5, 8},
-		},
-		{
-			binaryIn: []byte{0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 2},
-			hexOut:   []byte{1, 2, 3, 4, 5, 8, 16},
-		},
-	}
-	for _, test := range tests {
-		if k := binaryToHexKeyBytes(test.binaryIn); !bytes.Equal(k, test.hexOut) {
-			t.Errorf("binaryToHexKeyBytes(%b) -> %x, want %x", test.binaryIn, k, test.hexOut)
-		}
-	}
-}
-
-func BenchmarkKeybytesToHex(b *testing.B) {
-	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
-	for i := 0; i < b.N; i++ {
-		keybytesToHex(testBytes)
-	}
-}
-
-func BenchmarkHexToKeybytes(b *testing.B) {
-	testBytes := []byte{7, 6, 6, 5, 7, 2, 6, 2, 16}
-	for i := 0; i < b.N; i++ {
-		hexToKeybytes(testBytes)
 	}
 }

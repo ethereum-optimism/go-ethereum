@@ -125,7 +125,7 @@ func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 	case *shortNode:
 		// Hash the short node's child, caching the newly hashed subtree
 		collapsed, cached := n.copy(), n.copy()
-		collapsed.Key = binaryToCompact(n.Key)
+		collapsed.Key = binaryKeyToCompactKey(n.Key)
 		cached.Key = common.CopyBytes(n.Key)
 
 		if _, ok := n.Val.(valueNode); !ok {

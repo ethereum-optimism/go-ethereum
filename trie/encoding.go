@@ -20,35 +20,46 @@ import "math"
 
 // Trie keys are dealt with in three distinct encodings:
 //
-// KEYBYTES encoding contains the actual key and nothing else. This encoding is the
-// input to most API functions.
+// KEYBYTES encoding contains the actual key and nothing else. All bits in each byte of this key
+// are significant. This encoding is the input to most API functions.
 //
-// HEX encoding contains one byte for each nibble of the key and an optional trailing
-// 'terminator' byte of value 0x10 which indicates whether or not the node at the key
-// contains a value. Hex key encoding is used for nodes loaded in memory because it's
-// convenient to access.
+// BINARY encoding contains one byte for each bit of the key and an optional trailing
+// 'terminator' byte of value 2 which indicates whether or not the node at the key
+// contains a value. The first  (most significant) 7 bits of each byte are always 0
+// (except for the terminator, which has 6 zero-bits to start). Our tries use this
+// encoding under the hood because it permits the trie to be binary -- allowing 2^8
+// distinct key paths for each key byte instead of just 2.
 //
-// BINARY COMPACT ENCODING FORMAT:
+// COMPACT encoding is a way of storing a binary-encoded key or a slice of a binary-encoded key
+// in as efficient of a way as possible. This entails tightly-packing the data into bytes without
+// padding (except to fill out the last byte) while still capturing all binary key metadata.
+// The compact encoding takes the format [header nibble] [key] [padding bits]
 // Header Nibble:
-// - first bit: 1 if should be terminated / 0 if not,
-// - bits 2-4: the number of unused (least significant) bits from last byte = [8 - ((4 (header nibble) + message len) % 8)] % 8
+// - first bit: 1 if should be terminated / 0 if not (see 'terminator' byte above)
+// - bits 2-4: the number of unused, least significant bits in the last byte of the compact key
+//   - Calculated as [8 - ((4 (for header nibble) + key length without terminator) % 8)] % 8
 // Body:
-// -- bits 5-8 of first byte and all subsequent bytes: tightly-packed key bits without terminator
-// -- bits 2-8 of last byte (varies based on key length) 0 bits of padding
+// - key bits are tightly packed starting at bit 5 of the first byte (after the header nibble)
+// Padding:
+// - If the first nibble plus the number of key bits is not an even multiple of 8, the unused bits
+//   of the last byte will contain 0s
 //
-// Example:
-// 1 1 0 1 1 2(terminator)
-// first bit = 1 (terminator present)
-// bits 2-4 = [8 - (4 + 5(msg len w/o terminator) % 8)] %8 = 111 (7 unused bits in the last byte)
-// first nibble: 1111
-// entire message = 1111 1101 1[000 0000], where [padding]
+// Example BINARY-encoded key conversion to COMPACT encoding:
+// BINARY key: 1 1 0 1 1 2(terminator)
+// COMPACT first bit = 1 (terminator present)
+// COMPACT bits 2-4 = [8 - ((4 (for header nibble) + key length without terminator) % 8)] % 8
+//                  = [8 - ((4 + 5) % 8)] %8 = 7 unused bits in the last byte = 111
+// COMPACT first nibble: 1111
+// COMPACT key = 1111 1101 1[000 0000], 2 bytes total, where the last 7 bits of the last byte are unused.
 
-// Converts the binary key into the tightly-packed encoded format detailed above
-func binaryToCompact(bin []byte) []byte {
+// Converts the provided BINARY-encoded key into the COMPACT-encoded format detailed above.
+func binaryKeyToCompactKey(binaryKey []byte) []byte {
 	currentByte := uint8(0)
-	keyLength := len(bin)
-	if hasBinaryTerminator(bin) {
-		bin = bin[:len(bin)-1]
+	keyLength := len(binaryKey)
+
+	// Set the first bit of the first byte if terminator is present, then remove it from the key.
+	if hasBinaryKeyTerminator(binaryKey) {
+		binaryKey = binaryKey[:len(binaryKey)-1]
 		currentByte = 1 << 7
 		keyLength--
 	}
@@ -59,7 +70,7 @@ func binaryToCompact(bin []byte) []byte {
 	returnLength := (keyLength + 4 + int(lastByteUnusedBits)) / 8
 	returnBytes := make([]byte, returnLength)
 	returnIndex := 0
-	for i := 0; i < len(bin); i++ {
+	for i := 0; i < len(binaryKey); i++ {
 		bitPosition := (4 + i) % 8
 		if bitPosition == 0 {
 			returnBytes[returnIndex] = currentByte
@@ -67,146 +78,84 @@ func binaryToCompact(bin []byte) []byte {
 			returnIndex++
 		}
 
-		currentByte += (1 & bin[i]) << (7 - bitPosition)
+		currentByte += (1 & binaryKey[i]) << (7 - bitPosition)
 	}
 	returnBytes[returnIndex] = currentByte
 
 	return returnBytes
 }
 
-// Converts from the compact encoding specified above to the binary key format of 1 bit per byte
-func compactToBinary(compact []byte) []byte {
-	addTerminator := compact[0] >> 7
-	lastByteUnusedBits := (compact[0] << 1) >> 5
+// Converts the provided key from the COMPACT encoding to the BINARY key format (both specified above).
+func compactKeyToBinaryKey(compactKey []byte) []byte {
+	addTerminator := compactKey[0] >> 7
+	lastByteUnusedBits := (compactKey[0] << 1) >> 5
 
-	returnLength := len(compact)*8 - 4      // length - header nibble
-	returnLength += int(addTerminator)      // terminator byte
-	returnLength -= int(lastByteUnusedBits) // extra padding bits
+	binaryKeyLength := len(compactKey)*8 - 4   // length - header nibble
+	binaryKeyLength += int(addTerminator)      // terminator byte
+	binaryKeyLength -= int(lastByteUnusedBits) // extra padding bits
 
-	returnBytes := make([]byte, returnLength)
+	binaryKey := make([]byte, binaryKeyLength)
 
-	returnIndex := 0
-	byteIndex := 0
-	bitPosition := 4
-	currentByte := compact[byteIndex]
-	for ; returnIndex < returnLength-int(addTerminator); bitPosition++ {
-		shift := 7 - (bitPosition % 8)
+	binaryKeyIndex := 0
+	compactKeyByteIndex := 0
+	currentBitIndex := 4
+	currentByte := compactKey[compactKeyByteIndex]
+	for ; binaryKeyIndex < binaryKeyLength - int(addTerminator); currentBitIndex++ {
+		shift := 7 - (currentBitIndex % 8)
 		if shift == 7 {
-			byteIndex++
-			currentByte = compact[byteIndex]
+			compactKeyByteIndex++
+			currentByte = compactKey[compactKeyByteIndex]
 		}
-		returnBytes[returnIndex] = (currentByte & (1 << shift)) >> shift
-		returnIndex++
+		binaryKey[binaryKeyIndex] = (currentByte & (1 << shift)) >> shift
+		binaryKeyIndex++
 	}
 
 	if addTerminator > 0 {
-		returnBytes[returnLength-1] = binTerminator
+		binaryKey[binaryKeyLength-1] = binaryKeyTerminator
 	}
 
-	return returnBytes
+	return binaryKey
 }
 
-func keybytesToHex(str []byte) []byte {
-	l := len(str)*2 + 1
-	var nibbles = make([]byte, l)
-	for i, b := range str {
-		nibbles[i*2] = b / 16
-		nibbles[i*2+1] = b % 16
-	}
-	nibbles[l-1] = 16
-	return nibbles
-}
-
-// hexToKeybytes turns hex nibbles into key bytes.
-// This can only be used for keys of even length.
-func hexToKeybytes(hex []byte) []byte {
-	if hasTerm(hex) {
-		hex = hex[:len(hex)-1]
-	}
-	if len(hex)&1 != 0 {
-		panic("can't convert hex key of odd length")
-	}
-	key := make([]byte, len(hex)/2)
-	decodeNibbles(hex, key)
-	return key
-}
-
-// Converts a []byte key with hex granularity (4 unused bits + 4 used bits)
-// to a []byte key with bit granularity (7 unused bits + 1 used bit).
-func hexKeyBytesToBinary(hexKey []byte) (bitKey []byte) {
-	length := len(hexKey) * 4
-	if hasTerm(hexKey) {
-		length -= 3
-	} else {
-		// add terminator byte
-		length += 1
-	}
-	if len(hexKey) == 0 {
-		ret := make([]byte, 1)
-		ret[0] = binTerminator
-		return ret
-	}
-	bitKey = make([]byte, length)
-
-	for bite := 0; bite < length/4; bite++ {
-		for bit := 0; bit < 4; bit++ {
-			// set right-most bit to 0 or 1 based whether the bit index of hexKey[bite] is set
-			bitKey[(bite*4)+bit] = (hexKey[bite] & uint8(8>>bit)) >> (3 - bit)
+// Converts the provided key from KEYBYTES encoding to BINARY encoding (both listed above).
+func keyBytesToBinaryKey(key []byte) []byte {
+	length := len(key)*8 + 1
+	var binaryKey = make([]byte, length)
+	for i, keyByte := range key {
+		for bit := 0; bit < 8; bit++ {
+			shift := 7 - bit
+			binaryKey[i*8 + bit] = keyByte & (1 << shift) >> shift
 		}
 	}
-
-	if length%2 != 0 {
-		bitKey[len(bitKey)-1] = binTerminator
-	}
-
-	return bitKey
+	binaryKey[length-1] = binaryKeyTerminator
+	return binaryKey
 }
 
-// Converts a []byte key with bit granularity (max of one bit per byte set) to the half-packed bytes
-// representing the hex-encoded version of the key.
-func binaryToHexKeyBytes(bitKey []byte) (hexKey []byte) {
-	addTerminator := 0
-	if hasBinaryTerminator(bitKey) {
-		bitKey = bitKey[:len(bitKey)-1]
-		addTerminator = 1
+// Converts the provided key from BINARY encoding to KEYBYTES encoding (both listed above).
+func binaryKeyToKeyBytes(binaryKey []byte) (keyBytes []byte) {
+	if hasBinaryKeyTerminator(binaryKey) {
+		binaryKey = binaryKey[:len(binaryKey)-1]
 	}
-	if len(bitKey) == 0 {
-		if addTerminator > 0 {
-			ret := make([]byte, 1)
-			ret[0] = terminator
-			return ret
-		}
+	if len(binaryKey) == 0 {
 		return make([]byte, 0)
 	}
 
-	paddingBits := len(bitKey) % 4
-	//if len(bitKey) % 4 != 0 {
-	//	panic(fmt.Sprintf("can't convert binary key of length %d to hex. Key: %x", len(bitKey), bitKey))
-	//}
-	hexKey = make([]byte, len(bitKey)/4+paddingBits+1*addTerminator)
+	keyLength := int(math.Ceil(float64(len(binaryKey)) / 8.0))
+	keyBytes = make([]byte, keyLength)
 
-	nibbleInt := uint8(0)
-	for bit := 0; bit < len(bitKey); bit++ {
-		nibbleBit := bit % 4
-		if nibbleBit == 0 && bit != 0 {
-			hexKey[(bit/4)-1] = nibbleInt
-			nibbleInt = 0
+	byteInt := uint8(0)
+	for bit := 0; bit < len(binaryKey); bit++ {
+		byteBit := bit % 8
+		if byteBit == 0 && bit != 0 {
+			keyBytes[(bit/8)-1] = byteInt
+			byteInt = 0
 		}
-		nibbleInt += uint8(math.Pow(2, float64(3-nibbleBit))) * bitKey[bit]
+		byteInt += uint8((1 << (7-byteBit)) * binaryKey[bit])
 	}
 
-	hexKey[len(hexKey)-1-addTerminator] = nibbleInt
-	if addTerminator > 0 {
-		hexKey[len(hexKey)-1] = terminator
-	}
+	keyBytes[keyLength - 1] = byteInt
 
-	return hexKey
-}
-
-func decodeNibbles(nibbles []byte, bytes []byte) {
-	for bi, ni := 0, 0; ni < len(nibbles); bi, ni = bi+1, ni+2 {
-		bytes[bi] = nibbles[ni]<<4 | nibbles[ni+1]
-	}
+	return keyBytes
 }
 
 // prefixLen returns the length of the common prefix of a and b.
@@ -223,16 +172,9 @@ func prefixLen(a, b []byte) int {
 	return i
 }
 
-const terminator = 16
+const binaryKeyTerminator = 2
 
-// hasTerm returns whether a hex key has the terminator flag.
-func hasTerm(s []byte) bool {
-	return len(s) > 0 && s[len(s)-1] == terminator
-}
-
-const binTerminator = 2
-
-// hasTerm returns whether a hex key has the terminator flag.
-func hasBinaryTerminator(s []byte) bool {
-	return len(s) > 0 && s[len(s)-1] == binTerminator
+// hasBinaryKeyTerminator returns whether a BINARY encoded key has the terminator flag.
+func hasBinaryKeyTerminator(binaryKey []byte) bool {
+	return len(binaryKey) > 0 && binaryKey[len(binaryKey)-1] == binaryKeyTerminator
 }
