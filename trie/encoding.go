@@ -28,27 +28,22 @@ import "math"
 // contains a value. Hex key encoding is used for nodes loaded in memory because it's
 // convenient to access.
 //
-// COMPACT encoding is defined by the Ethereum Yellow Paper (it's called "hex prefix
-// encoding" there) and contains the bytes of the key and a flag. The high nibble of the
-// first byte contains the flag; the lowest bit encoding the oddness of the length and
-// the second-lowest encoding whether the node at the key is a value node. The low nibble
-// of the first byte is zero in the case of an even number of nibbles and the first nibble
-// in the case of an odd number. All remaining nibbles (now an even number) fit properly
-// into the remaining bytes. Compact encoding is used for nodes stored on disk.
-
-// Proposal:
-// HEADER NIBBLE:
-// first bit: 1 if should be terminated / 0 if not,
-// bits 2-4: the number of unused (least significant) bits from last byte = [8 - ((4 (header nibble) + message len) % 8)] % 8
-
+// BINARY COMPACT ENCODING FORMAT:
+// Header Nibble:
+// - first bit: 1 if should be terminated / 0 if not,
+// - bits 2-4: the number of unused (least significant) bits from last byte = [8 - ((4 (header nibble) + message len) % 8)] % 8
+// Body:
+// -- bits 5-8 of first byte and all subsequent bytes: tightly-packed key bits without terminator
+// -- bits 2-8 of last byte (varies based on key length) 0 bits of padding
+//
+// Example:
 // 1 1 0 1 1 2(terminator)
 // first bit = 1 (terminator present)
 // bits 2-4 = 4 + 5(msg len w/o terminator) % 8 = 001
 // first nibble: 1001
 // entire message = 1001 1101 1[000 0000], where [padding]
-// encoded: 9d8
 
-
+// Converts the binary key into the tightly-packed encoded format detailed above
 func binaryToCompact(bin []byte) []byte {
 	currentByte := uint8(0)
 	keyLength := len(bin)
@@ -110,38 +105,6 @@ func compactToBinary(compact []byte) []byte {
 	return returnBytes
 }
 
-
-func hexToCompact(hex []byte) []byte {
-	terminator := byte(0)
-	if hasTerm(hex) {
-		terminator = 1
-		hex = hex[:len(hex)-1]
-	}
-	buf := make([]byte, len(hex)/2+1)
-	buf[0] = terminator << 5 // the flag byte
-	if len(hex)&1 == 1 {
-		buf[0] |= 1 << 4 // odd flag
-		buf[0] |= hex[0] // first nibble is contained in the first byte
-		hex = hex[1:]
-	}
-	decodeNibbles(hex, buf[1:])
-	return buf
-}
-
-func compactToHex(compact []byte) []byte {
-	if len(compact) == 0 {
-		return compact
-	}
-	base := keybytesToHex(compact)
-	// delete terminator flag
-	if base[0] < 2 {
-		base = base[:len(base)-1]
-	}
-	// apply odd flag
-	chop := 2 - base[0]&1
-	return base[chop:]
-}
-
 func keybytesToHex(str []byte) []byte {
 	l := len(str)*2 + 1
 	var nibbles = make([]byte, l)
@@ -150,7 +113,6 @@ func keybytesToHex(str []byte) []byte {
 		nibbles[i*2+1] = b % 16
 	}
 	nibbles[l-1] = 16
-	//println(fmt.Sprintf("key bytes to hex. Start: %x, End: %x", str, nibbles))
 	return nibbles
 }
 
@@ -195,7 +157,6 @@ func hexKeyBytesToBinary(hexKey []byte) (bitKey []byte) {
 	if length % 2 != 0 {
 		bitKey[len(bitKey) -1] = binTerminator
 	}
-	// println(fmt.Sprintf("hex key bytes to bin. Start: %x, End: %x, length: %d", hexKey, bitKey, length))
 
 	return bitKey
 }

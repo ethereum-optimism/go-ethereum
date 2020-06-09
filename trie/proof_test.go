@@ -61,7 +61,6 @@ func TestProof(t *testing.T) {
 	root := trie.Hash()
 	for i, prover := range makeProvers(trie) {
 		for _, kv := range vals {
-			// println(fmt.Sprintf("TestProof kv: %v", kv))
 			proof := prover(kv.k)
 			if proof == nil {
 				t.Fatalf("prover %d: missing key %x while constructing proof", i, kv.k)

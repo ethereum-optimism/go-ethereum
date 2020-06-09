@@ -163,7 +163,6 @@ func (t *Trie) Update(key, value []byte) {
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *Trie) TryUpdate(key, value []byte) error {
 	k := hexKeyBytesToBinary(keybytesToHex(key))
-	// println(fmt.Sprintf("TryUpdate key & value: [ %x , %x ]", k, value))
 	if len(value) != 0 {
 		_, n, err := t.insert(t.root, nil, k, valueNode(value))
 		if err != nil {
@@ -207,12 +206,6 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 			return false, nil, err
 		}
 		_, branch.Children[key[matchlen]], err = t.insert(nil, append(prefix, key[:matchlen+1]...), key[matchlen+1:], value)
-
-
-		//h := newHasher(nil)
-		//defer returnHasherToPool(h)
-		//hashy, _, _ := h.hash(branch.Children[key[matchlen]], t.db, true)
-		//println(fmt.Sprintf("Hashing node with key %b, hash: %v", key, hashy))
 
 		if err != nil {
 			return false, nil, err
