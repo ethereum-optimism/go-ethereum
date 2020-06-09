@@ -53,7 +53,7 @@ func binaryToCompact(bin []byte) []byte {
 		keyLength--
 	}
 
-	lastByteUnusedBits := uint8((8 - ((4 + keyLength)) % 8) % 8)
+	lastByteUnusedBits := uint8((8 - (4+keyLength)%8) % 8)
 	currentByte += lastByteUnusedBits << 4
 
 	returnLength := (keyLength + 4 + int(lastByteUnusedBits)) / 8
@@ -67,7 +67,7 @@ func binaryToCompact(bin []byte) []byte {
 			returnIndex++
 		}
 
-		currentByte += (1 & bin[i]) << (7-bitPosition)
+		currentByte += (1 & bin[i]) << (7 - bitPosition)
 	}
 	returnBytes[returnIndex] = currentByte
 
@@ -78,9 +78,9 @@ func compactToBinary(compact []byte) []byte {
 	addTerminator := compact[0] >> 7
 	lastByteUnusedBits := (compact[0] << 1) >> 5
 
-	returnLength := len(compact) * 8 - 4        // length - header nibble
-	returnLength += int(addTerminator)          // terminator byte
-	returnLength -= int(lastByteUnusedBits)     // extra padding bits
+	returnLength := len(compact)*8 - 4      // length - header nibble
+	returnLength += int(addTerminator)      // terminator byte
+	returnLength -= int(lastByteUnusedBits) // extra padding bits
 
 	returnBytes := make([]byte, returnLength)
 
@@ -88,7 +88,7 @@ func compactToBinary(compact []byte) []byte {
 	byteIndex := 0
 	bitPosition := 4
 	currentByte := compact[byteIndex]
-	for ; returnIndex < returnLength - int(addTerminator); bitPosition++ {
+	for ; returnIndex < returnLength-int(addTerminator); bitPosition++ {
 		shift := 7 - (bitPosition % 8)
 		if shift == 7 {
 			byteIndex++
@@ -99,7 +99,7 @@ func compactToBinary(compact []byte) []byte {
 	}
 
 	if addTerminator > 0 {
-		returnBytes[returnLength -1] = binTerminator
+		returnBytes[returnLength-1] = binTerminator
 	}
 
 	return returnBytes
@@ -147,15 +147,15 @@ func hexKeyBytesToBinary(hexKey []byte) (bitKey []byte) {
 	}
 	bitKey = make([]byte, length)
 
-	for bite := 0; bite < length / 4; bite++ {
+	for bite := 0; bite < length/4; bite++ {
 		for bit := 0; bit < 4; bit++ {
 			// set right-most bit to 0 or 1 based whether the bit index of hexKey[bite] is set
-			bitKey[(bite * 4) + bit] = (hexKey[bite] & uint8(8 >> bit)) >> (3-bit)
+			bitKey[(bite*4)+bit] = (hexKey[bite] & uint8(8>>bit)) >> (3 - bit)
 		}
 	}
 
-	if length % 2 != 0 {
-		bitKey[len(bitKey) -1] = binTerminator
+	if length%2 != 0 {
+		bitKey[len(bitKey)-1] = binTerminator
 	}
 
 	return bitKey
@@ -182,21 +182,21 @@ func binaryToHexKeyBytes(bitKey []byte) (hexKey []byte) {
 	//if len(bitKey) % 4 != 0 {
 	//	panic(fmt.Sprintf("can't convert binary key of length %d to hex. Key: %x", len(bitKey), bitKey))
 	//}
-	hexKey = make([]byte, len(bitKey) / 4 + paddingBits + 1 * addTerminator)
+	hexKey = make([]byte, len(bitKey)/4+paddingBits+1*addTerminator)
 
 	nibbleInt := uint8(0)
 	for bit := 0; bit < len(bitKey); bit++ {
 		nibbleBit := bit % 4
 		if nibbleBit == 0 && bit != 0 {
-			hexKey[(bit / 4) - 1] = nibbleInt
+			hexKey[(bit/4)-1] = nibbleInt
 			nibbleInt = 0
 		}
 		nibbleInt += uint8(math.Pow(2, float64(3-nibbleBit))) * bitKey[bit]
 	}
 
-	hexKey[len(hexKey) -1 -addTerminator] = nibbleInt
+	hexKey[len(hexKey)-1-addTerminator] = nibbleInt
 	if addTerminator > 0 {
-		hexKey[len(hexKey) - 1] = terminator
+		hexKey[len(hexKey)-1] = terminator
 	}
 
 	return hexKey
@@ -223,12 +223,14 @@ func prefixLen(a, b []byte) int {
 }
 
 const terminator = 16
+
 // hasTerm returns whether a hex key has the terminator flag.
 func hasTerm(s []byte) bool {
 	return len(s) > 0 && s[len(s)-1] == terminator
 }
 
 const binTerminator = 2
+
 // hasTerm returns whether a hex key has the terminator flag.
 func hasBinaryTerminator(s []byte) bool {
 	return len(s) > 0 && s[len(s)-1] == binTerminator
