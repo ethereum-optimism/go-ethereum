@@ -87,12 +87,22 @@ func binaryKeyToCompactKey(binaryKey []byte) []byte {
 
 // Converts the provided key from the COMPACT encoding to the BINARY key format (both specified above).
 func compactKeyToBinaryKey(compactKey []byte) []byte {
+	if len(compactKey) == 0 {
+		// This technically is an invalid compact format
+		return make([]byte, 0)
+	}
+
 	addTerminator := compactKey[0] >> 7
 	lastByteUnusedBits := (compactKey[0] << 1) >> 5
 
 	binaryKeyLength := len(compactKey)*8 - 4   // length - header nibble
 	binaryKeyLength += int(addTerminator)      // terminator byte
 	binaryKeyLength -= int(lastByteUnusedBits) // extra padding bits
+
+	if binaryKeyLength < 0 {
+		// Invalid key
+		return make([]byte, 0)
+	}
 
 	binaryKey := make([]byte, binaryKeyLength)
 
@@ -110,7 +120,7 @@ func compactKeyToBinaryKey(compactKey []byte) []byte {
 		binaryKeyIndex++
 	}
 
-	if addTerminator > 0 {
+	if addTerminator > 0 && binaryKeyLength > 0 {
 		binaryKey[binaryKeyLength-1] = binaryKeyTerminator
 	}
 
