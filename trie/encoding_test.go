@@ -61,11 +61,11 @@ func TestBinCompact(t *testing.T) {
 
 		// 32-byte key with and without terminator
 		{
-			bin: bytes.Repeat([]byte{1, 0}, 4 * 32),
+			bin:     bytes.Repeat([]byte{1, 0}, 4*32),
 			compact: append(append([]byte{0x4a}, bytes.Repeat([]byte{0xaa}, 31)...), 0xa0),
 		},
 		{
-			bin: append(bytes.Repeat([]byte{1, 0}, 4*32), 0x2),
+			bin:     append(bytes.Repeat([]byte{1, 0}, 4*32), 0x2),
 			compact: append(append([]byte{0xca}, bytes.Repeat([]byte{0xaa}, 31)...), 0xa0),
 		},
 	}

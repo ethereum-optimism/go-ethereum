@@ -125,7 +125,6 @@ func TestCreation(t *testing.T) {
 	}
 }
 
-
 // TODO: COMMENTING OUT DUE TO TRIE CHANGES THAT AFFECT HASH
 
 //// TestValidation tests that a local peer correctly validates and accepts a remote

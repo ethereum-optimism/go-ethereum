@@ -250,10 +250,10 @@ func binaryKeyToKeyBytes(binaryKey []byte) (keyBytes []byte) {
 			keyBytes[(bit/8)-1] = byteInt
 			byteInt = 0
 		}
-		byteInt += uint8((1 << (7-byteBit)) * binaryKey[bit])
+		byteInt += (1 << (7 - byteBit)) * binaryKey[bit]
 	}
 
-	keyBytes[keyLength - 1] = byteInt
+	keyBytes[keyLength-1] = byteInt
 
 	return keyBytes
 }

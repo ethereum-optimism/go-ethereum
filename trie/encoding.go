@@ -110,7 +110,7 @@ func compactKeyToBinaryKey(compactKey []byte) []byte {
 	compactKeyByteIndex := 0
 	currentBitIndex := 4
 	currentByte := compactKey[compactKeyByteIndex]
-	for ; binaryKeyIndex < binaryKeyLength - int(addTerminator); currentBitIndex++ {
+	for ; binaryKeyIndex < binaryKeyLength-int(addTerminator); currentBitIndex++ {
 		shift := 7 - (currentBitIndex % 8)
 		if shift == 7 {
 			compactKeyByteIndex++
@@ -134,7 +134,7 @@ func keyBytesToBinaryKey(key []byte) []byte {
 	for i, keyByte := range key {
 		for bit := 0; bit < 8; bit++ {
 			shift := 7 - bit
-			binaryKey[i*8 + bit] = keyByte & (1 << shift) >> shift
+			binaryKey[i*8+bit] = keyByte & (1 << shift) >> shift
 		}
 	}
 	binaryKey[length-1] = binaryKeyTerminator
@@ -160,10 +160,10 @@ func binaryKeyToKeyBytes(binaryKey []byte) (keyBytes []byte) {
 			keyBytes[(bit/8)-1] = byteInt
 			byteInt = 0
 		}
-		byteInt += uint8((1 << (7-byteBit)) * binaryKey[bit])
+		byteInt += (1 << (7 - byteBit)) * binaryKey[bit]
 	}
 
-	keyBytes[keyLength - 1] = byteInt
+	keyBytes[keyLength-1] = byteInt
 
 	return keyBytes
 }
