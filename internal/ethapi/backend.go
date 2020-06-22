@@ -106,8 +106,9 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
-			Public:    true,
+			// TODO: Instantiate Private Key from env var here when we know it
+			Service: NewPublicTransactionPoolAPI(apiBackend, nonceLock, nil),
+			Public:  true,
 		}, {
 			Namespace: "txpool",
 			Version:   "1.0",

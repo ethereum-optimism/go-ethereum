@@ -19,6 +19,7 @@ package ethapi
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1180,13 +1181,19 @@ func newRPCTransactionFromBlockHash(b *types.Block, hash common.Hash) *RPCTransa
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
 type PublicTransactionPoolAPI struct {
-	b         Backend
-	nonceLock *AddrLocker
+	b           Backend
+	nonceLock   *AddrLocker
+	batchSigner *ecdsa.PrivateKey
 }
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
-func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTransactionPoolAPI {
-	return &PublicTransactionPoolAPI{b, nonceLock}
+func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker, privateKey *ecdsa.PrivateKey) *PublicTransactionPoolAPI {
+	if privateKey == nil {
+		// should only be the case in unused code and some unit tests
+		key, _ := crypto.GenerateKey()
+		return &PublicTransactionPoolAPI{b, nonceLock, key}
+	}
+	return &PublicTransactionPoolAPI{b, nonceLock, privateKey}
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -1456,12 +1463,15 @@ type RollupTransaction struct {
 
 // Creates a wrapped tx (internal tx that wraps an OVM tx) from the RollupTransaction.
 // The only part of the wrapped tx that has anything to do with the RollupTransaction is the calldata.
-func (r *RollupTransaction) toTransaction() *types.Transaction {
+func (r *RollupTransaction) toTransaction(txNonce uint64) *types.Transaction {
+	var tx *types.Transaction
 	c, _ := r.Calldata.MarshalText()
 	if r.Target == nil {
-		return types.NewContractCreation(uint64(*r.Nonce), big.NewInt(0), uint64(*r.GasLimit), big.NewInt(1), c)
+		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c)
 	}
-	return types.NewTransaction(uint64(*r.Nonce), *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(1), c, r.Sender)
+	tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender)
+	tx.AddNonceToWrappedTransaction(uint64(*r.Nonce))
+	return tx
 }
 
 // SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
@@ -1566,15 +1576,16 @@ func (s *PublicTransactionPoolAPI) SendBlockBatches(ctx context.Context, message
 
 	txCount := 0
 	signer := types.MakeSigner(s.b.ChainConfig(), s.b.CurrentBlock().Number())
-	key, _ := crypto.GenerateKey()
 
+	wrappedTxNonce, _ := s.b.GetPoolNonce(ctx, crypto.PubkeyToAddress(s.batchSigner.PublicKey))
 	signedBatches := make([][]*types.Transaction, len(blockBatches.Batches))
 	for bi, rollupTxs := range blockBatches.Batches {
 		signedBatches[bi] = make([]*types.Transaction, len(rollupTxs))
 		for i, rollupTx := range rollupTxs {
 			txCount++
-			tx := rollupTx.toTransaction()
-			tx, err := types.SignTx(tx, signer, key)
+			tx := rollupTx.toTransaction(wrappedTxNonce)
+			wrappedTxNonce++
+			tx, err := types.SignTx(tx, signer, s.batchSigner)
 			if err != nil {
 				return []error{fmt.Errorf("Error signing transaction in batch %d, index %d", bi, i)}
 			}
