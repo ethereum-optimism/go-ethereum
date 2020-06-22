@@ -181,6 +181,10 @@ func (b *LesApiBackend) SendTxs(ctx context.Context, signedTxs []*types.Transact
 	return b.eth.txPool.AddBatch(ctx, signedTxs)
 }
 
+func (b *LesApiBackend) SetTimestamp(timestamp int64) {
+	// Intentionally empty because this is not needed for LightChain
+}
+
 func (b *LesApiBackend) RemoveTx(txHash common.Hash) {
 	b.eth.txPool.RemoveTx(txHash)
 }

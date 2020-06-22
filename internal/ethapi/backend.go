@@ -84,6 +84,7 @@ type Backend interface {
 
 	// Optimism-specific API
 	SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error
+	SetTimestamp(timestamp int64)
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block

@@ -1582,7 +1582,7 @@ func (s *PublicTransactionPoolAPI) SendBlockBatches(ctx context.Context, message
 		}
 	}
 
-	// TODO: Set Timestamp here
+	s.b.SetTimestamp(int64(*blockBatches.Timestamp))
 
 	i := 0
 	errs := make([]error, txCount)

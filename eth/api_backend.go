@@ -230,6 +230,10 @@ func (b *EthAPIBackend) SendTxs(ctx context.Context, signedTxs []*types.Transact
 	return b.eth.txPool.AddLocals(signedTxs)
 }
 
+func (b *EthAPIBackend) SetTimestamp(timestamp int64) {
+	b.eth.blockchain.SetCurrentTimestamp(timestamp)
+}
+
 func (b *EthAPIBackend) GetPoolTransactions() (types.Transactions, error) {
 	pending, err := b.eth.txPool.Pending()
 	if err != nil {
