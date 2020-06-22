@@ -237,7 +237,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bc.currentFastBlock.Store(nilBlock)
 
 	// TODO: Make default current timestamp configurable & make 0 if genesis else load from last block?
-	timestamp := time.Now().Unix()
+	timestamp := int64(0)
 	bc.currentTimestamp.Store(&timestamp)
 
 	// Initialize the chain with ancient data if it isn't empty.
