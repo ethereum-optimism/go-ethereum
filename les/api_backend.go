@@ -177,6 +177,10 @@ func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 	return b.eth.txPool.Add(ctx, signedTx)
 }
 
+func (b *LesApiBackend) SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error {
+	return b.eth.txPool.AddBatch(ctx, signedTxs)
+}
+
 func (b *LesApiBackend) RemoveTx(txHash common.Hash) {
 	b.eth.txPool.RemoveTx(txHash)
 }

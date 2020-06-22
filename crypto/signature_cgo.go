@@ -60,6 +60,10 @@ func Sign(digestHash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
 	return secp256k1.Sign(digestHash, seckey)
 }
 
+func VerifyMessageSignature(pubKey, unhashedMessage, signature []byte) bool {
+	return VerifySignature(pubKey, Keccak256(unhashedMessage), signature)
+}
+
 // VerifySignature checks that the given public key created signature over digest.
 // The public key should be in compressed (33 bytes) or uncompressed (65 bytes) format.
 // The signature should have the 64 byte [R || S] format.

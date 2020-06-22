@@ -19,6 +19,7 @@ package ethapi
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -1445,6 +1446,31 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender)
 }
 
+type RollupTransaction struct {
+	Nonce    *hexutil.Uint64 `json:"nonce"`
+	GasLimit *hexutil.Uint64 `json:"gasLimit"`
+	Sender   *common.Address `json:"sender"`
+	Target   *common.Address `json:"target"`
+	Calldata *hexutil.Bytes  `json:"calldata"`
+}
+
+// Creates a wrapped tx (internal tx that wraps an OVM tx) from the RollupTransaction.
+// The only part of the wrapped tx that has anything to do with the RollupTransaction is the calldata.
+func (r *RollupTransaction) toTransaction() *types.Transaction {
+	c, _ := r.Calldata.MarshalText()
+	if r.Target == nil {
+		return types.NewContractCreation(uint64(*r.Nonce), big.NewInt(0), uint64(*r.GasLimit), big.NewInt(1), c)
+	}
+	return types.NewTransaction(uint64(*r.Nonce), *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(1), c, r.Sender)
+}
+
+// SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
+type BlockBatches struct {
+	Timestamp   *hexutil.Uint64        `json:"timestamp"`
+	BlockNumber *hexutil.Uint64        `json:"blockNumber"`
+	Batches     [][]*RollupTransaction `json:"batches"`
+}
+
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	if err := b.SendTx(ctx, tx); err != nil {
@@ -1520,6 +1546,54 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	return SubmitTransaction(ctx, s.b, tx)
+}
+
+// SendBlockBatches will:
+// * Verify the batches are signed by the BlockBatchesSender
+// * Update the Geth timestamp to the provided timestamp
+// * handle the RollupTransaction Batches contained in the provided Block atomically
+func (s *PublicTransactionPoolAPI) SendBlockBatches(ctx context.Context, messageAndSig []hexutil.Bytes) []error {
+	if len(messageAndSig) != 2 {
+		return []error{fmt.Errorf("Incorrect number of arguments. Expected 2, got %d", len(messageAndSig))}
+	}
+	if !crypto.VerifyMessageSignature(s.b.ChainConfig().BlockBatchesSender.Bytes(), messageAndSig[0], messageAndSig[1]) {
+		return []error{fmt.Errorf("Signature does not match Block Batch Sender address %x", s.b.ChainConfig().BlockBatchesSender)}
+	}
+	var blockBatches BlockBatches
+	if err := json.Unmarshal(messageAndSig[0], &blockBatches); err != nil {
+		return []error{fmt.Errorf("Incorrect format for BlockBatches type. Received: %s", messageAndSig[0])}
+	}
+
+	txCount := 0
+	signer := types.MakeSigner(s.b.ChainConfig(), s.b.CurrentBlock().Number())
+	key, _ := crypto.GenerateKey()
+
+	signedBatches := make([][]*types.Transaction, len(blockBatches.Batches))
+	for bi, rollupTxs := range blockBatches.Batches {
+		signedBatches[bi] = make([]*types.Transaction, len(rollupTxs))
+		for i, rollupTx := range rollupTxs {
+			txCount++
+			tx := rollupTx.toTransaction()
+			tx, err := types.SignTx(tx, signer, key)
+			if err != nil {
+				return []error{fmt.Errorf("Error signing transaction in batch %d, index %d", bi, i)}
+			}
+			signedBatches[bi][i] = tx
+		}
+	}
+
+	// TODO: Set Timestamp here
+
+	i := 0
+	errs := make([]error, txCount)
+	for _, signedTxs := range signedBatches {
+		// TODO: Eventually make sure each batch is handled atomically
+		for _, e := range s.b.SendTxs(ctx, signedTxs) {
+			errs[i] = e
+			i++
+		}
+	}
+	return errs
 }
 
 // Sign calculates an ECDSA signature for:

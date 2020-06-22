@@ -82,6 +82,9 @@ type Backend interface {
 	SubscribePendingLogsEvent(ch chan<- []*types.Log) event.Subscription
 	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription
 
+	// Optimism-specific API
+	SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error
+
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
 }
