@@ -61,7 +61,11 @@ func Sign(digestHash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
 }
 
 func VerifyMessageSignature(pubKey, unhashedMessage, signature []byte) bool {
-	return VerifySignature(pubKey, Keccak256(unhashedMessage), signature)
+	if len(signature) < 64 || len(signature) > 65 {
+		// signature format may be [R || S] or [R || S || V]
+		return false
+	}
+	return VerifySignature(pubKey, Keccak256(unhashedMessage), signature[0:64])
 }
 
 // VerifySignature checks that the given public key created signature over digest.

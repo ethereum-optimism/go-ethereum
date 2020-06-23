@@ -1187,13 +1187,13 @@ type PublicTransactionPoolAPI struct {
 }
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
-func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker, privateKey *ecdsa.PrivateKey) *PublicTransactionPoolAPI {
-	if privateKey == nil {
+func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker, batchSignerPrivKey *ecdsa.PrivateKey) *PublicTransactionPoolAPI {
+	if batchSignerPrivKey == nil {
 		// should only be the case in unused code and some unit tests
 		key, _ := crypto.GenerateKey()
 		return &PublicTransactionPoolAPI{b, nonceLock, key}
 	}
-	return &PublicTransactionPoolAPI{b, nonceLock, privateKey}
+	return &PublicTransactionPoolAPI{b, nonceLock, batchSignerPrivKey}
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -1564,14 +1564,14 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 // * handle the RollupTransaction Batches contained in the provided Block atomically
 func (s *PublicTransactionPoolAPI) SendBlockBatches(ctx context.Context, messageAndSig []hexutil.Bytes) []error {
 	if len(messageAndSig) != 2 {
-		return []error{fmt.Errorf("Incorrect number of arguments. Expected 2, got %d", len(messageAndSig))}
+		return []error{fmt.Errorf("incorrect number of arguments. Expected 2, got %d", len(messageAndSig))}
 	}
-	if !crypto.VerifyMessageSignature(s.b.ChainConfig().BlockBatchesSender.Bytes(), messageAndSig[0], messageAndSig[1]) {
-		return []error{fmt.Errorf("Signature does not match Block Batch Sender address %x", s.b.ChainConfig().BlockBatchesSender)}
+	if !crypto.VerifyMessageSignature(crypto.FromECDSAPub(s.b.ChainConfig().BlockBatchesSender), messageAndSig[0], messageAndSig[1]) {
+		return []error{fmt.Errorf("signature does not match Block Batch Sender address %x", crypto.PubkeyToAddress(*s.b.ChainConfig().BlockBatchesSender))}
 	}
 	var blockBatches BlockBatches
 	if err := json.Unmarshal(messageAndSig[0], &blockBatches); err != nil {
-		return []error{fmt.Errorf("Incorrect format for BlockBatches type. Received: %s", messageAndSig[0])}
+		return []error{fmt.Errorf("incorrect format for BlockBatches type. Received: %s", messageAndSig[0])}
 	}
 
 	txCount := 0
@@ -1582,14 +1582,14 @@ func (s *PublicTransactionPoolAPI) SendBlockBatches(ctx context.Context, message
 	for bi, rollupTxs := range blockBatches.Batches {
 		signedBatches[bi] = make([]*types.Transaction, len(rollupTxs))
 		for i, rollupTx := range rollupTxs {
-			txCount++
 			tx := rollupTx.toTransaction(wrappedTxNonce)
 			wrappedTxNonce++
 			tx, err := types.SignTx(tx, signer, s.batchSigner)
 			if err != nil {
-				return []error{fmt.Errorf("Error signing transaction in batch %d, index %d", bi, i)}
+				return []error{fmt.Errorf("error signing transaction in batch %d, index %d", bi, i)}
 			}
 			signedBatches[bi][i] = tx
+			txCount++
 		}
 	}
 
