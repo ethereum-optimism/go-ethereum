@@ -47,8 +47,11 @@ type (
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
 	// Intercept the StateManager calls and make sure len(input) > 0 because if that is the case, then we are deploying a StateManager.
 	if contract.Address() == StateManagerAddress && len(input) > 0 {
-		fmt.Println("Contract address:", hex.EncodeToString(contract.Address().Bytes()), "StateManagerAddress", hex.EncodeToString(StateManagerAddress.Bytes()))
+		fmt.Println("Calling State Manager contract.", "StateManagerAddress", hex.EncodeToString(StateManagerAddress.Bytes()))
 		ret, err := callStateManager(input, evm, contract)
+		if err != nil {
+			fmt.Println("[ERROR] State manager error!", err)
+		}
 		return ret, err
 	}
 

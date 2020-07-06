@@ -218,6 +218,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
+	fmt.Println("Applying new transaction!")
 	if contractCreation {
 		// New Version
 		// Here we are going to call the EM directly
@@ -250,6 +251,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, callContractCalldata, st.gas, st.value)
 		// If the tx fails we won't have incremented the nonce. In this case, increment it manually
 		if vmerr != nil {
+			fmt.Println("Tx failed, incrementing nonce...")
 			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		}
 
