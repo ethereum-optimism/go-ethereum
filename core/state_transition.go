@@ -186,12 +186,6 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
-	// // Make sure the ExecutionManager is deployed. If not, deploy it.
-	// if len(st.evm.StateDB.GetCode(vm.ExecutionManagerAddress)) == 0 {
-	// 	deployExecutionManagerCalldata, _ := hex.DecodeString(vm.ExecutionManagerInitcode)
-	// 	executionManagerFrom := common.HexToAddress("999999999999999999999999999999999999")
-	// 	st.evm.OvmCreate(vm.AccountRef(executionManagerFrom), common.HexToAddress("A193E42526F1FEA8C99AF609dcEabf30C1c29fAA"), deployExecutionManagerCalldata, 100000000, big.NewInt(0))
-	// }
 	return st.buyGas()
 }
 
@@ -224,7 +218,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
-	// if contractCreation && sender.Address() != common.HexToAddress("17ec8597ff92C3F44523bDc65BF0f1bE632917ff") {
 	if contractCreation {
 		// New Version
 		// Here we are going to call the EM directly
