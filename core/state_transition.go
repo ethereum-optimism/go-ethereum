@@ -224,7 +224,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// Here we are going to call the EM directly
 		deployContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
-			big.NewInt(1),
+			st.evm.Time,
 			new(big.Int),
 			common.HexToAddress(""),
 			st.data,
@@ -240,7 +240,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// New Version
 		callContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
-			big.NewInt(1),
+			st.evm.Time,
 			new(big.Int),
 			st.to(),
 			st.data,
