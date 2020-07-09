@@ -1,8 +1,10 @@
 package vm
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -86,6 +88,11 @@ func associateCodeContract(evm *EVM, contract *Contract, input []byte) (ret []by
 
 func getCodeContractAddress(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	address := input[4:36]
+	// Ensure 0x0000...dead0000 is not called as they are banned addresses (the address space used for the OVM contracts)
+	bannedAddresses := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 222, 173}
+	if bytes.Equal(input[16:34], bannedAddresses) {
+		return nil, errors.New("forbidden 0x...DEAD address access")
+	}
 	fmt.Println("[State Mgr] Getting code contract address:", hex.EncodeToString(address))
 	return address, nil
 }

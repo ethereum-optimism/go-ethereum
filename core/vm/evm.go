@@ -18,6 +18,7 @@ package vm
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -483,19 +485,15 @@ func (evm *EVM) OvmCreate(caller ContractRef, contractAddr common.Address, code 
 
 // Create creates a new contract using code as deployment code.
 func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
-	// If this is the ExecutionManager & we have already finish initalization, then we should create the contract where it wants
-	isExecutionMgrDoneInitializing := evm.StateDB.GetNonce(ExecutionManagerAddress) > 6 // The EM creates 6 contracts during initalization
-	if caller.Address() == ExecutionManagerAddress && isExecutionMgrDoneInitializing {
-		// The contract address is stored at the Zero storage slot
-		contractAddrStorageSlot := common.HexToHash(strconv.FormatInt(int64(0), 16))
-		contractAddr = common.BytesToAddress(evm.StateDB.GetState(ExecutionManagerAddress, contractAddrStorageSlot).Bytes())
-		fmt.Println("[EM] Creating contract at address:", hex.EncodeToString(contractAddr.Bytes()))
-		fmt.Println("[EM] Caller Addr:", hex.EncodeToString(caller.Address().Bytes()), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
-	} else {
-		contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(caller.Address()))
-		fmt.Println("[NOT EM] Creating contract at address:", hex.EncodeToString(contractAddr.Bytes()))
-		fmt.Println("[NOT EM] Caller Addr:", hex.EncodeToString(caller.Address().Bytes()), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+	if caller.Address() != ExecutionManagerAddress {
+		log.Error("Creation called by non-Execution Manager contract! This should never happen.")
+		return nil, caller.Address(), 0, errors.New("creation called by non-Execution Manager contract")
 	}
+	// The contract address is stored at the Zero storage slot
+	contractAddrStorageSlot := common.HexToHash(strconv.FormatInt(int64(0), 16))
+	contractAddr = common.BytesToAddress(evm.StateDB.GetState(ExecutionManagerAddress, contractAddrStorageSlot).Bytes())
+	fmt.Println("[EM] Creating contract at address:", hex.EncodeToString(contractAddr.Bytes()))
+	fmt.Println("[EM] Caller Addr:", hex.EncodeToString(caller.Address().Bytes()), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
 	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
 
