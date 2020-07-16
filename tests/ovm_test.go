@@ -238,6 +238,7 @@ func applyMessageToState(currentState *state.StateDB, from common.Address, to co
 			big.NewInt(0),
 			data,
 			false,
+			&ZERO_ADDRESS,
 		)
 	} else {
 		// Otherwise we actually use the `to` field!
@@ -250,6 +251,7 @@ func applyMessageToState(currentState *state.StateDB, from common.Address, to co
 			big.NewInt(0),
 			data,
 			false,
+			&ZERO_ADDRESS,
 		)
 	}
 
