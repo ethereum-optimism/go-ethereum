@@ -131,7 +131,7 @@ func TestGetAndIncrementNonce(t *testing.T) {
 	}
 }
 
-func TestGetCodeContractAddress(t *testing.T) {
+func TestGetCodeContractAddressSucceedsForNormalContract(t *testing.T) {
 	rawStateManagerAbi, _ := ioutil.ReadFile("./StateManagerABI.json")
 	stateManagerAbi, _ := abi.JSON(strings.NewReader(string(rawStateManagerAbi)))
 	state := newState()
@@ -144,6 +144,22 @@ func TestGetCodeContractAddress(t *testing.T) {
 
 	if !bytes.Equal(getCodeContractAddressReturnValue[12:], address.Bytes()) {
 		t.Errorf("Expected %020x; got %020x", getCodeContractAddressReturnValue[12:], address.Bytes())
+	}
+}
+
+func TestGetCodeContractAddressFailsForDeadContract(t *testing.T) {
+	rawStateManagerAbi, _ := ioutil.ReadFile("./StateManagerABI.json")
+	stateManagerAbi, _ := abi.JSON(strings.NewReader(string(rawStateManagerAbi)))
+	state := newState()
+
+	deadAddress := common.HexToAddress("00000000000000000000000000000000dead9999")
+
+	getCodeContractAddressCalldata, _ := stateManagerAbi.Pack("getCodeContractAddress", deadAddress)
+
+	_, err := call(t, state, vm.StateManagerAddress, getCodeContractAddressCalldata)
+
+	if err == nil {
+		t.Errorf("Expected error to be thrown accessing dead address!")
 	}
 }
 

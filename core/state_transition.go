@@ -18,7 +18,6 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
 	"strings"
@@ -218,7 +217,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
-	fmt.Println("Applying new transaction!")
+	log.Debug("Applying new transaction!")
 	if contractCreation {
 		// New Version
 		// Here we are going to call the EM directly
@@ -251,7 +250,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, callContractCalldata, st.gas, st.value)
 		// If the tx fails we won't have incremented the nonce. In this case, increment it manually
 		if vmerr != nil {
-			fmt.Println("Tx failed, incrementing nonce...")
+			log.Debug("Tx failed, incrementing nonce...")
 			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		}
 
@@ -262,7 +261,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)
-		fmt.Println("VM returned with error", "err", vmerr)
 		// The only possible consensus-error would be if there wasn't
 		// sufficient balance to make the transfer happen. The first
 		// balance transfer may never fail.

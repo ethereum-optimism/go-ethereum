@@ -126,13 +126,18 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		journal:             newJournal(),
 	}
 
-	// Check if the EM is already deployed
+	// Check if the EM is already deployed. If not, initialize an OVM state!
 	if len(newState.GetCode(vm.ExecutionManagerAddress)) == 0 {
-		fmt.Println("Initializing state with EM dump!")
+		log.Debug("Initializing state with EM dump!")
 		var initOvmStateDump Dump
 		initOvmStateDumpMarshaled, _ := hex.DecodeString(vm.InitialOvmStateDump)
+		if err != nil {
+			log.Error(err.Error())
+			return nil, err
+		}
 		err = json.Unmarshal(initOvmStateDumpMarshaled, &initOvmStateDump)
 		if err != nil {
+			log.Error(err.Error())
 			return nil, err
 		}
 		// All States must be initialized with an ExecutionManager & related contracts
@@ -147,8 +152,6 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		updatedRoot := newState.IntermediateRoot(false)
 		newState.Commit(false)
 		newState.Database().TrieDB().Commit(updatedRoot, true)
-	} else {
-		fmt.Println("EM already deployed!")
 	}
 	return &newState, nil
 }
@@ -399,7 +402,7 @@ func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 }
 
 func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
-	fmt.Println("Setting nonce!", hex.EncodeToString(addr.Bytes()), "Nonce!", nonce)
+	log.Debug("Setting nonce!", hex.EncodeToString(addr.Bytes()), "Nonce!", nonce)
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)
@@ -414,7 +417,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	fmt.Println("Setting State for address:", hex.EncodeToString(addr.Bytes()), "& key:", hex.EncodeToString(key.Bytes()), "& value:", hex.EncodeToString(value.Bytes()))
+	log.Debug("Setting State for address:", hex.EncodeToString(addr.Bytes()), "& key:", hex.EncodeToString(key.Bytes()), "& value:", hex.EncodeToString(value.Bytes()))
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(s.db, key, value)
