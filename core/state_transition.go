@@ -218,11 +218,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		vmerr error
 	)
 	log.Debug("Applying new transaction!")
+	executionMgrTime := st.evm.Time
+	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
+		executionMgrTime = big.NewInt(1)
+	}
 	if contractCreation {
 		// Here we are going to call the EM directly
 		deployContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
-			st.evm.Time,
+			executionMgrTime,
 			new(big.Int),
 			common.HexToAddress(""),
 			st.data,
@@ -239,7 +243,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	} else {
 		callContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
-			st.evm.Time,
+			executionMgrTime,
 			new(big.Int),
 			st.to(),
 			st.data,
