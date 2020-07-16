@@ -231,6 +231,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			true,
 		)
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, deployContractCalldata, st.gas, st.value)
+		// If the tx fails we won't have incremented the nonce. In this case, increment it manually
+		if vmerr != nil {
+			log.Debug("Tx failed, incrementing nonce...")
+			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+		}
 	} else {
 		callContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
