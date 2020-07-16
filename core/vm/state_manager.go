@@ -5,14 +5,14 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type stateManagerFunction func(*EVM, *Contract, []byte) ([]byte, error)
-type methodId [4]byte
+type methodID [4]byte
 
 var funcs = map[string]stateManagerFunction{
 	"getStorage(address,bytes32)":            getStorage,
@@ -30,23 +30,23 @@ var executionMangerBytecode []byte
 func init() {
 	methodIds = make(map[[4]byte]stateManagerFunction, len(funcs))
 	for methodSignature, f := range funcs {
-		methodIds[MethodSignatureToMethodId(methodSignature)] = f
+		methodIds[methodSignatureToMethodID(methodSignature)] = f
 	}
 }
 
-func MethodSignatureToMethodId(methodSignature string) [4]byte {
-	var methodId [4]byte
-	copy(methodId[:], crypto.Keccak256([]byte(methodSignature)))
-	return methodId
+func methodSignatureToMethodID(methodSignature string) [4]byte {
+	var methodID [4]byte
+	copy(methodID[:], crypto.Keccak256([]byte(methodSignature)))
+	return methodID
 }
 
 func callStateManager(input []byte, evm *EVM, contract *Contract) (ret []byte, err error) {
-	var methodId [4]byte
+	var methodID [4]byte
 	if len(input) == 0 {
 		return nil, nil
 	}
-	copy(methodId[:], input[:4])
-	ret, err = methodIds[methodId](evm, contract, input)
+	copy(methodID[:], input[:4])
+	ret, err = methodIds[methodID](evm, contract, input)
 	return ret, err
 }
 
@@ -54,7 +54,7 @@ func setStorage(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	address := common.BytesToAddress(input[4:36])
 	key := common.BytesToHash(input[36:68])
 	val := common.BytesToHash(input[68:100])
-	fmt.Println("[State Mgr] Setting storage address:", hex.EncodeToString(address.Bytes()), "key:", hex.EncodeToString(key.Bytes()), "val:", hex.EncodeToString(val.Bytes()))
+	log.Debug("[State Mgr] Setting storage address:", hex.EncodeToString(address.Bytes()), "key:", hex.EncodeToString(key.Bytes()), "val:", hex.EncodeToString(val.Bytes()))
 	evm.StateDB.SetState(address, key, val)
 	return nil, nil
 }
@@ -63,26 +63,26 @@ func getStorage(evm *EVM, contract *Contract, input []byte) (ret []byte, err err
 	address := common.BytesToAddress(input[4:36])
 	key := common.BytesToHash(input[36:68])
 	val := evm.StateDB.GetState(address, key)
-	fmt.Println("[State Mgr] Getting storage address:", hex.EncodeToString(address.Bytes()), "key:", hex.EncodeToString(key.Bytes()), "val:", hex.EncodeToString(val.Bytes()))
+	log.Debug("[State Mgr] Getting storage address:", hex.EncodeToString(address.Bytes()), "key:", hex.EncodeToString(key.Bytes()), "val:", hex.EncodeToString(val.Bytes()))
 	return val.Bytes(), nil
 }
 
 func getCodeContractBytecode(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	address := common.BytesToAddress(input[4:36])
 	code := evm.StateDB.GetCode(address)
-	fmt.Println("[State Mgr] Getting Bytecode of address:", hex.EncodeToString(address.Bytes()), "Code:", hex.EncodeToString(code))
+	log.Debug("[State Mgr] Getting Bytecode of address:", hex.EncodeToString(address.Bytes()), "Code:", hex.EncodeToString(code))
 	return simpleAbiEncode(code), nil
 }
 
 func getCodeContractHash(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	address := common.BytesToAddress(input[4:36])
 	codeHash := evm.StateDB.GetCodeHash(address)
-	fmt.Println("[State Mgr] Getting Code Hash of address:", hex.EncodeToString(address.Bytes()), "Code hash:", hex.EncodeToString(codeHash.Bytes()))
+	log.Debug("[State Mgr] Getting Code Hash of address:", hex.EncodeToString(address.Bytes()), "Code hash:", hex.EncodeToString(codeHash.Bytes()))
 	return codeHash.Bytes(), nil
 }
 
 func associateCodeContract(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
-	fmt.Println("[State Mgr] Associating code contract")
+	log.Debug("[State Mgr] Associating code contract")
 	return []byte{}, nil
 }
 
@@ -93,7 +93,7 @@ func getCodeContractAddress(evm *EVM, contract *Contract, input []byte) (ret []b
 	if bytes.Equal(input[16:34], bannedAddresses) {
 		return nil, errors.New("forbidden 0x...DEAD address access")
 	}
-	fmt.Println("[State Mgr] Getting code contract address:", hex.EncodeToString(address))
+	log.Debug("[State Mgr] Getting code contract address:", hex.EncodeToString(address))
 	return address, nil
 }
 
@@ -102,7 +102,7 @@ func getOvmContractNonce(evm *EVM, contract *Contract, input []byte) (ret []byte
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, evm.StateDB.GetNonce(address))
 	val := append(make([]byte, 24), b[:]...)
-	fmt.Println("[State Mgr] Getting nonce:", hex.EncodeToString(address.Bytes()))
+	log.Debug("[State Mgr] Getting nonce:", hex.EncodeToString(address.Bytes()))
 	return val, nil
 }
 
@@ -110,7 +110,7 @@ func incrementOvmContractNonce(evm *EVM, contract *Contract, input []byte) (ret 
 	address := common.BytesToAddress(input[4:36])
 	oldNonce := evm.StateDB.GetNonce(address)
 	evm.StateDB.SetNonce(address, oldNonce+1)
-	fmt.Println("[State Mgr] Incrementing nonce:", hex.EncodeToString(address.Bytes()))
+	log.Debug("[State Mgr] Incrementing nonce:", hex.EncodeToString(address.Bytes()))
 	return nil, nil
 }
 

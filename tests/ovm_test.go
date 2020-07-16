@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -49,20 +49,20 @@ func TestContractCreationAndSimpleStorageTxs(t *testing.T) {
 	// Next we've got to generate & apply a transaction which calls the EM to deploy a new contract
 	initCode, _ := hex.DecodeString("608060405234801561001057600080fd5b5060405161026b38038061026b8339818101604052602081101561003357600080fd5b8101908080519060200190929190505050806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550506101d7806100946000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c80633408f73a1461003b578063d3404b6d14610045575b600080fd5b61004361004f565b005b61004d6100fa565b005b600060e060405180807f6f766d534c4f4144282900000000000000000000000000000000000000000000815250600a0190506040518091039020901c905060008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905060405136600082378260181c81538260101c60018201538260081c60028201538260038201536040516207a1208136846000875af160008114156100f657600080fd5b3d82f35b600060e060405180807f6f766d5353544f52452829000000000000000000000000000000000000000000815250600b0190506040518091039020901c905060008060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16905060405136600082378260181c81538260101c60018201538260081c600282015382600382015360008036836000865af1600081141561019c57600080fd5b5050505056fea265627a7a72315820311a406c97055eec367b660092882e1a174e14333416a3de384439293b7b129264736f6c6343000510003200000000000000000000000000000000000000000000000000000000dead0003")
 
-	fmt.Println("\n\nApplying CREATE SIMPLE STORAGE Tx to State.")
+	log.Debug("\n\nApplying CREATE SIMPLE STORAGE Tx to State.")
 	applyMessageToState(currentState, OTHER_FROM_ADDR, ZERO_ADDRESS, GAS_LIMIT, initCode)
-	fmt.Println("Complete.")
+	log.Debug("Complete.")
 
-	fmt.Println("\n\nApplying CALL SIMPLE STORAGE Tx to State.")
+	log.Debug("\n\nApplying CALL SIMPLE STORAGE Tx to State.")
 	newContractAddr := common.HexToAddress("65486c8ec9167565eBD93c94ED04F0F71d1b5137")
 	setStorageInnerCalldata, _ := hex.DecodeString("d3404b6d99999999999999999999999999999999999999999999999999999999999999990101010101010101010101010101010101010101010101010101010101010101")
 	getStorageInnerCalldata, _ := hex.DecodeString("3408f73a9999999999999999999999999999999999999999999999999999999999999999")
 
-	fmt.Println("\n\nApplying `set()` SIMPLE STORAGE Tx to State.")
+	log.Debug("\n\nApplying `set()` SIMPLE STORAGE Tx to State.")
 	applyMessageToState(currentState, OTHER_FROM_ADDR, newContractAddr, GAS_LIMIT, setStorageInnerCalldata)
-	fmt.Println("\n\nApplying `get()` SIMPLE STORAGE Tx to State.")
+	log.Debug("\n\nApplying `get()` SIMPLE STORAGE Tx to State.")
 	returnValue, _, _, _ := applyMessageToState(currentState, OTHER_FROM_ADDR, newContractAddr, GAS_LIMIT, getStorageInnerCalldata)
-	fmt.Println("Complete.")
+	log.Debug("Complete.")
 
 	expectedReturnValue, _ := hex.DecodeString("0101010101010101010101010101010101010101010101010101010101010101")
 	if !bytes.Equal(returnValue[:], expectedReturnValue) {
@@ -222,6 +222,7 @@ func applyMessageToState(currentState *state.StateDB, from common.Address, to co
 	header := &types.Header{
 		Number:     big.NewInt(0),
 		Difficulty: big.NewInt(0),
+		Time:       1,
 	}
 	gasPool := core.GasPool(100000000)
 	// Generate the message
@@ -256,11 +257,10 @@ func applyMessageToState(currentState *state.StateDB, from common.Address, to co
 	evm := vm.NewEVM(context, currentState, &chainConfig, vm.Config{})
 
 	returnValue, gasUsed, failed, err := core.ApplyMessage(evm, message, &gasPool)
-	// fmt.Println("Return val:", returnValue, "Gas used:", gasUsed, "Failed:", failed, "Error:", err)
-	fmt.Println("Return val: [HIDDEN]", "Gas used:", gasUsed, "Failed:", failed, "Error:", err)
+	log.Debug("Return val: [HIDDEN]", "Gas used:", gasUsed, "Failed:", failed, "Error:", err)
 
 	commitHash, commitErr := currentState.Commit(false)
-	fmt.Println("Commit hash:", commitHash, "Commit err:", commitErr)
+	log.Debug("Commit hash:", commitHash, "Commit err:", commitErr)
 
 	return returnValue, gasUsed, failed, err
 }
