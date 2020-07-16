@@ -46,8 +46,8 @@ type (
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
-	// Intercept the StateManager calls and make sure len(input) > 0 because if that is the case, then we are deploying a StateManager.
-	if contract.Address() == StateManagerAddress && len(input) > 0 {
+	// Intercept the StateManager calls
+	if contract.Address() == StateManagerAddress {
 		log.Debug("Calling State Manager contract.", "StateManagerAddress", hex.EncodeToString(StateManagerAddress.Bytes()))
 		ret, err := callStateManager(input, evm, contract)
 		if err != nil {
@@ -406,9 +406,6 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if !evm.CanTransfer(evm.StateDB, caller.Address(), value) {
 		return nil, common.Address{}, gas, ErrInsufficientBalance
 	}
-	// OLD VERSION
-	// nonce := evm.StateDB.GetNonce(caller.Address())
-	// evm.StateDB.SetNonce(caller.Address(), nonce+1)
 
 	// Ensure there's no existing contract already at the designated address
 	contractHash := evm.StateDB.GetCodeHash(address)
@@ -418,10 +415,6 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	// Create a new account on the state
 	snapshot := evm.StateDB.Snapshot()
 	evm.StateDB.CreateAccount(address)
-	// OLD VERSION
-	// if evm.chainRules.IsEIP158 {
-	// 	evm.StateDB.SetNonce(address, 1)
-	// }
 	evm.Transfer(evm.StateDB, caller.Address(), address, value)
 
 	// Initialise a new contract and set the code that is to be used by the EVM.
@@ -473,11 +466,6 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	}
 	return ret, address, contract.Gas, err
 
-}
-
-// TODO Pass in actual contract ref
-func (evm *EVM) OvmCreate(caller ContractRef, contractAddr common.Address, code []byte, gas uint64, value *big.Int) (ret []byte, retContractAddr common.Address, leftOverGas uint64, err error) {
-	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
 
 // Create creates a new contract using code as deployment code.

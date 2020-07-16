@@ -219,7 +219,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	)
 	log.Debug("Applying new transaction!")
 	if contractCreation {
-		// New Version
 		// Here we are going to call the EM directly
 		deployContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
@@ -232,11 +231,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			true,
 		)
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, deployContractCalldata, st.gas, st.value)
-
-		// Old Version
-		// ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 	} else {
-		// New Version
 		callContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
 			st.evm.Time,
@@ -253,11 +248,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			log.Debug("Tx failed, incrementing nonce...")
 			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		}
-
-		// Old Version
-		// // Increment the nonce for the next transaction
-		// st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		// ret, st.gas, vmerr = evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)
