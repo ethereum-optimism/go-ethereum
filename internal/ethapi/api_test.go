@@ -57,20 +57,20 @@ func getTestCases(pk *ecdsa.PrivateKey) []testCase {
 		{inputCtx: getFakeContext(), inputMessageAndSig: getInputMessageAndSignature([]byte{1}, pk), hasErrors: true},
 
 		// Returns 0 errors if no transactions but timestamp updated
-		{inputCtx: getFakeContext(), inputMessageAndSig: getBlockBatchesInputMessageAndSignature(pk, 0, 1, []int{})},
-		{inputCtx: getFakeContext(), inputMessageAndSig: getBlockBatchesInputMessageAndSignature(pk, 1, 1, []int{}), resultingTimestamp: 1},
+		{inputCtx: getFakeContext(), inputMessageAndSig: getRollupTransactionsInputAndSignature(pk, 0, 1, 0)},
+		{inputCtx: getFakeContext(), inputMessageAndSig: getRollupTransactionsInputAndSignature(pk, 1, 1, 0), resultingTimestamp: 1},
 
 		// Handles one transaction and updates timestamp
-		{inputCtx: getFakeContext(), inputMessageAndSig: getBlockBatchesInputMessageAndSignature(pk, 1, 1, []int{1}), resultingTimestamp: 1},
-		{backendContext: backendContext{sendTxsErrors: getDummyErrors([]int{0}, 1)}, inputCtx: getFakeContext(), inputMessageAndSig: getBlockBatchesInputMessageAndSignature(pk, 1, 1, []int{1}), hasErrors: true, resultingTimestamp: 1},
+		{inputCtx: getFakeContext(), inputMessageAndSig: getRollupTransactionsInputAndSignature(pk, 1, 1, 1), resultingTimestamp: 1},
+		{backendContext: backendContext{sendTxsErrors: getDummyErrors([]int{0}, 1)}, inputCtx: getFakeContext(), inputMessageAndSig: getRollupTransactionsInputAndSignature(pk, 1, 1, 1), hasErrors: true, resultingTimestamp: 1},
 
 		// Handles one batch of multiple transaction and updates timestamp
-		{inputCtx: getFakeContext(), inputMessageAndSig: getBlockBatchesInputMessageAndSignature(pk, 1, 1, []int{2}), resultingTimestamp: 1},
-		{backendContext: backendContext{sendTxsErrors: getDummyErrors([]int{1}, 2)}, inputCtx: getFakeContext(), inputMessageAndSig: getBlockBatchesInputMessageAndSignature(pk, 1, 2, []int{2}), hasErrors: true, resultingTimestamp: 1},
+		{inputCtx: getFakeContext(), inputMessageAndSig: getRollupTransactionsInputAndSignature(pk, 1, 1, 2), resultingTimestamp: 1},
+		{backendContext: backendContext{sendTxsErrors: getDummyErrors([]int{1}, 2)}, inputCtx: getFakeContext(), inputMessageAndSig: getRollupTransactionsInputAndSignature(pk, 1, 2, 2), hasErrors: true, resultingTimestamp: 1},
 
 		// Handles multiple transactions and updates timestamp
-		{inputCtx: getFakeContext(), inputMessageAndSig: getBlockBatchesInputMessageAndSignature(pk, 2, 1, []int{1, 2, 3}), resultingTimestamp: 2},
-		{backendContext: backendContext{sendTxsErrors: getDummyErrors([]int{0, 2}, 3)}, inputCtx: getFakeContext(), inputMessageAndSig: getBlockBatchesInputMessageAndSignature(pk, 1, 1, []int{1, 2, 3}), hasErrors: true, resultingTimestamp: 1, multipleBatches: true},
+		{inputCtx: getFakeContext(), inputMessageAndSig: getRollupTransactionsInputAndSignature(pk, 2, 1, 3), resultingTimestamp: 2},
+		{backendContext: backendContext{sendTxsErrors: getDummyErrors([]int{0, 2}, 3)}, inputCtx: getFakeContext(), inputMessageAndSig: getRollupTransactionsInputAndSignature(pk, 1, 1, 3), hasErrors: true, resultingTimestamp: 1, multipleBatches: true},
 	}
 }
 
@@ -81,7 +81,7 @@ func TestSendBlockBatches(t *testing.T) {
 	for testNum, testCase := range getTestCases(blockBatchSenderPrivKey) {
 		backendTimestamp = 0
 		api := getTestPublicTransactionPoolAPI(txSignerPrivKey, blockBatchSenderPrivKey, testCase.backendContext)
-		res := api.SendBlockBatches(testCase.inputCtx, testCase.inputMessageAndSig)
+		res := api.SendRollupTransactions(testCase.inputCtx, testCase.inputMessageAndSig)
 		h := func(r []error) bool {
 			for _, e := range r {
 				if e != nil {
@@ -146,30 +146,29 @@ func getDummyErrors(errorIndicies []int, outputSize int) []error {
 
 func getRandomRollupTransaction() *RollupTransaction {
 	gasLimit := hexutil.Uint64(uint64(0))
+	l1RollupTxId := hexutil.Uint64(uint64(0))
 	return &RollupTransaction{
-		Nonce:    &internalTxNonce,
-		GasLimit: &gasLimit,
-		Sender:   &internalTxSender,
-		Target:   &internalTxTarget,
-		Calldata: &internalTxCalldata,
+		L1RollupTxId: &l1RollupTxId,
+		Nonce:        &internalTxNonce,
+		GasLimit:     &gasLimit,
+		Sender:       &internalTxSender,
+		Target:       &internalTxTarget,
+		Calldata:     &internalTxCalldata,
 	}
 }
 
-func getBlockBatchesInputMessageAndSignature(privKey *ecdsa.PrivateKey, timestamp int64, blockNumber int, batchSizes []int) []hexutil.Bytes {
+func getRollupTransactionsInputAndSignature(privKey *ecdsa.PrivateKey, timestamp int64, blockNumber int, batchSize int) []hexutil.Bytes {
 	ts := hexutil.Uint64(uint64(timestamp))
 	blockNum := hexutil.Uint64(uint64(blockNumber))
 
-	batches := make([][]*RollupTransaction, len(batchSizes))
-	for i, s := range batchSizes {
-		batches[i] = make([]*RollupTransaction, s)
-		for index := 0; index < s; index++ {
-			batches[i][index] = getRandomRollupTransaction()
-		}
+	rollupTransactions := make([]*RollupTransaction, batchSize)
+	for index := 0; index < batchSize; index++ {
+		rollupTransactions[index] = getRandomRollupTransaction()
 	}
-	bb := &BlockBatches{
-		Timestamp:   &ts,
-		BlockNumber: &blockNum,
-		Batches:     batches,
+	bb := &GethSubmission{
+		Timestamp:          &ts,
+		SubmissionNumber:   &blockNum,
+		RollupTransactions: rollupTransactions,
 	}
 
 	message, _ := json.Marshal(bb)
