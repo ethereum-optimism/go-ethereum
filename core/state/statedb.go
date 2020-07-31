@@ -19,7 +19,6 @@ package state
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -28,7 +27,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -114,8 +112,7 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	newState := StateDB{
+	return &StateDB{
 		db:                  db,
 		trie:                tr,
 		stateObjects:        make(map[common.Address]*stateObject),
@@ -124,36 +121,7 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 		logs:                make(map[common.Hash][]*types.Log),
 		preimages:           make(map[common.Hash][]byte),
 		journal:             newJournal(),
-	}
-
-	// Check if the EM is already deployed. If not, initialize an OVM state!
-	if len(newState.GetCode(vm.ExecutionManagerAddress)) == 0 {
-		log.Debug("Initializing state with EM dump!")
-		var initOvmStateDump Dump
-		initOvmStateDumpMarshaled, _ := hex.DecodeString(vm.InitialOvmStateDump)
-		if err != nil {
-			log.Error(err.Error())
-			return nil, err
-		}
-		err = json.Unmarshal(initOvmStateDumpMarshaled, &initOvmStateDump)
-		if err != nil {
-			log.Error(err.Error())
-			return nil, err
-		}
-		// All States must be initialized with an ExecutionManager & related contracts
-		for addr, account := range initOvmStateDump.Accounts {
-			newState.AddBalance(addr, big.NewInt(0))
-			newState.SetCode(addr, common.FromHex(account.Code))
-			newState.SetNonce(addr, account.Nonce)
-			for key, value := range account.Storage {
-				newState.SetState(addr, key, common.HexToHash(value))
-			}
-		}
-		updatedRoot := newState.IntermediateRoot(false)
-		newState.Commit(false)
-		newState.Database().TrieDB().Commit(updatedRoot, true)
-	}
-	return &newState, nil
+	}, nil
 }
 
 // setError remembers the first non-nil error it is called with.

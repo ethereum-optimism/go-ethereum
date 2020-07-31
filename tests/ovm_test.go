@@ -215,6 +215,7 @@ func makeUint256WithUint64(num uint64) []byte {
 func newState() *state.StateDB {
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
+	core.ApplyOvmToState(state)
 	return state
 }
 
