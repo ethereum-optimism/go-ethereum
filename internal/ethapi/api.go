@@ -1181,19 +1181,19 @@ func newRPCTransactionFromBlockHash(b *types.Block, hash common.Hash) *RPCTransa
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
 type PublicTransactionPoolAPI struct {
-	b           Backend
-	nonceLock   *AddrLocker
-	batchSigner *ecdsa.PrivateKey
+	b                        Backend
+	nonceLock                *AddrLocker
+	rollupTransactionsSigner *ecdsa.PrivateKey
 }
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
-func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker, batchSignerPrivKey *ecdsa.PrivateKey) *PublicTransactionPoolAPI {
-	if batchSignerPrivKey == nil {
+func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker, rollupTransactionsSigner *ecdsa.PrivateKey) *PublicTransactionPoolAPI {
+	if rollupTransactionsSigner == nil {
 		// should only be the case in unused code and some unit tests
 		key, _ := crypto.GenerateKey()
 		return &PublicTransactionPoolAPI{b, nonceLock, key}
 	}
-	return &PublicTransactionPoolAPI{b, nonceLock, batchSignerPrivKey}
+	return &PublicTransactionPoolAPI{b, nonceLock, rollupTransactionsSigner}
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -1569,9 +1569,9 @@ func (s *PublicTransactionPoolAPI) SendRollupTransactions(ctx context.Context, m
 	if len(messageAndSig) != 2 {
 		return []error{fmt.Errorf("incorrect number of arguments. Expected 2, got %d", len(messageAndSig))}
 	}
-	if !crypto.VerifyMessageSignature(crypto.FromECDSAPub(s.b.ChainConfig().BlockBatchesSender), messageAndSig[0], messageAndSig[1]) {
-		return []error{fmt.Errorf("signature does not match Block Batch Sender address %x", crypto.PubkeyToAddress(*s.b.ChainConfig().BlockBatchesSender))}
-	}
+
+	// TODO: Ignoring signature because we'll move this logic into geth shortly.
+
 	var submission GethSubmission
 	if err := json.Unmarshal(messageAndSig[0], &submission); err != nil {
 		return []error{fmt.Errorf("incorrect format for RollupTransactions type. Received: %s", messageAndSig[0])}
@@ -1580,12 +1580,12 @@ func (s *PublicTransactionPoolAPI) SendRollupTransactions(ctx context.Context, m
 	txCount := 0
 	signer := types.MakeSigner(s.b.ChainConfig(), s.b.CurrentBlock().Number())
 
-	wrappedTxNonce, _ := s.b.GetPoolNonce(ctx, crypto.PubkeyToAddress(s.batchSigner.PublicKey))
+	wrappedTxNonce, _ := s.b.GetPoolNonce(ctx, crypto.PubkeyToAddress(s.rollupTransactionsSigner.PublicKey))
 	signedTransactions := make([]*types.Transaction, len(submission.RollupTransactions))
 	for i, rollupTx := range submission.RollupTransactions {
 		tx := rollupTx.toTransaction(wrappedTxNonce)
 		wrappedTxNonce++
-		tx, err := types.SignTx(tx, signer, s.batchSigner)
+		tx, err := types.SignTx(tx, signer, s.rollupTransactionsSigner)
 		if err != nil {
 			return []error{fmt.Errorf("error signing transaction in batch %d, index %d", submission.SubmissionNumber, i)}
 		}

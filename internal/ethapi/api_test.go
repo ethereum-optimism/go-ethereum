@@ -74,13 +74,13 @@ func getTestCases(pk *ecdsa.PrivateKey) []testCase {
 	}
 }
 
-func TestSendBlockBatches(t *testing.T) {
-	blockBatchSenderPrivKey, _ := crypto.GenerateKey()
+func TestSendRollupTransactions(t *testing.T) {
+	rollupTransactionsSender, _ := crypto.GenerateKey()
 	txSignerPrivKey, _ := crypto.GenerateKey()
 
-	for testNum, testCase := range getTestCases(blockBatchSenderPrivKey) {
+	for testNum, testCase := range getTestCases(rollupTransactionsSender) {
 		backendTimestamp = 0
-		api := getTestPublicTransactionPoolAPI(txSignerPrivKey, blockBatchSenderPrivKey, testCase.backendContext)
+		api := getTestPublicTransactionPoolAPI(txSignerPrivKey, rollupTransactionsSender, testCase.backendContext)
 		res := api.SendRollupTransactions(testCase.inputCtx, testCase.inputMessageAndSig)
 		h := func(r []error) bool {
 			for _, e := range r {
@@ -187,8 +187,9 @@ func getFakeContext() context.Context {
 	}
 }
 
-func getTestPublicTransactionPoolAPI(txSignerPrivKey *ecdsa.PrivateKey, blockBatchSenderPrivKey *ecdsa.PrivateKey, backendContext backendContext) *PublicTransactionPoolAPI {
-	backend := newMockBackend(&blockBatchSenderPrivKey.PublicKey, backendContext)
+func getTestPublicTransactionPoolAPI(txSignerPrivKey *ecdsa.PrivateKey, rollupTransactionsSender *ecdsa.PrivateKey, backendContext backendContext) *PublicTransactionPoolAPI {
+	address := crypto.PubkeyToAddress(rollupTransactionsSender.PublicKey)
+	backend := newMockBackend(&address, backendContext)
 	return NewPublicTransactionPoolAPI(backend, nil, txSignerPrivKey)
 }
 
@@ -199,15 +200,15 @@ type backendContext struct {
 }
 
 type mockBackend struct {
-	blockBatchSender *ecdsa.PublicKey
-	testContext      backendContext
-	timestamp        int64
+	rollupTransactionSender *common.Address
+	testContext             backendContext
+	timestamp               int64
 }
 
-func newMockBackend(blockBatchSender *ecdsa.PublicKey, backendContext backendContext) mockBackend {
+func newMockBackend(rollupTransactionSender *common.Address, backendContext backendContext) mockBackend {
 	return mockBackend{
-		blockBatchSender: blockBatchSender,
-		testContext:      backendContext,
+		rollupTransactionSender: rollupTransactionSender,
+		testContext:             backendContext,
 	}
 }
 
@@ -367,9 +368,11 @@ func (m mockBackend) SetTimestamp(timestamp int64) {
 }
 
 func (m mockBackend) ChainConfig() *params.ChainConfig {
-	return &params.ChainConfig{
-		BlockBatchesSender: m.blockBatchSender,
-	}
+	return &params.ChainConfig{}
+}
+
+func (m mockBackend) RollupTransactionSender() *common.Address {
+	return m.rollupTransactionSender
 }
 
 func (m mockBackend) CurrentBlock() *types.Block {
