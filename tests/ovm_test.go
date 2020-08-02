@@ -227,7 +227,7 @@ func applyMessageToState(currentState *state.StateDB, from common.Address, to co
 	}
 	gasPool := core.GasPool(100000000)
 	// Generate the message
-	message := types.Message{}
+	var message types.Message
 	if to == ZERO_ADDRESS {
 		// Check if to the ZERO_ADDRESS, if so, make it nil
 		message = types.NewMessage(

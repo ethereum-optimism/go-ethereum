@@ -12,7 +12,6 @@ import (
 )
 
 type stateManagerFunction func(*EVM, *Contract, []byte) ([]byte, error)
-type methodID [4]byte
 
 var funcs = map[string]stateManagerFunction{
 	"getStorage(address,bytes32)":                   getStorage,
@@ -26,7 +25,6 @@ var funcs = map[string]stateManagerFunction{
 	"registerCreatedContract(address)":              registerCreatedContract,
 }
 var methodIds map[[4]byte]stateManagerFunction
-var executionMangerBytecode []byte
 
 func init() {
 	methodIds = make(map[[4]byte]stateManagerFunction, len(funcs))
