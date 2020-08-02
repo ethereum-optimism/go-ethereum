@@ -138,7 +138,7 @@ func TestGetCodeContractAddressSucceedsForNormalContract(t *testing.T) {
 
 	address := common.HexToAddress("9999999999999999999999999999999999999999")
 
-	getCodeContractAddressCalldata, _ := stateManagerAbi.Pack("getCodeContractAddress", address)
+	getCodeContractAddressCalldata, _ := stateManagerAbi.Pack("getCodeContractAddressFromOvmAddress", address)
 
 	getCodeContractAddressReturnValue, _ := call(t, state, vm.StateManagerAddress, getCodeContractAddressCalldata)
 
@@ -154,7 +154,7 @@ func TestGetCodeContractAddressFailsForDeadContract(t *testing.T) {
 
 	deadAddress := common.HexToAddress("00000000000000000000000000000000dead9999")
 
-	getCodeContractAddressCalldata, _ := stateManagerAbi.Pack("getCodeContractAddress", deadAddress)
+	getCodeContractAddressCalldata, _ := stateManagerAbi.Pack("getCodeContractAddressFromOvmAddress", deadAddress)
 
 	_, err := call(t, state, vm.StateManagerAddress, getCodeContractAddressCalldata)
 

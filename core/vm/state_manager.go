@@ -15,14 +15,15 @@ type stateManagerFunction func(*EVM, *Contract, []byte) ([]byte, error)
 type methodID [4]byte
 
 var funcs = map[string]stateManagerFunction{
-	"getStorage(address,bytes32)":            getStorage,
-	"setStorage(address,bytes32,bytes32)":    setStorage,
-	"getOvmContractNonce(address)":           getOvmContractNonce,
-	"getCodeContractBytecode(address)":       getCodeContractBytecode,
-	"getCodeContractHash(address)":           getCodeContractHash,
-	"getCodeContractAddress(address)":        getCodeContractAddress,
-	"associateCodeContract(address,address)": associateCodeContract,
-	"incrementOvmContractNonce(address)":     incrementOvmContractNonce,
+	"getStorage(address,bytes32)":                   getStorage,
+	"setStorage(address,bytes32,bytes32)":           setStorage,
+	"getOvmContractNonce(address)":                  getOvmContractNonce,
+	"incrementOvmContractNonce(address)":            incrementOvmContractNonce,
+	"getCodeContractBytecode(address)":              getCodeContractBytecode,
+	"getCodeContractHash(address)":                  getCodeContractHash,
+	"getCodeContractAddressFromOvmAddress(address)": getCodeContractAddress,
+	"associateCodeContract(address,address)":        associateCodeContract,
+	"registerCreatedContract(address)":              registerCreatedContract,
 }
 var methodIds map[[4]byte]stateManagerFunction
 var executionMangerBytecode []byte
@@ -83,6 +84,11 @@ func getCodeContractHash(evm *EVM, contract *Contract, input []byte) (ret []byte
 
 func associateCodeContract(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	log.Debug("[State Mgr] Associating code contract")
+	return []byte{}, nil
+}
+
+func registerCreatedContract(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
+	log.Debug("[State Mgr] Registering created contract")
 	return []byte{}, nil
 }
 
