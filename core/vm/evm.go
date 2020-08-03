@@ -201,7 +201,7 @@ func (evm *EVM) Interpreter() Interpreter {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
-	log.Debug("New Call ~~~ Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()), "\nCalldata:", hex.EncodeToString(input))
+	log.Debug("~~~ New Call ~~~", "Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()), "\nCalldata:", hex.EncodeToString(input))
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -314,7 +314,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 // DelegateCall differs from CallCode in the sense that it executes the given address'
 // code with the caller as context and the caller is set to the caller of the caller.
 func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	log.Debug("New DelegateCall ~~~ Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()))
+	log.Debug("~~~ New DelegateCall ~~~", "Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()))
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -347,7 +347,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 // Opcodes that attempt to perform such modifications will result in exceptions
 // instead of performing the modifications.
 func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	log.Debug("New StaticCall ~~~ Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()))
+	log.Debug("~~~ New StaticCall ~~~", "Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()))
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
