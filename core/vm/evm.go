@@ -477,7 +477,7 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 	// The contract address is stored at the Zero storage slot
 	contractAddrStorageSlot := common.HexToHash(strconv.FormatInt(ActiveContractStorageSlot, 16))
 	contractAddr = common.BytesToAddress(evm.StateDB.GetState(ExecutionManagerAddress, contractAddrStorageSlot).Bytes())
-	log.Debug("[EM] Creating contract at address:", hex.EncodeToString(contractAddr.Bytes()), "Caller Addr:", hex.EncodeToString(caller.Address().Bytes()), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+	log.Debug("[EM] Creating contract.", "New contract address:", hex.EncodeToString(contractAddr.Bytes()), "Caller Addr:", hex.EncodeToString(caller.Address().Bytes()), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
 	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
 
