@@ -201,7 +201,7 @@ func (evm *EVM) Interpreter() Interpreter {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
-	log.Debug("~~~ New Call ~~~", "Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()), "\nCalldata:", hex.EncodeToString(input))
+	log.Debug("~~~ New Call ~~~", "Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()), "Calldata:", hex.EncodeToString(input))
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -471,7 +471,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 // Create creates a new contract using code as deployment code.
 func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	if caller.Address() != ExecutionManagerAddress {
-		log.Error("Creation called by non-Execution Manager contract! This should never happen.")
+		log.Error("Creation called by non-Execution Manager contract! This should never happen.", "Offending address", hex.EncodeToString(caller.Address().Bytes()))
 		return nil, caller.Address(), 0, errors.New("creation called by non-Execution Manager contract")
 	}
 	// The contract address is stored at the Zero storage slot

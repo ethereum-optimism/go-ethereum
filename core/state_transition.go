@@ -18,6 +18,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"math/big"
 	"strings"
@@ -35,7 +36,11 @@ var (
 )
 
 func init() {
-	executionManagerAbi, _ = abi.JSON(strings.NewReader(vm.RawExecutionManagerAbi))
+	var err error
+	executionManagerAbi, err = abi.JSON(strings.NewReader(vm.RawExecutionManagerAbi))
+	if err != nil {
+		panic(fmt.Sprintf("Error reading ExecutionManagerAbi! Error: %s", err))
+	}
 }
 
 /*
@@ -217,7 +222,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
-	log.Debug("Applying new transaction!")
+	log.Debug("Applying new transaction (technically Message)!", "Tx (aka Message) data", st.msg)
 	executionMgrTime := st.evm.Time
 	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
 		executionMgrTime = big.NewInt(1)
