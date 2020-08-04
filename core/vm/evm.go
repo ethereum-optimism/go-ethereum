@@ -219,7 +219,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		to       = AccountRef(addr)
 		snapshot = evm.StateDB.Snapshot()
 	)
-	if !evm.StateDB.Exist(addr) && addr != StateManagerAddress {
+	if !evm.StateDB.Exist(addr) {
 		precompiles := PrecompiledContractsHomestead
 		if evm.chainRules.IsByzantium {
 			precompiles = PrecompiledContractsByzantium
