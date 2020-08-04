@@ -254,8 +254,8 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 	}
 }
 
-// ApplyOvmToState applies the initial OVM state to a state object.
-func ApplyOvmToState(statedb *state.StateDB) {
+// ApplyOvmStateToState applies the initial OVM state to a state object.
+func ApplyOvmStateToState(statedb *state.StateDB) {
 	// Set up the OVM genesis state
 	var initOvmStateDump state.Dump
 	// Load the OVM genesis
@@ -279,7 +279,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 
-	ApplyOvmToState(statedb)
+	ApplyOvmStateToState(statedb)
 
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
