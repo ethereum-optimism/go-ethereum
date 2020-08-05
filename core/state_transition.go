@@ -231,40 +231,35 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// Here we are going to call the EM directly
 		deployContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
-			executionMgrTime,
-			new(big.Int),
-			common.HexToAddress(""),
-			st.data,
-			sender,
-			common.HexToAddress(""),
-			true,
+			executionMgrTime,        // lastL1Timestamp
+			new(big.Int),            // queueOrigin
+			common.HexToAddress(""), // ovmEntrypoint
+			st.data,                 // callBytes
+			sender,                  // fromAddress
+			common.HexToAddress(""), // l1MsgSenderAddress
+			true,                    // allowRevert
 		)
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, deployContractCalldata, st.gas, st.value)
-		// If the tx fails we won't have incremented the nonce. In this case, increment it manually
-		if vmerr != nil {
-			log.Debug("Tx failed, incrementing nonce...")
-			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		}
 	} else {
 		callContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
-			executionMgrTime,
-			new(big.Int),
-			st.to(),
-			st.data,
-			sender,
-			common.HexToAddress(""),
-			true,
+			executionMgrTime,        // lastL1Timestamp
+			new(big.Int),            // queueOrigin
+			st.to(),                 // ovmEntrypoint
+			st.data,                 // callBytes
+			sender,                  // fromAddress
+			common.HexToAddress(""), // l1MsgSenderAddress
+			true,                    // allowRevert
 		)
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, callContractCalldata, st.gas, st.value)
-		// If the tx fails we won't have incremented the nonce. In this case, increment it manually
-		if vmerr != nil {
-			log.Debug("Tx failed, incrementing nonce...")
-			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-		}
 	}
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)
+
+		// If the tx fails we won't have incremented the nonce. In this case, increment it manually
+		log.Debug("Incrementing nonce due to transaction failure")
+		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+
 		// The only possible consensus-error would be if there wasn't
 		// sufficient balance to make the transfer happen. The first
 		// balance transfer may never fail.
