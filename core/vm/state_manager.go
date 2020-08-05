@@ -132,7 +132,7 @@ func registerCreatedContract(evm *EVM, contract *Contract, input []byte) (ret []
 
 func getCodeContractAddress(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
 	address := input[4:36]
-	// Ensure 0x0000...dead0000 is not called as they are banned addresses (the address space used for the OVM contracts)
+	// Ensure 0x0000...deadXXXX is not called as they are banned addresses (the address space used for the OVM contracts)
 	bannedAddresses := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 222, 173}
 	if bytes.Equal(input[16:34], bannedAddresses) {
 		log.Error("[State Mgr] forbidden 0x...DEAD address access!", "Address", hex.EncodeToString(address))
