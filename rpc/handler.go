@@ -366,9 +366,15 @@ func (h *handler) handleSubscribe(cp *callProc, msg *jsonrpcMessage) *jsonrpcMes
 
 // runMethod runs the Go callback for an RPC method.
 func (h *handler) runMethod(ctx context.Context, msg *jsonrpcMessage, callb *callback, args []reflect.Value) *jsonrpcMessage {
+	if msg.Method == "eth_estimateGas" {
+		log.Debug("Out here ESTIMATING GAS, calling eth_estimateGas")
+	}
 	result, err := callb.call(ctx, msg.Method, args)
 	if err != nil {
 		return msg.errorResponse(err)
+	}
+	if msg.Method == "eth_estimateGas" {
+		log.Debug("Finished ESTIMATING GAS", "result:", result)
 	}
 	return msg.response(result)
 }
