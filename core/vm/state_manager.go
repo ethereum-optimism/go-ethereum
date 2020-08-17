@@ -41,9 +41,6 @@ func methodSignatureToMethodID(methodSignature string) [4]byte {
 
 func callStateManager(input []byte, evm *EVM, contract *Contract) (ret []byte, err error) {
 	var methodID [4]byte
-	if len(input) == 0 {
-		return nil, nil
-	}
 	copy(methodID[:], input[:4])
 	ret, err = methodIds[methodID](evm, contract, input)
 	return ret, err
