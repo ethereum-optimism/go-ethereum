@@ -543,10 +543,11 @@ func (c *Clique) Prepare(chain consensus.ChainReader, header *types.Header) erro
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Time = parent.Time + c.config.Period
-	if header.Time < uint64(time.Now().Unix()) {
-		header.Time = uint64(time.Now().Unix())
-	}
+	// [REMOVED] so we can control timestamps
+	//header.Time = parent.Time + c.config.Period
+	//if header.Time < uint64(time.Now().Unix()) {
+	//	header.Time = uint64(time.Now().Unix())
+	//}
 	return nil
 }
 
