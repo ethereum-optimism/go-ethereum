@@ -237,7 +237,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bc.currentFastBlock.Store(nilBlock)
 
 	// TODO: Make default current timestamp configurable & make 0 if genesis else load from last block?
-	bc.SetCurrentTimestamp(int64(0))
 
 	// Initialize the chain with ancient data if it isn't empty.
 	if bc.empty() {
@@ -251,6 +250,13 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	// the head block (ethash cache or clique voting snapshot). Might as well do
 	// it in advance.
 	bc.engine.VerifyHeader(bc, bc.CurrentHeader(), true)
+
+	if currentHeader := bc.CurrentHeader(); currentHeader != nil {
+		log.Debug("Read timestamp from last block. ", "timestamp", bc.CurrentHeader().Time)
+		bc.SetCurrentTimestamp(int64(bc.CurrentHeader().Time))
+	} else {
+		bc.SetCurrentTimestamp(int64(0))
+	}
 
 	if frozen, err := bc.db.Ancients(); err == nil && frozen > 0 {
 		var (
