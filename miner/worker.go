@@ -19,7 +19,6 @@ package miner
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -634,7 +633,7 @@ func (w *worker) timestampLoop() {
 				newTime := currentTime - timestampDelaySeconds
 				w.chain.SetCurrentTimestamp(newTime)
 				timer.Reset((maxClockSkewSeconds - timestampDelaySeconds) * time.Second)
-				log.Debug(fmt.Sprintf("Timestamp was above max clock skew of %d seconds, so updating to current time - %d seconds (%d)", maxClockSkewSeconds, timestampDelaySeconds, newTime))
+				log.Debug("timestamp above max clock skew", "maxSkew", maxClockSkewSeconds, "overBy", timestampDelaySeconds, "newTime", newTime)
 			} else {
 				timer.Reset(time.Duration(maxClockSkewSeconds-skew) * time.Second)
 			}
@@ -875,8 +874,6 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 	//	log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
 	//	time.Sleep(wait)
 	//}
-
-	log.Debug(fmt.Sprintf("Committming new work with timestamp %d", timestamp))
 
 	num := parent.Number()
 	header := &types.Header{

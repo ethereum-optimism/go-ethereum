@@ -252,6 +252,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bc.engine.VerifyHeader(bc, bc.CurrentHeader(), true)
 
 	if currentHeader := bc.CurrentHeader(); currentHeader != nil {
+		log.Debug("Read timestamp from last block. ", "timestamp", bc.CurrentHeader().Time)
 		bc.SetCurrentTimestamp(int64(bc.CurrentHeader().Time))
 	} else {
 		bc.SetCurrentTimestamp(int64(0))
