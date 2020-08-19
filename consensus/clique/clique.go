@@ -321,9 +321,10 @@ func (c *Clique) verifyCascadingFields(chain consensus.ChainReader, header *type
 	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
 		return consensus.ErrUnknownAncestor
 	}
-	if parent.Time+c.config.Period > header.Time {
-		return ErrInvalidTimestamp
-	}
+	// [REMOVED] to account for timestamp changes
+	//if parent.Time+c.config.Period > header.Time {
+	//	return ErrInvalidTimestamp
+	//}
 	// Retrieve the snapshot needed to verify this header and cache it
 	snap, err := c.snapshot(chain, number-1, header.ParentHash, parents)
 	if err != nil {
@@ -543,10 +544,11 @@ func (c *Clique) Prepare(chain consensus.ChainReader, header *types.Header) erro
 	if parent == nil {
 		return consensus.ErrUnknownAncestor
 	}
-	header.Time = parent.Time + c.config.Period
-	if header.Time < uint64(time.Now().Unix()) {
-		header.Time = uint64(time.Now().Unix())
-	}
+	// [REMOVED] so we can control timestamps
+	//header.Time = parent.Time + c.config.Period
+	//if header.Time < uint64(time.Now().Unix()) {
+	//	header.Time = uint64(time.Now().Unix())
+	//}
 	return nil
 }
 
