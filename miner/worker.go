@@ -74,6 +74,9 @@ const (
 
 	// staleThreshold is the maximum depth of the acceptable stale block.
 	staleThreshold = 7
+
+	maxClockSkewSeconds   = 600 // 10 mins for now
+	timestampDelaySeconds = 300 // 5 mins for now
 )
 
 // environment is the worker's current environment and holds all of the current state information.
@@ -220,6 +223,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	go worker.newWorkLoop(recommit)
 	go worker.resultLoop()
 	go worker.taskLoop()
+	go worker.timestampLoop()
 
 	// Submit first work to initialize pending state.
 	if init {
@@ -362,6 +366,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 					timer.Reset(recommit)
 					continue
 				}
+				timestamp = w.chain.CurrentTimestamp()
 				commit(true, commitInterruptResubmit)
 			}
 
@@ -607,6 +612,31 @@ func (w *worker) resultLoop() {
 			// Insert the block into the set of pending ones to resultLoop for confirmations
 			w.unconfirmed.Insert(block.NumberU64(), block.Hash())
 
+		case <-w.exitCh:
+			return
+		}
+	}
+}
+
+// timestampLoop is a loop that updates the timestamp used for blocks when it
+// is stale by more than a certain threshold.
+// TODO: Re-think this as everything comes together more.
+func (w *worker) timestampLoop() {
+	timer := time.NewTimer(0)
+
+	for {
+		select {
+		case <-timer.C:
+			currentTime := time.Now().Unix()
+			skew := currentTime - w.chain.CurrentTimestamp()
+			if skew > maxClockSkewSeconds {
+				newTime := currentTime - timestampDelaySeconds
+				w.chain.SetCurrentTimestamp(newTime)
+				timer.Reset((maxClockSkewSeconds - timestampDelaySeconds) * time.Second)
+				log.Debug("timestamp above max clock skew", "maxSkew", maxClockSkewSeconds, "overBy", timestampDelaySeconds, "newTime", newTime)
+			} else {
+				timer.Reset(time.Duration(maxClockSkewSeconds-skew) * time.Second)
+			}
 		case <-w.exitCh:
 			return
 		}
