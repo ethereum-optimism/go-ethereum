@@ -126,7 +126,7 @@ func (s OVMSigner) Hash(tx *Transaction) common.Hash {
 		s.chainId, uint(0), uint(0),
 	}
 
-	if tx.IsOVMSighash() {
+	if tx.IsEthSignSighash() {
 		b := new(bytes.Buffer)
 		rlp.Encode(b, data)
 

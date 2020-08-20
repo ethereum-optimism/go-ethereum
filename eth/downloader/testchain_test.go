@@ -131,7 +131,7 @@ func (tc *testChain) generate(n int, seed byte, parent *types.Block, heavy bool)
 			signer := types.MakeSigner(params.TestChainConfig, block.Number())
 			l1Sender := common.Address{seed}
 			l1RollupTxId := hexutil.Uint64(22)
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil, &l1Sender, &l1RollupTxId), signer, testKey)
+			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil, &l1Sender, &l1RollupTxId, nil), signer, testKey)
 			if err != nil {
 				panic(err)
 			}

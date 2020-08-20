@@ -38,15 +38,10 @@ var (
 
 type SignatureHashType uint8
 
-const (
-	SighashEIP155 SignatureHashType = iota
-	SighashOVM
+var (
+	SighashEIP155  SignatureHashType = 0
+	SighashEthSign SignatureHashType = 1
 )
-
-var sighashTypes = map[string]SignatureHashType{
-	"EIP155": 0,
-	"OVM":    1,
-}
 
 type Transaction struct {
 	data txdata
@@ -87,20 +82,18 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, l1MessageSender, l1RollupTxId)
+func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, sighashType *SignatureHashType) *Transaction {
+	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, l1MessageSender, l1RollupTxId, sighashType)
 }
 
 func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, l1MessageSender, l1RollupTxId)
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, l1MessageSender, l1RollupTxId, &SighashEIP155)
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64) *Transaction {
+func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, sighashType *SignatureHashType) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
-
-	sighashType := sighashTypes["EIP155"]
 
 	d := txdata{
 		AccountNonce:      nonce,
@@ -114,8 +107,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		V:                 new(big.Int),
 		R:                 new(big.Int),
 		S:                 new(big.Int),
-		SignatureHashType: &sighashType,
-		//SignatureHashType: nil,
+		SignatureHashType: sighashType,
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
@@ -218,21 +210,25 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Data() []byte                         { return common.CopyBytes(tx.data.Payload) }
-func (tx *Transaction) Gas() uint64                          { return tx.data.GasLimit }
-func (tx *Transaction) GasPrice() *big.Int                   { return new(big.Int).Set(tx.data.Price) }
-func (tx *Transaction) Value() *big.Int                      { return new(big.Int).Set(tx.data.Amount) }
-func (tx *Transaction) Nonce() uint64                        { return tx.data.AccountNonce }
-func (tx *Transaction) CheckNonce() bool                     { return true }
-func (tx *Transaction) SignatureHashType() SignatureHashType { return *tx.data.SignatureHashType }
+func (tx *Transaction) Data() []byte                          { return common.CopyBytes(tx.data.Payload) }
+func (tx *Transaction) Gas() uint64                           { return tx.data.GasLimit }
+func (tx *Transaction) GasPrice() *big.Int                    { return new(big.Int).Set(tx.data.Price) }
+func (tx *Transaction) Value() *big.Int                       { return new(big.Int).Set(tx.data.Amount) }
+func (tx *Transaction) Nonce() uint64                         { return tx.data.AccountNonce }
+func (tx *Transaction) CheckNonce() bool                      { return true }
+func (tx *Transaction) SignatureHashType() *SignatureHashType { return tx.data.SignatureHashType }
 
-func (tx *Transaction) SetOVMSignatureHash() {
-	sighashType := sighashTypes["OVM"]
-	tx.data.SignatureHashType = &sighashType
+func (tx *Transaction) SetSignatureHashType(sighashType *SignatureHashType) {
+	tx.data.SignatureHashType = sighashType
 }
 
-func (tx *Transaction) IsOVMSighash() bool {
-	return tx.SignatureHashType() == sighashTypes["OVM"]
+func (tx *Transaction) IsEthSignSighash() bool {
+	sighash := tx.SignatureHashType()
+	if sighash == nil {
+		return false
+	}
+
+	return *sighash == SighashEthSign
 }
 
 // To returns the recipient address of the transaction.
@@ -275,7 +271,6 @@ func (tx *Transaction) Hash() common.Hash {
 	var sender *common.Address
 	var l1RollupTxId *hexutil.Uint64
 	var sigHash *SignatureHashType
-	// TODO: maybe follow this pattern
 	if tx != nil {
 		sender = tx.data.L1MessageSender
 		tx.data.L1MessageSender = nil
@@ -314,15 +309,16 @@ func (tx *Transaction) Size() common.StorageSize {
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	msg := Message{
-		nonce:           tx.data.AccountNonce,
-		gasLimit:        tx.data.GasLimit,
-		gasPrice:        new(big.Int).Set(tx.data.Price),
-		to:              tx.data.Recipient,
-		l1MessageSender: tx.data.L1MessageSender,
-		l1RollupTxId:    tx.data.L1RollupTxId,
-		amount:          tx.data.Amount,
-		data:            tx.data.Payload,
-		checkNonce:      true,
+		nonce:             tx.data.AccountNonce,
+		gasLimit:          tx.data.GasLimit,
+		gasPrice:          new(big.Int).Set(tx.data.Price),
+		to:                tx.data.Recipient,
+		l1MessageSender:   tx.data.L1MessageSender,
+		l1RollupTxId:      tx.data.L1RollupTxId,
+		signatureHashType: tx.data.SignatureHashType,
+		amount:            tx.data.Amount,
+		data:              tx.data.Payload,
+		checkNonce:        true,
 	}
 
 	var err error
@@ -486,7 +482,7 @@ type Message struct {
 	to                *common.Address
 	l1MessageSender   *common.Address
 	l1RollupTxId      *hexutil.Uint64
-	signatureHashType SignatureHashType
+	signatureHashType *SignatureHashType
 	from              common.Address
 	nonce             uint64
 	amount            *big.Int
@@ -508,18 +504,18 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		checkNonce:        checkNonce,
 		l1RollupTxId:      l1RollupTxId,
 		l1MessageSender:   l1MessageSender,
-		signatureHashType: signatureHashType,
+		signatureHashType: &signatureHashType,
 	}
 }
 
-func (m Message) From() common.Address                 { return m.from }
-func (m Message) To() *common.Address                  { return m.to }
-func (m Message) L1MessageSender() *common.Address     { return m.l1MessageSender }
-func (m Message) L1RollupTxId() *hexutil.Uint64        { return m.l1RollupTxId }
-func (m Message) SignatureHashType() SignatureHashType { return m.signatureHashType }
-func (m Message) GasPrice() *big.Int                   { return m.gasPrice }
-func (m Message) Value() *big.Int                      { return m.amount }
-func (m Message) Gas() uint64                          { return m.gasLimit }
-func (m Message) Nonce() uint64                        { return m.nonce }
-func (m Message) Data() []byte                         { return m.data }
-func (m Message) CheckNonce() bool                     { return m.checkNonce }
+func (m Message) From() common.Address                  { return m.from }
+func (m Message) To() *common.Address                   { return m.to }
+func (m Message) L1MessageSender() *common.Address      { return m.l1MessageSender }
+func (m Message) L1RollupTxId() *hexutil.Uint64         { return m.l1RollupTxId }
+func (m Message) SignatureHashType() *SignatureHashType { return m.signatureHashType }
+func (m Message) GasPrice() *big.Int                    { return m.gasPrice }
+func (m Message) Value() *big.Int                       { return m.amount }
+func (m Message) Gas() uint64                           { return m.gasLimit }
+func (m Message) Nonce() uint64                         { return m.nonce }
+func (m Message) Data() []byte                          { return m.data }
+func (m Message) CheckNonce() bool                      { return m.checkNonce }

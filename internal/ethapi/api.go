@@ -1375,10 +1375,11 @@ type SendTxArgs struct {
 	Nonce    *hexutil.Uint64 `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
-	Data            *hexutil.Bytes  `json:"data"`
-	Input           *hexutil.Bytes  `json:"input"`
-	L1RollupTxId    *hexutil.Uint64 `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
-	L1MessageSender *common.Address `json:"l1MessageSender,omitempty" rlp:"nil,?"`
+	Data              *hexutil.Bytes           `json:"data"`
+	Input             *hexutil.Bytes           `json:"input"`
+	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
+	L1MessageSender   *common.Address          `json:"l1MessageSender,omitempty" rlp:"nil,?"`
+	SignatureHashType *types.SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
@@ -1451,7 +1452,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
 		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, nil, args.L1RollupTxId)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1RollupTxId)
+	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1RollupTxId, args.SignatureHashType)
 }
 
 type RollupTransaction struct {
@@ -1471,7 +1472,8 @@ func (r *RollupTransaction) toTransaction(txNonce uint64) *types.Transaction {
 	if r.Target == nil {
 		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId)
 	} else {
-		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId)
+		// TODO(mark): double check the sighash type here
+		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, nil)
 	}
 	tx.AddNonceToWrappedTransaction(uint64(*r.Nonce))
 	return tx
@@ -1570,8 +1572,7 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 		return common.Hash{}, err
 	}
 
-	tx.SetOVMSignatureHash()
-
+	tx.SetSignatureHashType(&types.SighashEthSign)
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
