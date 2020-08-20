@@ -17,14 +17,18 @@
 package types
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -40,16 +44,7 @@ type sigCache struct {
 
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
-	var signer Signer
-	switch {
-	case config.IsEIP155(blockNumber):
-		signer = NewEIP155Signer(config.ChainID)
-	case config.IsHomestead(blockNumber):
-		signer = HomesteadSigner{}
-	default:
-		signer = FrontierSigner{}
-	}
-	return signer
+	return NewOVMSigner(config.ChainID)
 }
 
 // SignTx signs the transaction using the given signer and private key
@@ -100,6 +95,48 @@ type Signer interface {
 	Hash(tx *Transaction) common.Hash
 	// Equal returns true if the given signer is the same as the receiver.
 	Equal(Signer) bool
+}
+
+// OVMSigner implements Signers using the EIP155 rules along with a new
+// `eth_sign` based signature hash.
+type OVMSigner struct {
+	EIP155Signer
+}
+
+func NewOVMSigner(chainId *big.Int) OVMSigner {
+	signer := NewEIP155Signer(chainId)
+	return OVMSigner{signer}
+}
+
+// Hash returns the hash to be signed by the sender.
+// It does not uniquely identify the transaction.
+func (s OVMSigner) Hash(tx *Transaction) common.Hash {
+	data := []interface{}{
+		tx.data.AccountNonce,
+		tx.data.Price,
+		tx.data.GasLimit,
+		tx.data.Recipient,
+		tx.data.Amount,
+		tx.data.Payload,
+		s.chainId, uint(0), uint(0),
+	}
+
+	if tx.IsOVMSighash() {
+		// TODO(mark): initialize with correct size
+		b := new(bytes.Buffer)
+		rlp.Encode(b, data)
+
+		hex := hexutil.Encode(b.Bytes())
+		msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(hex), string(hex))
+
+		hasher := sha3.NewLegacyKeccak256()
+		hasher.Write([]byte(msg))
+		digest := hasher.Sum(nil)
+
+		return common.BytesToHash(digest)
+	}
+
+	return rlpHash(data)
 }
 
 // EIP155Transaction implements Signer using the EIP155 rules.

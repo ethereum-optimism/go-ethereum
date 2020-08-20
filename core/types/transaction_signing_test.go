@@ -136,3 +136,26 @@ func TestChainId(t *testing.T) {
 		t.Error("expected no error")
 	}
 }
+
+func TestOVMSigner(t *testing.T) {
+	key, _ := defaultTestKey()
+
+	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil)
+	tx.SetOVMSignatureHash()
+
+	var err error
+	tx, err = SignTx(tx, NewOVMSigner(big.NewInt(1)), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Sender(NewOVMSigner(big.NewInt(2)), tx)
+	if err != ErrInvalidChainId {
+		t.Error("expected error:", ErrInvalidChainId)
+	}
+
+	_, err = Sender(NewOVMSigner(big.NewInt(1)), tx)
+	if err != nil {
+		t.Error("expected no error")
+	}
+}

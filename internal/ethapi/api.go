@@ -830,7 +830,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	}
 
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, nil, nil)
+	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, nil, nil, 0)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -1561,7 +1561,21 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
-// SendBlockBatches will:
+// SendRawEthSignTransaction will add the signed transaction to the mempool. The
+// signature hash was computed with `eth_sign`, meaning that the RPL encoded
+// transaction was prefixed with the "Ethereum Signed Message" string.
+func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	tx := new(types.Transaction)
+	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
+		return common.Hash{}, err
+	}
+
+	tx.SetOVMSignatureHash()
+
+	return SubmitTransaction(ctx, s.b, tx)
+}
+
+// SendRollupTransactions will:
 // * Verify the batches are signed by the RollupTransaction sender.
 // * Update the Geth timestamp to the provided timestamp
 // * handle the provided batch of RollupTransactions atomically
