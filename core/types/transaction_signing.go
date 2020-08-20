@@ -108,6 +108,11 @@ func NewOVMSigner(chainId *big.Int) OVMSigner {
 	return OVMSigner{signer}
 }
 
+func (s OVMSigner) Equal(s2 Signer) bool {
+	ovm, ok := s2.(OVMSigner)
+	return ok && ovm.chainId.Cmp(s.chainId) == 0
+}
+
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s OVMSigner) Hash(tx *Transaction) common.Hash {
@@ -122,12 +127,11 @@ func (s OVMSigner) Hash(tx *Transaction) common.Hash {
 	}
 
 	if tx.IsOVMSighash() {
-		// TODO(mark): initialize with correct size
 		b := new(bytes.Buffer)
 		rlp.Encode(b, data)
 
 		hex := hexutil.Encode(b.Bytes())
-		msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(hex), string(hex))
+		msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(hex), hex)
 
 		hasher := sha3.NewLegacyKeccak256()
 		hasher.Write([]byte(msg))

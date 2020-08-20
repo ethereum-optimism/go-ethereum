@@ -43,6 +43,11 @@ const (
 	SighashOVM
 )
 
+var sighashTypes = map[string]SignatureHashType{
+	"EIP155": 0,
+	"OVM":    1,
+}
+
 type Transaction struct {
 	data txdata
 	// caches
@@ -65,10 +70,10 @@ type txdata struct {
 	S *big.Int `json:"s" gencodec:"required"`
 
 	// This is only used when marshaling to JSON.
-	Hash              *common.Hash      `json:"hash" rlp:"-"`
-	L1RollupTxId      *hexutil.Uint64   `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
-	L1MessageSender   *common.Address   `json:"l1MessageSender,omitempty" rlp:"nil,?"`
-	SignatureHashType SignatureHashType `json:"signatureHashType,omitempty" rlp:"-"`
+	Hash              *common.Hash       `json:"hash" rlp:"-"`
+	L1RollupTxId      *hexutil.Uint64    `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
+	L1MessageSender   *common.Address    `json:"l1MessageSender,omitempty" rlp:"nil,?"`
+	SignatureHashType *SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
 }
 
 type txdataMarshaling struct {
@@ -94,6 +99,9 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
+
+	sighashType := sighashTypes["EIP155"]
+
 	d := txdata{
 		AccountNonce:      nonce,
 		Recipient:         to,
@@ -106,7 +114,8 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		V:                 new(big.Int),
 		R:                 new(big.Int),
 		S:                 new(big.Int),
-		SignatureHashType: SighashEIP155,
+		SignatureHashType: &sighashType,
+		//SignatureHashType: nil,
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
@@ -215,14 +224,15 @@ func (tx *Transaction) GasPrice() *big.Int                   { return new(big.In
 func (tx *Transaction) Value() *big.Int                      { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64                        { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool                     { return true }
-func (tx *Transaction) SignatureHashType() SignatureHashType { return tx.data.SignatureHashType }
+func (tx *Transaction) SignatureHashType() SignatureHashType { return *tx.data.SignatureHashType }
 
 func (tx *Transaction) SetOVMSignatureHash() {
-	tx.data.SignatureHashType = SighashOVM
+	sighashType := sighashTypes["OVM"]
+	tx.data.SignatureHashType = &sighashType
 }
 
 func (tx *Transaction) IsOVMSighash() bool {
-	return tx.SignatureHashType() == SighashOVM
+	return tx.SignatureHashType() == sighashTypes["OVM"]
 }
 
 // To returns the recipient address of the transaction.
@@ -264,18 +274,22 @@ func (tx *Transaction) Hash() common.Hash {
 
 	var sender *common.Address
 	var l1RollupTxId *hexutil.Uint64
+	var sigHash *SignatureHashType
 	// TODO: maybe follow this pattern
 	if tx != nil {
 		sender = tx.data.L1MessageSender
 		tx.data.L1MessageSender = nil
 		l1RollupTxId = tx.data.L1RollupTxId
 		tx.data.L1RollupTxId = nil
+		sigHash = tx.data.SignatureHashType
+		tx.data.SignatureHashType = nil
 	}
 	v := rlpHash(tx)
 
 	if tx != nil {
 		tx.data.L1MessageSender = sender
 		tx.data.L1RollupTxId = l1RollupTxId
+		tx.data.SignatureHashType = sigHash
 	}
 	tx.hash.Store(v)
 	return v

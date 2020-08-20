@@ -74,10 +74,11 @@ type SendTxArgs struct {
 	Value    hexutil.Big              `json:"value"`
 	Nonce    hexutil.Uint64           `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons.
-	Data            *hexutil.Bytes           `json:"data"`
-	Input           *hexutil.Bytes           `json:"input,omitempty"`
-	L1MessageSender *common.MixedcaseAddress `json:"l1MessageSender,omitempty" rlp:"nil,?"`
-	L1RollupTxId    *hexutil.Uint64          `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
+	Data              *hexutil.Bytes           `json:"data"`
+	Input             *hexutil.Bytes           `json:"input,omitempty"`
+	L1MessageSender   *common.MixedcaseAddress `json:"l1MessageSender,omitempty" rlp:"nil,?"`
+	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
+	SignatureHashType *types.SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
 }
 
 func (args SendTxArgs) String() string {
@@ -105,5 +106,8 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		l1RollupTxId = new(hexutil.Uint64)
 		*l1RollupTxId = *args.L1RollupTxId
 	}
+
+	// TODO(mark): sighash type
+
 	return types.NewTransaction(uint64(args.Nonce), args.To.Address(), (*big.Int)(&args.Value), (uint64)(args.Gas), (*big.Int)(&args.GasPrice), input, l1MessageSender, l1RollupTxId)
 }
