@@ -52,6 +52,8 @@ var (
 		HomesteadSigner{},
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
+
+	emptyTxSighashEthSign = NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(0), 0, big.NewInt(0), nil, &sender, nil, &SighashEthSign)
 )
 
 func TestTransactionSigHash(t *testing.T) {
@@ -88,6 +90,24 @@ func TestTransactionEncode(t *testing.T) {
 	}
 	if bytes.Equal(txd, should) {
 		t.Errorf("RLP encoding with L1MessageSender should be different than without. Got %x", txd)
+	}
+
+	// RLP encode both the empty transaction and the empty transaction that
+	// uses the `eth_sign` signature hash and assert that they are not the same.
+	// The signature hash flag must be included in the RLP encoding only when it
+	// is defined so that it can be persisted in the database. When the
+	// SignatureHashType is `nil`, it is not included in the RLP serialization.
+	txe, err := rlp.EncodeToBytes(emptyTx)
+	if err != nil {
+		t.Fatalf("encode error: %v", err)
+	}
+
+	txf, err := rlp.EncodeToBytes(emptyTxSighashEthSign)
+	if err != nil {
+		t.Fatalf("encode error: %v", err)
+	}
+	if bytes.Equal(txe, txf) {
+		t.Error("RLP encoding with SighashEthSign should be different than without")
 	}
 }
 
@@ -197,7 +217,7 @@ func TestTransactionJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not generate key: %v", err)
 	}
-	signer := NewEIP155Signer(common.Big1)
+	signer := NewOVMSigner(common.Big1)
 
 	transactions := make([]*Transaction, 0, 50)
 	for i := uint64(0); i < 25; i++ {
@@ -245,8 +265,8 @@ func TestTransactionJSON(t *testing.T) {
 	}
 }
 
-// Tests that L1MessageSender has no impact on hash
-func TestL1MessageSenderHash(t *testing.T) {
+// Tests that OVM metadata has no impact on hash
+func TestOVMMetaDataHash(t *testing.T) {
 	if rightvrsTx.Hash() != rightvrsTxWithL1Sender.Hash() {
 		t.Errorf("L1MessageSender, should not affect the hash, want %x, got %x with L1MessageSender", rightvrsTx.Hash(), rightvrsTxWithL1Sender.Hash())
 	}
@@ -257,5 +277,9 @@ func TestL1MessageSenderHash(t *testing.T) {
 
 	if emptyTx.Hash() != emptyTxEmptyL1Sender.Hash() {
 		t.Errorf("L1MessageSender, should not affect the hash, want %x, got %x with L1MessageSender", emptyTx.Hash(), emptyTxEmptyL1Sender.Hash())
+	}
+
+	if emptyTx.Hash() != emptyTxSighashEthSign.Hash() {
+		t.Errorf("SignatureHashType, should not affect the hash, want %x, got %x with SighashEthSign", emptyTx.Hash(), emptyTxSighashEthSign.Hash())
 	}
 }
