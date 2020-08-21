@@ -127,11 +127,7 @@ func (s OVMSigner) Hash(tx *Transaction) common.Hash {
 	}
 
 	if tx.IsEthSignSighash() {
-		b := new(bytes.Buffer)
-		rlp.Encode(b, data)
-
-		hex := hexutil.Encode(b.Bytes())
-		msg := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(hex), hex)
+		msg := OVMSignerTemplateSighashPreimage(data)
 
 		hasher := sha3.NewLegacyKeccak256()
 		hasher.Write([]byte(msg))
@@ -141,6 +137,27 @@ func (s OVMSigner) Hash(tx *Transaction) common.Hash {
 	}
 
 	return rlpHash(data)
+}
+
+func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
+	if !tx.Protected() {
+		return HomesteadSigner{}.Sender(tx)
+	}
+	if tx.ChainId().Cmp(s.chainId) != 0 {
+		return common.Address{}, ErrInvalidChainId
+	}
+	V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
+	V.Sub(V, big8)
+	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
+}
+
+// OVMSignerTemplateSighashPreimage creates the preimage for the `eth_sign` like
+// signature hash given non-RLP encoded data.
+func OVMSignerTemplateSighashPreimage(data []interface{}) string {
+	b := new(bytes.Buffer)
+	rlp.Encode(b, data)
+	hex := hexutil.Encode(b.Bytes())
+	return fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(hex), hex)
 }
 
 // EIP155Transaction implements Signer using the EIP155 rules.

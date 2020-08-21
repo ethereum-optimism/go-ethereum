@@ -297,6 +297,8 @@ func (tx *Transaction) Size() common.StorageSize {
 		return size.(common.StorageSize)
 	}
 	c := writeCounter(0)
+	// TODO(mark): I think there is a bug here since the new fields were added
+	// to the Transaction.
 	rlp.Encode(&c, &tx.data)
 	tx.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
