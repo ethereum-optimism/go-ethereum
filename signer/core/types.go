@@ -76,9 +76,9 @@ type SendTxArgs struct {
 	// We accept "data" and "input" for backwards-compatibility reasons.
 	Data              *hexutil.Bytes           `json:"data"`
 	Input             *hexutil.Bytes           `json:"input,omitempty"`
-	L1MessageSender   *common.MixedcaseAddress `json:"l1MessageSender,omitempty" rlp:"nil,?"`
-	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
-	SignatureHashType *types.SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
+	L1MessageSender   *common.MixedcaseAddress `json:"l1MessageSender,omitempty"`
+	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId,omitempty"`
+	SignatureHashType *types.SignatureHashType `json:"signatureHashType,omitempty"`
 }
 
 func (args SendTxArgs) String() string {
