@@ -27,7 +27,8 @@ func NewTransactionMeta(L1RollupTxId *hexutil.Uint64, L1MessageSender *common.Ad
 // varbytes(SignatureHashType) || varbytes(L1RollupTxId) || varbytes(L1MessageSender)
 func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 	var err error
-	var meta TransactionMeta
+	meta := TransactionMeta{}
+
 	b := bytes.NewReader(input)
 
 	sb, err := common.ReadVarBytes(b, 0, 1024, "SignatureHashType")
@@ -44,9 +45,9 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 		return &TransactionMeta{}, err
 	}
 
-	if !bytes.Equal(lb, []byte{0x00}) {
+	if !isNullValue(lb) {
 		var l1RollupTxId hexutil.Uint64
-		binary.Read(bytes.NewReader(lb), binary.LittleEndian, &l1RollupTxId)
+		binary.Read(bytes.NewReader(lb), binary.LittleEndian, l1RollupTxId)
 		meta.L1RollupTxId = &l1RollupTxId
 	}
 
@@ -55,7 +56,7 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 		return &TransactionMeta{}, err
 	}
 
-	if !bytes.Equal(mb, []byte{0x00}) {
+	if !isNullValue(mb) {
 		var l1MessageSender common.Address
 		binary.Read(bytes.NewReader(mb), binary.LittleEndian, &l1MessageSender)
 		meta.L1MessageSender = &l1MessageSender
@@ -80,7 +81,7 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 
 	L1RollupTxId := meta.L1RollupTxId
 	if L1RollupTxId == nil {
-		common.WriteVarBytes(b, 0, []byte{0x00})
+		common.WriteVarBytes(b, 0, getNullValue())
 	} else {
 		l := new(bytes.Buffer)
 		binary.Write(l, binary.LittleEndian, *L1RollupTxId)
@@ -89,7 +90,7 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 
 	L1MessageSender := meta.L1MessageSender
 	if L1MessageSender == nil {
-		common.WriteVarBytes(b, 0, []byte{0x00})
+		common.WriteVarBytes(b, 0, getNullValue())
 	} else {
 		l := new(bytes.Buffer)
 		binary.Write(l, binary.LittleEndian, *L1MessageSender)
@@ -97,4 +98,13 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 	}
 
 	return b.Bytes()
+}
+
+func isNullValue(b []byte) bool {
+	nullValue := []byte{0x00}
+	return bytes.Equal(b, nullValue)
+}
+
+func getNullValue() []byte {
+	return []byte{0x00}
 }
