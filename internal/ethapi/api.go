@@ -1377,9 +1377,9 @@ type SendTxArgs struct {
 	// newer name and should be preferred by clients.
 	Data              *hexutil.Bytes           `json:"data"`
 	Input             *hexutil.Bytes           `json:"input"`
-	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
-	L1MessageSender   *common.Address          `json:"l1MessageSender,omitempty" rlp:"nil,?"`
-	SignatureHashType *types.SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
+	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId,omitempty"`
+	L1MessageSender   *common.Address          `json:"l1MessageSender,omitempty"`
+	SignatureHashType *types.SignatureHashType `json:"signatureHashType,omitempty"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
