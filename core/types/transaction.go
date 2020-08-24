@@ -45,6 +45,7 @@ var (
 
 type Transaction struct {
 	data txdata
+	meta TransactionMeta
 	// caches
 	hash atomic.Value
 	size atomic.Value
@@ -65,10 +66,7 @@ type txdata struct {
 	S *big.Int `json:"s" gencodec:"required"`
 
 	// This is only used when marshaling to JSON.
-	Hash              *common.Hash       `json:"hash" rlp:"-"`
-	L1RollupTxId      *hexutil.Uint64    `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
-	L1MessageSender   *common.Address    `json:"l1MessageSender,omitempty" rlp:"nil,?"`
-	SignatureHashType *SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
+	Hash *common.Hash `json:"hash" rlp:"-"`
 }
 
 type txdataMarshaling struct {
@@ -95,19 +93,22 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		data = common.CopyBytes(data)
 	}
 
-	d := txdata{
-		AccountNonce:      nonce,
-		Recipient:         to,
-		L1MessageSender:   l1MessageSender,
+	meta := TransactionMeta{
 		L1RollupTxId:      l1RollupTxId,
-		Payload:           data,
-		Amount:            new(big.Int),
-		GasLimit:          gasLimit,
-		Price:             new(big.Int),
-		V:                 new(big.Int),
-		R:                 new(big.Int),
-		S:                 new(big.Int),
+		L1MessageSender:   l1MessageSender,
 		SignatureHashType: sighashType,
+	}
+
+	d := txdata{
+		AccountNonce: nonce,
+		Recipient:    to,
+		Payload:      data,
+		Amount:       new(big.Int),
+		GasLimit:     gasLimit,
+		Price:        new(big.Int),
+		V:            new(big.Int),
+		R:            new(big.Int),
+		S:            new(big.Int),
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
@@ -116,7 +117,21 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		d.Price.Set(gasPrice)
 	}
 
-	return &Transaction{data: d}
+	return &Transaction{data: d, meta: meta}
+}
+
+func (t *Transaction) SetTransactionMeta(meta *TransactionMeta) {
+	if meta == nil {
+		return
+	}
+	t.meta = *meta
+}
+
+func (t *Transaction) GetMeta() *TransactionMeta {
+	if &t.meta == nil {
+		return &TransactionMeta{}
+	}
+	return &t.meta
 }
 
 // Appends the provided 64-bit nonce to this Transaction's calldata as the last 4 bytes
@@ -179,34 +194,31 @@ func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
 
 // MarshalJSON encodes the web3 RPC transaction format.
 func (tx *Transaction) MarshalJSON() ([]byte, error) {
-	hash := tx.Hash()
-	data := tx.data
-	data.Hash = &hash
-	return data.MarshalJSON()
+	return TransactionMarshalJSON(tx)
 }
 
 // UnmarshalJSON decodes the web3 RPC transaction format.
 func (tx *Transaction) UnmarshalJSON(input []byte) error {
-	var dec txdata
-	if err := dec.UnmarshalJSON(input); err != nil {
+	dec, err := TransactionUnmarshalJSON(input)
+	if err != nil {
 		return err
 	}
 
-	withSignature := dec.V.Sign() != 0 || dec.R.Sign() != 0 || dec.S.Sign() != 0
+	withSignature := dec.data.V.Sign() != 0 || dec.data.R.Sign() != 0 || dec.data.S.Sign() != 0
 	if withSignature {
 		var V byte
-		if isProtectedV(dec.V) {
-			chainID := deriveChainId(dec.V).Uint64()
-			V = byte(dec.V.Uint64() - 35 - 2*chainID)
+		if isProtectedV(dec.data.V) {
+			chainID := deriveChainId(dec.data.V).Uint64()
+			V = byte(dec.data.V.Uint64() - 35 - 2*chainID)
 		} else {
-			V = byte(dec.V.Uint64() - 27)
+			V = byte(dec.data.V.Uint64() - 27)
 		}
-		if !crypto.ValidateSignatureValues(V, dec.R, dec.S, false) {
+		if !crypto.ValidateSignatureValues(V, dec.data.R, dec.data.S, false) {
 			return ErrInvalidSig
 		}
 	}
 
-	*tx = Transaction{data: dec}
+	*tx = *dec
 	return nil
 }
 
@@ -216,10 +228,10 @@ func (tx *Transaction) GasPrice() *big.Int                    { return new(big.I
 func (tx *Transaction) Value() *big.Int                       { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64                         { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool                      { return true }
-func (tx *Transaction) SignatureHashType() *SignatureHashType { return tx.data.SignatureHashType }
+func (tx *Transaction) SignatureHashType() *SignatureHashType { return tx.meta.SignatureHashType }
 
 func (tx *Transaction) SetSignatureHashType(sighashType *SignatureHashType) {
-	tx.data.SignatureHashType = sighashType
+	tx.meta.SignatureHashType = sighashType
 }
 
 func (tx *Transaction) IsEthSignSighash() bool {
@@ -244,20 +256,20 @@ func (tx *Transaction) To() *common.Address {
 // L1MessageSender returns the L1 message sender address of the transaction if one exists.
 // It returns nil if this transaction was not from an L1 contract.
 func (tx *Transaction) L1MessageSender() *common.Address {
-	if tx.data.L1MessageSender == nil {
+	if tx.meta.L1MessageSender == nil {
 		return nil
 	}
-	l1MessageSender := *tx.data.L1MessageSender
+	l1MessageSender := *tx.meta.L1MessageSender
 	return &l1MessageSender
 }
 
 // L1RollupTxId returns the L1 Rollup Tx Id of the transaction if one exists.
 // It returns nil if this transaction was not generated from a transaction received on L1.
 func (tx *Transaction) L1RollupTxId() *hexutil.Uint64 {
-	if tx.data.L1RollupTxId == nil {
+	if tx.meta.L1RollupTxId == nil {
 		return nil
 	}
-	l1RolupTxId := *tx.data.L1RollupTxId
+	l1RolupTxId := *tx.meta.L1RollupTxId
 	return &l1RolupTxId
 }
 
@@ -268,24 +280,7 @@ func (tx *Transaction) Hash() common.Hash {
 		return hash.(common.Hash)
 	}
 
-	var sender *common.Address
-	var l1RollupTxId *hexutil.Uint64
-	var sigHash *SignatureHashType
-	if tx != nil {
-		sender = tx.data.L1MessageSender
-		tx.data.L1MessageSender = nil
-		l1RollupTxId = tx.data.L1RollupTxId
-		tx.data.L1RollupTxId = nil
-		sigHash = tx.data.SignatureHashType
-		tx.data.SignatureHashType = nil
-	}
 	v := rlpHash(tx)
-
-	if tx != nil {
-		tx.data.L1MessageSender = sender
-		tx.data.L1RollupTxId = l1RollupTxId
-		tx.data.SignatureHashType = sigHash
-	}
 	tx.hash.Store(v)
 	return v
 }
@@ -297,8 +292,6 @@ func (tx *Transaction) Size() common.StorageSize {
 		return size.(common.StorageSize)
 	}
 	c := writeCounter(0)
-	// TODO(mark): I think there is a bug here since the new fields were added
-	// to the Transaction.
 	rlp.Encode(&c, &tx.data)
 	tx.size.Store(common.StorageSize(c))
 	return common.StorageSize(c)
@@ -315,9 +308,9 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		gasLimit:          tx.data.GasLimit,
 		gasPrice:          new(big.Int).Set(tx.data.Price),
 		to:                tx.data.Recipient,
-		l1MessageSender:   tx.data.L1MessageSender,
-		l1RollupTxId:      tx.data.L1RollupTxId,
-		signatureHashType: tx.data.SignatureHashType,
+		l1MessageSender:   tx.meta.L1MessageSender,
+		l1RollupTxId:      tx.meta.L1RollupTxId,
+		signatureHashType: tx.meta.SignatureHashType,
 		amount:            tx.data.Amount,
 		data:              tx.data.Payload,
 		checkNonce:        true,
@@ -335,7 +328,7 @@ func (tx *Transaction) WithSignature(signer Signer, sig []byte) (*Transaction, e
 	if err != nil {
 		return nil, err
 	}
-	cpy := &Transaction{data: tx.data}
+	cpy := &Transaction{data: tx.data, meta: tx.meta}
 	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
 	return cpy, nil
 }

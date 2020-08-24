@@ -80,23 +80,18 @@ func TestTransactionEncode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
 	}
-	if bytes.Equal(txc, should) {
-		t.Errorf("RLP encoding with L1MessageSender should be different than without. Got %x", txc)
+	if !bytes.Equal(txc, should) {
+		t.Errorf("RLP encoding with L1MessageSender should be the same. Got %x", txc)
 	}
 
 	txd, err := rlp.EncodeToBytes(rightvrsTxWithL1RollupTxId)
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
 	}
-	if bytes.Equal(txd, should) {
-		t.Errorf("RLP encoding with L1MessageSender should be different than without. Got %x", txd)
+	if !bytes.Equal(txd, should) {
+		t.Errorf("RLP encoding with L1MessageSender should be the same. Got %x", txd)
 	}
 
-	// RLP encode both the empty transaction and the empty transaction that
-	// uses the `eth_sign` signature hash and assert that they are not the same.
-	// The signature hash flag must be included in the RLP encoding only when it
-	// is defined so that it can be persisted in the database. When the
-	// SignatureHashType is `nil`, it is not included in the RLP serialization.
 	txe, err := rlp.EncodeToBytes(emptyTx)
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
@@ -106,8 +101,8 @@ func TestTransactionEncode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
 	}
-	if bytes.Equal(txe, txf) {
-		t.Error("RLP encoding with SighashEthSign should be different than without")
+	if !bytes.Equal(txe, txf) {
+		t.Error("RLP encoding with SighashEthSign should be the same")
 	}
 }
 
