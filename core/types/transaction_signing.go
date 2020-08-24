@@ -19,15 +19,14 @@ package types
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rlp"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -116,7 +115,17 @@ func (s OVMSigner) Equal(s2 Signer) bool {
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s OVMSigner) Hash(tx *Transaction) common.Hash {
-	data := []interface{}{
+	if tx.IsEthSignSighash() {
+		msg := s.OVMSignerTemplateSighashPreimage(tx)
+
+		hasher := sha3.NewLegacyKeccak256()
+		hasher.Write(msg)
+		digest := hasher.Sum(nil)
+
+		return common.BytesToHash(digest)
+	}
+
+	return rlpHash([]interface{}{
 		tx.data.AccountNonce,
 		tx.data.Price,
 		tx.data.GasLimit,
@@ -124,19 +133,7 @@ func (s OVMSigner) Hash(tx *Transaction) common.Hash {
 		tx.data.Amount,
 		tx.data.Payload,
 		s.chainId, uint(0), uint(0),
-	}
-
-	if tx.IsEthSignSighash() {
-		msg := OVMSignerTemplateSighashPreimage(data)
-
-		hasher := sha3.NewLegacyKeccak256()
-		hasher.Write([]byte(msg))
-		digest := hasher.Sum(nil)
-
-		return common.BytesToHash(digest)
-	}
-
-	return rlpHash(data)
+	})
 }
 
 func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
@@ -152,12 +149,25 @@ func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
 }
 
 // OVMSignerTemplateSighashPreimage creates the preimage for the `eth_sign` like
-// signature hash given non-RLP encoded data.
-func OVMSignerTemplateSighashPreimage(data []interface{}) string {
+// signature hash. The transaction is `ABI.encodePacked`.
+func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	b := new(bytes.Buffer)
-	rlp.Encode(b, data)
-	hex := hexutil.Encode(b.Bytes())
-	return fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(hex), hex)
+	binary.Write(b, binary.BigEndian, tx.data.AccountNonce)
+	binary.Write(b, binary.BigEndian, tx.data.Price.Bytes())
+	binary.Write(b, binary.BigEndian, tx.data.GasLimit)
+	binary.Write(b, binary.BigEndian, tx.data.Recipient.Bytes())
+	binary.Write(b, binary.BigEndian, tx.data.Amount.Bytes())
+	binary.Write(b, binary.BigEndian, tx.data.Payload)
+	binary.Write(b, binary.BigEndian, s.chainId.Bytes())
+	binary.Write(b, binary.BigEndian, uint(0))
+	binary.Write(b, binary.BigEndian, uint(0))
+
+	preimage := new(bytes.Buffer)
+	preimage.WriteString("\x19Ethereum Signed Message:\n")
+	binary.Write(preimage, binary.BigEndian, b.Len())
+	binary.Write(preimage, binary.BigEndian, b.Bytes())
+
+	return preimage.Bytes()
 }
 
 // EIP155Transaction implements Signer using the EIP155 rules.
