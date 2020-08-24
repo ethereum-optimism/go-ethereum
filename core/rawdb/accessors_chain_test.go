@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -422,5 +423,52 @@ func TestAncientStorage(t *testing.T) {
 	}
 	if blob := ReadTdRLP(db, fakeHash, number); len(blob) != 0 {
 		t.Fatalf("invalid td returned")
+	}
+}
+
+func TestBlockMetaStorage(t *testing.T) {
+	db := NewMemoryDatabase()
+
+	tx1 := types.NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil, nil, nil, nil)
+
+	WriteTransactionMeta(db, tx1.Hash(), tx1.GetMeta())
+	meta := ReadTransactionMeta(db, tx1.Hash())
+
+	if meta.L1MessageSender != nil {
+		t.Fatalf("Could not recover L1MessageSender")
+	}
+	if meta.L1RollupTxId != nil {
+		t.Fatalf("Could not recover L1RollupTxId")
+	}
+	// Even if the Sighash type is initialized to `nil`, it will be saved to the
+	// database as SighashEIP155.
+	if *meta.SignatureHashType != types.SighashEIP155 {
+		t.Fatalf("Could not recover sighash type")
+	}
+
+	DeleteTransactionMeta(db, tx1.Hash())
+	postDelete := ReadTransactionMeta(db, tx1.Hash())
+
+	if postDelete != nil {
+		t.Fatalf("Delete did not work")
+	}
+
+	sighashType := types.SighashEthSign
+	addr := common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
+	txid := hexutil.Uint64(777)
+
+	tx2 := types.NewTransaction(2, common.HexToAddress("0x2"), big.NewInt(2), 2, big.NewInt(2), nil, &addr, &txid, &sighashType)
+
+	WriteTransactionMeta(db, tx2.Hash(), tx2.GetMeta())
+	meta2 := ReadTransactionMeta(db, tx2.Hash())
+
+	if !bytes.Equal(meta2.L1MessageSender.Bytes(), addr.Bytes()) {
+		t.Fatalf("Could not recover L1MessageSender")
+	}
+	if *meta2.L1RollupTxId != txid {
+		t.Fatalf("Could not recover L1RollupTxId")
+	}
+	if *meta2.SignatureHashType != sighashType {
+		t.Fatalf("Could not recover sighash type")
 	}
 }
