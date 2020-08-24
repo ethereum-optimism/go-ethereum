@@ -51,13 +51,6 @@ var (
 			output: &SighashEthSign,
 		},
 	}
-
-	addr1 = common.HexToAddress("abee26c3644d908dc9f3dff1e203da36b50573a3")
-	addr2 = common.HexToAddress("e5c99b740572c2dabf7e3a418c4e9df2f793a599")
-	addr3 = common.HexToAddress("cc4d9fbd42d6523cf804f2b9f26da98a9d9fa205")
-	txid1 = hexutil.Uint64(33)
-	txid2 = hexutil.Uint64(923)
-	txid3 = hexutil.Uint64(5190)
 )
 
 func TestTransactionMetaEncode(t *testing.T) {
