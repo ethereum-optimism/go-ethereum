@@ -58,30 +58,6 @@ var (
 	txid1 = hexutil.Uint64(33)
 	txid2 = hexutil.Uint64(923)
 	txid3 = hexutil.Uint64(5190)
-
-	blockMetaEncodeTests = []struct {
-		txs []*TransactionMeta
-	}{
-		{
-			txs: []*TransactionMeta{
-				NewTransactionMeta(&txid1, &addr1, &SighashEIP155),
-			},
-		},
-		{
-			txs: []*TransactionMeta{
-				NewTransactionMeta(&txid1, &addr1, &SighashEIP155),
-				NewTransactionMeta(&txid2, &addr2, &SighashEthSign),
-				NewTransactionMeta(&txid3, &addr3, &SighashEthSign),
-			},
-		},
-		{
-			txs: []*TransactionMeta{
-				NewTransactionMeta(nil, nil, &SighashEIP155),
-				NewTransactionMeta(nil, &addr2, &SighashEthSign),
-				NewTransactionMeta(&txid3, nil, &SighashEthSign),
-			},
-		},
-	}
 )
 
 func TestTransactionMetaEncode(t *testing.T) {
