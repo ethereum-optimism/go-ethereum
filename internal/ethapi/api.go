@@ -1472,7 +1472,6 @@ func (r *RollupTransaction) toTransaction(txNonce uint64) *types.Transaction {
 	if r.Target == nil {
 		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId)
 	} else {
-		// TODO(mark): double check the sighash type here
 		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, nil)
 	}
 	tx.AddNonceToWrappedTransaction(uint64(*r.Nonce))
