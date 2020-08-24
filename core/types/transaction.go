@@ -43,6 +43,14 @@ var (
 	SighashEthSign SignatureHashType = 1
 )
 
+func GetSighashEIP155() *SignatureHashType {
+	return &SighashEIP155
+}
+
+func GetSighashEthSign() *SignatureHashType {
+	return &SighashEthSign
+}
+
 type Transaction struct {
 	data txdata
 	meta TransactionMeta

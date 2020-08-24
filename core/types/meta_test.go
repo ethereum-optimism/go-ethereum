@@ -20,17 +20,17 @@ var (
 		{
 			txid:        &txid,
 			msgSender:   &addr,
-			sighashType: &SighashEthSign,
+			sighashType: GetSighashEthSign(),
 		},
 		{
 			txid:        nil,
 			msgSender:   &addr,
-			sighashType: &SighashEthSign,
+			sighashType: GetSighashEthSign(),
 		},
 		{
 			txid:        &txid,
 			msgSender:   nil,
-			sighashType: &SighashEthSign,
+			sighashType: GetSighashEthSign(),
 		},
 	}
 
@@ -40,15 +40,15 @@ var (
 	}{
 		{
 			input:  nil,
-			output: &SighashEIP155,
+			output: GetSighashEIP155(),
 		},
 		{
-			input:  &SighashEIP155,
-			output: &SighashEIP155,
+			input:  GetSighashEIP155(),
+			output: GetSighashEIP155(),
 		},
 		{
-			input:  &SighashEthSign,
-			output: &SighashEthSign,
+			input:  GetSighashEthSign(),
+			output: GetSighashEthSign(),
 		},
 	}
 )

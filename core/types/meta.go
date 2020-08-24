@@ -72,7 +72,7 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 	// If the SignatureHashType is not explicitly defined, then it uses EIP155.
 	sighashType := meta.SignatureHashType
 	if sighashType == nil {
-		sighashType = &SighashEIP155
+		sighashType = GetSighashEIP155()
 	}
 
 	s := new(bytes.Buffer)
