@@ -1563,9 +1563,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
-// SendRawEthSignTransaction will add the signed transaction to the mempool. The
-// signature hash was computed with `eth_sign`, meaning that the RPL encoded
-// transaction was prefixed with the "Ethereum Signed Message" string.
+// SendRawEthSignTransaction will add the signed transaction to the mempool.
+// The signature hash was computed with `eth_sign`, meaning that the
+// `abi.encodedPacked` transaction was prefixed with the string
+// "Ethereum Signed Message".
 func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
