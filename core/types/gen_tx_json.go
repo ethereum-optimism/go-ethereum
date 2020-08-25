@@ -16,19 +16,19 @@ var _ = (*txdataMarshaling)(nil)
 // TransactionMarshalJSON marshals as JSON.
 func TransactionMarshalJSON(t *Transaction) ([]byte, error) {
 	type txnjson struct {
-		AccountNonce      hexutil.Uint64     `json:"nonce"    gencodec:"required"`
-		Price             *hexutil.Big       `json:"gasPrice" gencodec:"required"`
-		GasLimit          hexutil.Uint64     `json:"gas"      gencodec:"required"`
-		Recipient         *common.Address    `json:"to"       rlp:"nil"`
-		Amount            *hexutil.Big       `json:"value"    gencodec:"required"`
-		Payload           hexutil.Bytes      `json:"input"    gencodec:"required"`
-		V                 *hexutil.Big       `json:"v" gencodec:"required"`
-		R                 *hexutil.Big       `json:"r" gencodec:"required"`
-		S                 *hexutil.Big       `json:"s" gencodec:"required"`
-		Hash              *common.Hash       `json:"hash" rlp:"-"`
-		L1RollupTxId      *hexutil.Uint64    `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
-		L1MessageSender   *common.Address    `json:"l1MessageSender,omitempty" rlp:"nil,?"`
-		SignatureHashType *SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
+		AccountNonce      hexutil.Uint64    `json:"nonce"    gencodec:"required"`
+		Price             *hexutil.Big      `json:"gasPrice" gencodec:"required"`
+		GasLimit          hexutil.Uint64    `json:"gas"      gencodec:"required"`
+		Recipient         *common.Address   `json:"to"       rlp:"nil"`
+		Amount            *hexutil.Big      `json:"value"    gencodec:"required"`
+		Payload           hexutil.Bytes     `json:"input"    gencodec:"required"`
+		V                 *hexutil.Big      `json:"v" gencodec:"required"`
+		R                 *hexutil.Big      `json:"r" gencodec:"required"`
+		S                 *hexutil.Big      `json:"s" gencodec:"required"`
+		Hash              *common.Hash      `json:"hash" rlp:"-"`
+		L1RollupTxId      *hexutil.Uint64   `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
+		L1MessageSender   *common.Address   `json:"l1MessageSender,omitempty" rlp:"nil,?"`
+		SignatureHashType SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
 	}
 
 	var enc txnjson
@@ -52,19 +52,19 @@ func TransactionMarshalJSON(t *Transaction) ([]byte, error) {
 // UnmarshalJSON unmarshals from JSON.
 func TransactionUnmarshalJSON(input []byte) (*Transaction, error) {
 	type txnjson struct {
-		AccountNonce      *hexutil.Uint64    `json:"nonce"    gencodec:"required"`
-		Price             *hexutil.Big       `json:"gasPrice" gencodec:"required"`
-		GasLimit          *hexutil.Uint64    `json:"gas"      gencodec:"required"`
-		Recipient         *common.Address    `json:"to"       rlp:"nil"`
-		Amount            *hexutil.Big       `json:"value"    gencodec:"required"`
-		Payload           *hexutil.Bytes     `json:"input"    gencodec:"required"`
-		V                 *hexutil.Big       `json:"v" gencodec:"required"`
-		R                 *hexutil.Big       `json:"r" gencodec:"required"`
-		S                 *hexutil.Big       `json:"s" gencodec:"required"`
-		Hash              *common.Hash       `json:"hash" rlp:"-"`
-		L1RollupTxId      *hexutil.Uint64    `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
-		L1MessageSender   *common.Address    `json:"l1MessageSender,omitempty" rlp:"nil,?"`
-		SignatureHashType *SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
+		AccountNonce      *hexutil.Uint64   `json:"nonce"    gencodec:"required"`
+		Price             *hexutil.Big      `json:"gasPrice" gencodec:"required"`
+		GasLimit          *hexutil.Uint64   `json:"gas"      gencodec:"required"`
+		Recipient         *common.Address   `json:"to"       rlp:"nil"`
+		Amount            *hexutil.Big      `json:"value"    gencodec:"required"`
+		Payload           *hexutil.Bytes    `json:"input"    gencodec:"required"`
+		V                 *hexutil.Big      `json:"v" gencodec:"required"`
+		R                 *hexutil.Big      `json:"r" gencodec:"required"`
+		S                 *hexutil.Big      `json:"s" gencodec:"required"`
+		Hash              *common.Hash      `json:"hash" rlp:"-"`
+		L1RollupTxId      *hexutil.Uint64   `json:"l1RollupTxId,omitempty"`
+		L1MessageSender   *common.Address   `json:"l1MessageSender,omitempty"`
+		SignatureHashType SignatureHashType `json:"signatureHashType"`
 	}
 
 	var t Transaction
@@ -93,9 +93,9 @@ func TransactionUnmarshalJSON(input []byte) (*Transaction, error) {
 	if dec.L1RollupTxId != nil {
 		t.meta.L1RollupTxId = dec.L1RollupTxId
 	}
-	if dec.SignatureHashType != nil {
-		t.meta.SignatureHashType = dec.SignatureHashType
-	}
+
+	t.meta.SignatureHashType = dec.SignatureHashType
+
 	if dec.Amount == nil {
 		return &Transaction{}, errors.New("missing required field 'value' for txdata")
 	}

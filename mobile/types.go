@@ -203,7 +203,7 @@ func NewTransaction(nonce int64, to *Address, amount *BigInt, gasLimit int64, ga
 	if to == nil {
 		return &Transaction{types.NewContractCreation(uint64(nonce), amount.bigint, uint64(gasLimit), gasPrice.bigint, common.CopyBytes(data), nil, nil)}
 	}
-	return &Transaction{types.NewTransaction(uint64(nonce), to.address, amount.bigint, uint64(gasLimit), gasPrice.bigint, common.CopyBytes(data), nil, nil, nil)}
+	return &Transaction{types.NewTransaction(uint64(nonce), to.address, amount.bigint, uint64(gasLimit), gasPrice.bigint, common.CopyBytes(data), nil, nil, types.SighashEIP155)}
 }
 
 // NewTransactionFromRLP parses a transaction from an RLP data dump.

@@ -15,40 +15,36 @@ var (
 	txMetaSerializationTests = []struct {
 		txid        *hexutil.Uint64
 		msgSender   *common.Address
-		sighashType *SignatureHashType
+		sighashType SignatureHashType
 	}{
 		{
 			txid:        &txid,
 			msgSender:   &addr,
-			sighashType: GetSighashEthSign(),
+			sighashType: SighashEthSign,
 		},
 		{
 			txid:        nil,
 			msgSender:   &addr,
-			sighashType: GetSighashEthSign(),
+			sighashType: SighashEthSign,
 		},
 		{
 			txid:        &txid,
 			msgSender:   nil,
-			sighashType: GetSighashEthSign(),
+			sighashType: SighashEthSign,
 		},
 	}
 
 	txMetaSighashEncodeTests = []struct {
-		input  *SignatureHashType
-		output *SignatureHashType
+		input  SignatureHashType
+		output SignatureHashType
 	}{
 		{
-			input:  nil,
-			output: GetSighashEIP155(),
+			input:  SighashEIP155,
+			output: SighashEIP155,
 		},
 		{
-			input:  GetSighashEIP155(),
-			output: GetSighashEIP155(),
-		},
-		{
-			input:  GetSighashEthSign(),
-			output: GetSighashEthSign(),
+			input:  SighashEthSign,
+			output: SighashEthSign,
 		},
 	}
 )
@@ -79,7 +75,7 @@ func TestTransactionSighashEncode(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if *decoded.SignatureHashType != *test.output {
+		if decoded.SignatureHashType != test.output {
 			t.Fatal("SighashTypes do not match")
 		}
 	}
@@ -106,14 +102,8 @@ func isTxMetaEqual(meta1 *TransactionMeta, meta2 *TransactionMeta) bool {
 		}
 	}
 
-	if meta1.SignatureHashType == nil || meta2.SignatureHashType == nil {
-		if meta1.SignatureHashType != meta2.SignatureHashType {
-			return false
-		}
-	} else {
-		if *meta1.SignatureHashType != *meta2.SignatureHashType {
-			return false
-		}
+	if meta1.SignatureHashType != meta2.SignatureHashType {
+		return false
 	}
 
 	return true

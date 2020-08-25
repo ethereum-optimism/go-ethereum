@@ -13,12 +13,12 @@ import (
 )
 
 type TransactionMeta struct {
-	L1RollupTxId      *hexutil.Uint64    `json:"l1RollupTxId"`
-	L1MessageSender   *common.Address    `json:"l1MessageSender"`
-	SignatureHashType *SignatureHashType `json:"signatureHashType"`
+	L1RollupTxId      *hexutil.Uint64   `json:"l1RollupTxId"`
+	L1MessageSender   *common.Address   `json:"l1MessageSender"`
+	SignatureHashType SignatureHashType `json:"signatureHashType"`
 }
 
-func NewTransactionMeta(L1RollupTxId *hexutil.Uint64, L1MessageSender *common.Address, sighashType *SignatureHashType) *TransactionMeta {
+func NewTransactionMeta(L1RollupTxId *hexutil.Uint64, L1MessageSender *common.Address, sighashType SignatureHashType) *TransactionMeta {
 	return &TransactionMeta{L1RollupTxId: L1RollupTxId, L1MessageSender: L1MessageSender, SignatureHashType: sighashType}
 }
 
@@ -38,7 +38,7 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 
 	var sighashType SignatureHashType
 	binary.Read(bytes.NewReader(sb), binary.LittleEndian, &sighashType)
-	meta.SignatureHashType = &sighashType
+	meta.SignatureHashType = sighashType
 
 	lb, err := common.ReadVarBytes(b, 0, 1024, "L1RollupTxId")
 	if err != nil {
@@ -47,7 +47,7 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 
 	if !isNullValue(lb) {
 		var l1RollupTxId hexutil.Uint64
-		binary.Read(bytes.NewReader(lb), binary.LittleEndian, l1RollupTxId)
+		binary.Read(bytes.NewReader(lb), binary.LittleEndian, &l1RollupTxId)
 		meta.L1RollupTxId = &l1RollupTxId
 	}
 
@@ -69,14 +69,8 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 func TxMetaEncode(meta *TransactionMeta) []byte {
 	b := new(bytes.Buffer)
 
-	// If the SignatureHashType is not explicitly defined, then it uses EIP155.
-	sighashType := meta.SignatureHashType
-	if sighashType == nil {
-		sighashType = GetSighashEIP155()
-	}
-
 	s := new(bytes.Buffer)
-	binary.Write(s, binary.LittleEndian, *sighashType)
+	binary.Write(s, binary.LittleEndian, &meta.SignatureHashType)
 	common.WriteVarBytes(b, 0, s.Bytes())
 
 	L1RollupTxId := meta.L1RollupTxId

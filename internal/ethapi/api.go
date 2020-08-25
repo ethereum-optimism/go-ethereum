@@ -1375,11 +1375,11 @@ type SendTxArgs struct {
 	Nonce    *hexutil.Uint64 `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
-	Data              *hexutil.Bytes           `json:"data"`
-	Input             *hexutil.Bytes           `json:"input"`
-	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId,omitempty"`
-	L1MessageSender   *common.Address          `json:"l1MessageSender,omitempty"`
-	SignatureHashType *types.SignatureHashType `json:"signatureHashType,omitempty"`
+	Data              *hexutil.Bytes          `json:"data"`
+	Input             *hexutil.Bytes          `json:"input"`
+	L1RollupTxId      *hexutil.Uint64         `json:"l1RollupTxId,omitempty"`
+	L1MessageSender   *common.Address         `json:"l1MessageSender,omitempty"`
+	SignatureHashType types.SignatureHashType `json:"signatureHashType,omitempty"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
@@ -1472,7 +1472,7 @@ func (r *RollupTransaction) toTransaction(txNonce uint64) *types.Transaction {
 	if r.Target == nil {
 		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId)
 	} else {
-		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, nil)
+		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, types.SighashEIP155)
 	}
 	tx.AddNonceToWrappedTransaction(uint64(*r.Nonce))
 	return tx
@@ -1572,7 +1572,7 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 		return common.Hash{}, err
 	}
 
-	tx.SetSignatureHashType(&types.SighashEthSign)
+	tx.SetSignatureHashType(types.SighashEthSign)
 	return SubmitTransaction(ctx, s.b, tx)
 }
 

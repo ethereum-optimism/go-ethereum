@@ -30,7 +30,7 @@ func TestEIP155Signing(t *testing.T) {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	signer := NewEIP155Signer(big.NewInt(18))
-	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEIP155), signer, key)
+	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestEIP155ChainId(t *testing.T) {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	signer := NewEIP155Signer(big.NewInt(18))
-	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEIP155), signer, key)
+	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestEIP155ChainId(t *testing.T) {
 		t.Error("expected chainId to be", signer.chainId, "got", tx.ChainId())
 	}
 
-	tx = NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEIP155)
+	tx = NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
 	tx, err = SignTx(tx, HomesteadSigner{}, key)
 	if err != nil {
 		t.Fatal(err)
@@ -118,7 +118,7 @@ func TestEIP155SigningVitalik(t *testing.T) {
 func TestChainId(t *testing.T) {
 	key, _ := defaultTestKey()
 
-	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEIP155)
+	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
 
 	var err error
 	tx, err = SignTx(tx, NewEIP155Signer(big.NewInt(1)), key)
@@ -140,7 +140,7 @@ func TestChainId(t *testing.T) {
 func TestOVMSigner(t *testing.T) {
 	key, _ := defaultTestKey()
 
-	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEthSign)
+	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEthSign)
 
 	var err error
 	tx, err = SignTx(tx, NewOVMSigner(big.NewInt(1)), key)
@@ -162,10 +162,8 @@ func TestOVMSigner(t *testing.T) {
 func TestOVMSignerHash(t *testing.T) {
 	signer := NewOVMSigner(big.NewInt(1))
 
-	// The signature hash should be the same when the SignatureHashType argument
-	// is `SighashEIP155` or `nil` when all other arguments are held constant.
-	txNil := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, nil)
-	txEIP155 := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEIP155)
+	txNil := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
+	txEIP155 := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
 
 	hashNil := signer.Hash(txNil)
 	hashEIP155 := signer.Hash(txEIP155)
@@ -174,7 +172,7 @@ func TestOVMSignerHash(t *testing.T) {
 	}
 
 	// The signature hash should be different when using `SighashEthSign`
-	txEthSign := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEthSign)
+	txEthSign := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEthSign)
 
 	hashEthSign := signer.Hash(txEthSign)
 	if hashEIP155 == hashEthSign {
@@ -195,7 +193,7 @@ func TestOVMSignerSender(t *testing.T) {
 
 	// Create a transaction with EIP155 signature hash, sign the transaction,
 	// recover the address and assert that the address matches the key.
-	txEIP155 := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEIP155)
+	txEIP155 := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
 
 	txEIP155, err = SignTx(txEIP155, signer, key)
 	if err != nil {
@@ -213,7 +211,7 @@ func TestOVMSignerSender(t *testing.T) {
 
 	// Create a transaction with EthSign signature hash, sign the transaction,
 	// recover the address and assert that the address matches the key.
-	txEthSign := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, &SighashEthSign)
+	txEthSign := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEthSign)
 
 	txEthSign, err = SignTx(txEthSign, signer, key)
 	if err != nil {
