@@ -51,7 +51,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 		log.Debug("Calling State Manager contract.", "StateManagerAddress", hex.EncodeToString(StateManagerAddress.Bytes()))
 		ret, err := callStateManager(input, evm, contract)
 		if err != nil {
-			log.Error("State manager error!", err)
+			log.Error("State manager error!", "error", err)
 		}
 		return ret, err
 	}
