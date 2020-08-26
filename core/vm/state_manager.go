@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -45,8 +46,13 @@ func callStateManager(input []byte, evm *EVM, contract *Contract) (ret []byte, e
 		return nil, nil
 	}
 	copy(methodID[:], input[:4])
+
+	if method, ok := methodIds[methodID]; ok {
+		return method(evm, contract, input)
+	}
+
 	ret, err = methodIds[methodID](evm, contract, input)
-	return ret, err
+	return nil, fmt.Errorf("state manager call not found: %s", methodID)
 }
 
 func setStorage(evm *EVM, contract *Contract, input []byte) (ret []byte, err error) {
