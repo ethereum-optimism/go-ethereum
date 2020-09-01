@@ -12,6 +12,22 @@ https://camo.githubusercontent.com/915b7be44ada53c290eb157634330494ebe3e30a/6874
 Automated builds are available for stable releases and the unstable master branch. Binary
 archives are published at https://geth.ethereum.org/downloads/.
 
+## Optimism
+First, run:
+```
+make geth
+```
+
+```
+rm -rf da-test-chain-dir && ./build/bin/geth --datadir da-test-chain-dir --rpc --dev --rpcaddr "0.0.0.0" --rpccorsdomain "*" --networkid 108 --rpcapi 'eth,net' --gasprice '0' --targetgaslimit '4294967295' --nousb --gcmode=archive
+```
+You can also enable logs with 
+```
+rm -rf da-test-chain-dir && ./build/bin/geth --datadir da-test-chain-dir --rpc --dev --rpcaddr "0.0.0.0" --rpccorsdomain "*" --networkid 108 --rpcapi 'eth,net' --gasprice '0' --targetgaslimit '4294967295' --nousb --gcmode=archive --verbosity=5
+```
+
+
+
 ## Building the source
 
 For prerequisites and detailed build instructions please read the [Installation Instructions](https://github.com/ethereum/go-ethereum/wiki/Building-Ethereum) on the wiki.
