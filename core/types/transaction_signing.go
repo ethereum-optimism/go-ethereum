@@ -151,21 +151,32 @@ func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
 // OVMSignerTemplateSighashPreimage creates the preimage for the `eth_sign` like
 // signature hash. The transaction is `ABI.encodePacked`.
 func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
+	// Pad the nonce to 32 bytes
+	n := new(bytes.Buffer)
+	binary.Write(n, binary.BigEndian, tx.data.AccountNonce)
+	nonce := common.LeftPadBytes(n.Bytes(), 32)
+
+	// Pad the gas limit to 32 bytes
+	g := new(bytes.Buffer)
+	binary.Write(g, binary.BigEndian, tx.data.GasLimit)
+	gasLimit := common.LeftPadBytes(g.Bytes(), 32)
+
+	// This should always be 20 bytes
+	to := tx.data.Recipient.Bytes()
+
+	// The signature hash commits to the nonce, gas limit,
+	// recipient and data
 	b := new(bytes.Buffer)
-	binary.Write(b, binary.BigEndian, tx.data.AccountNonce)
-	binary.Write(b, binary.BigEndian, tx.data.Price.Bytes())
-	binary.Write(b, binary.BigEndian, tx.data.GasLimit)
-	binary.Write(b, binary.BigEndian, tx.data.Recipient.Bytes())
-	binary.Write(b, binary.BigEndian, tx.data.Amount.Bytes())
+	binary.Write(b, binary.BigEndian, nonce)
+	binary.Write(b, binary.BigEndian, gasLimit)
+	binary.Write(b, binary.BigEndian, to)
 	binary.Write(b, binary.BigEndian, tx.data.Payload)
-	binary.Write(b, binary.BigEndian, s.chainId.Bytes())
-	binary.Write(b, binary.BigEndian, byte(0x00))
-	binary.Write(b, binary.BigEndian, byte(0x00))
+
+	digest := crypto.Keccak256(b.Bytes())
 
 	preimage := new(bytes.Buffer)
-	preimage.WriteString("\x19Ethereum Signed Message:\n")
-	binary.Write(preimage, binary.BigEndian, b.Len())
-	binary.Write(preimage, binary.BigEndian, b.Bytes())
+	preimage.WriteString("\x19Ethereum Signed Message:\n32")
+	binary.Write(preimage, binary.BigEndian, digest)
 
 	return preimage.Bytes()
 }
