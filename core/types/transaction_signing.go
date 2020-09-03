@@ -159,8 +159,8 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	binary.Write(b, binary.BigEndian, tx.data.Amount.Bytes())
 	binary.Write(b, binary.BigEndian, tx.data.Payload)
 	binary.Write(b, binary.BigEndian, s.chainId.Bytes())
-	binary.Write(b, binary.BigEndian, uint(0))
-	binary.Write(b, binary.BigEndian, uint(0))
+	binary.Write(b, binary.BigEndian, byte(0x00))
+	binary.Write(b, binary.BigEndian, byte(0x00))
 
 	preimage := new(bytes.Buffer)
 	preimage.WriteString("\x19Ethereum Signed Message:\n")
