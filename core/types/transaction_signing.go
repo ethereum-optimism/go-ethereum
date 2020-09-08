@@ -167,11 +167,6 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 
 	// This should always be 20 bytes
 	to := tx.data.Recipient.Bytes()
-
-	v := new(bytes.Buffer)
-	binary.Write(v, binary.BigEndian, tx.data.Amount.Bytes())
-	value := common.LeftPadBytes(v.Bytes(), 32)
-
 	chainId := common.LeftPadBytes(s.chainId.Bytes(), 32)
 
 	// The signature hash commits to the nonce, gas limit,
@@ -181,7 +176,6 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	binary.Write(b, binary.BigEndian, gasLimit)
 	binary.Write(b, binary.BigEndian, gasPrice)
 	binary.Write(b, binary.BigEndian, to)
-	binary.Write(b, binary.BigEndian, value)
 	binary.Write(b, binary.BigEndian, tx.data.Payload)
 	binary.Write(b, binary.BigEndian, chainId)
 
@@ -190,7 +184,8 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	digest := hasher.Sum(nil)
 
 	preimage := new(bytes.Buffer)
-	preimage.WriteString("\x19Ethereum Signed Message:\n32")
+	prefix := []byte("\x19Ethereum Signed Message:\n32")
+	binary.Write(preimage, binary.BigEndian, prefix)
 	binary.Write(preimage, binary.BigEndian, digest)
 
 	return preimage.Bytes()
