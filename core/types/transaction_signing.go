@@ -161,8 +161,16 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	binary.Write(g, binary.BigEndian, tx.data.GasLimit)
 	gasLimit := common.LeftPadBytes(g.Bytes(), 32)
 
+	p := new(bytes.Buffer)
+	binary.Write(p, binary.BigEndian, tx.data.Price.Bytes())
+	gasPrice := common.LeftPadBytes(p.Bytes(), 32)
+
 	// This should always be 20 bytes
 	to := tx.data.Recipient.Bytes()
+
+	v := new(bytes.Buffer)
+	binary.Write(v, binary.BigEndian, tx.data.Amount.Bytes())
+	value := common.LeftPadBytes(v.Bytes(), 32)
 
 	chainId := common.LeftPadBytes(s.chainId.Bytes(), 32)
 
@@ -171,7 +179,9 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	b := new(bytes.Buffer)
 	binary.Write(b, binary.BigEndian, nonce)
 	binary.Write(b, binary.BigEndian, gasLimit)
+	binary.Write(b, binary.BigEndian, gasPrice)
 	binary.Write(b, binary.BigEndian, to)
+	binary.Write(b, binary.BigEndian, value)
 	binary.Write(b, binary.BigEndian, tx.data.Payload)
 	binary.Write(b, binary.BigEndian, chainId)
 
