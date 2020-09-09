@@ -165,9 +165,10 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	binary.Write(p, binary.BigEndian, tx.data.Price.Bytes())
 	gasPrice := common.LeftPadBytes(p.Bytes(), 32)
 
+	chainId := common.LeftPadBytes(s.chainId.Bytes(), 32)
+
 	// This should always be 20 bytes
 	to := tx.data.Recipient.Bytes()
-	chainId := common.LeftPadBytes(s.chainId.Bytes(), 32)
 
 	// The signature hash commits to the nonce, gas limit,
 	// recipient and data
@@ -175,9 +176,9 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	binary.Write(b, binary.BigEndian, nonce)
 	binary.Write(b, binary.BigEndian, gasLimit)
 	binary.Write(b, binary.BigEndian, gasPrice)
+	binary.Write(b, binary.BigEndian, chainId)
 	binary.Write(b, binary.BigEndian, to)
 	binary.Write(b, binary.BigEndian, tx.data.Payload)
-	binary.Write(b, binary.BigEndian, chainId)
 
 	hasher := sha3.NewLegacyKeccak256()
 	hasher.Write(b.Bytes())
