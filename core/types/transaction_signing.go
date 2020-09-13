@@ -17,7 +17,9 @@
 package types
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -25,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -40,16 +43,7 @@ type sigCache struct {
 
 // MakeSigner returns a Signer based on the given chain config and block number.
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
-	var signer Signer
-	switch {
-	case config.IsEIP155(blockNumber):
-		signer = NewEIP155Signer(config.ChainID)
-	case config.IsHomestead(blockNumber):
-		signer = HomesteadSigner{}
-	default:
-		signer = FrontierSigner{}
-	}
-	return signer
+	return NewOVMSigner(config.ChainID)
 }
 
 // SignTx signs the transaction using the given signer and private key
@@ -100,6 +94,102 @@ type Signer interface {
 	Hash(tx *Transaction) common.Hash
 	// Equal returns true if the given signer is the same as the receiver.
 	Equal(Signer) bool
+}
+
+// OVMSigner implements Signers using the EIP155 rules along with a new
+// `eth_sign` based signature hash.
+type OVMSigner struct {
+	EIP155Signer
+}
+
+func NewOVMSigner(chainId *big.Int) OVMSigner {
+	signer := NewEIP155Signer(chainId)
+	return OVMSigner{signer}
+}
+
+func (s OVMSigner) Equal(s2 Signer) bool {
+	ovm, ok := s2.(OVMSigner)
+	return ok && ovm.chainId.Cmp(s.chainId) == 0
+}
+
+// Hash returns the hash to be signed by the sender.
+// It does not uniquely identify the transaction.
+func (s OVMSigner) Hash(tx *Transaction) common.Hash {
+	if tx.IsEthSignSighash() {
+		msg := s.OVMSignerTemplateSighashPreimage(tx)
+
+		hasher := sha3.NewLegacyKeccak256()
+		hasher.Write(msg)
+		digest := hasher.Sum(nil)
+
+		return common.BytesToHash(digest)
+	}
+
+	return rlpHash([]interface{}{
+		tx.data.AccountNonce,
+		tx.data.Price,
+		tx.data.GasLimit,
+		tx.data.Recipient,
+		tx.data.Amount,
+		tx.data.Payload,
+		s.chainId, uint(0), uint(0),
+	})
+}
+
+func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
+	if !tx.Protected() {
+		return HomesteadSigner{}.Sender(tx)
+	}
+	if tx.ChainId().Cmp(s.chainId) != 0 {
+		return common.Address{}, ErrInvalidChainId
+	}
+	V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
+	V.Sub(V, big8)
+	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
+}
+
+// OVMSignerTemplateSighashPreimage creates the preimage for the `eth_sign` like
+// signature hash. The transaction is `ABI.encodePacked`.
+func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
+	// Pad the nonce to 32 bytes
+	n := new(bytes.Buffer)
+	binary.Write(n, binary.BigEndian, tx.data.AccountNonce)
+	nonce := common.LeftPadBytes(n.Bytes(), 32)
+
+	// Pad the gas limit to 32 bytes
+	g := new(bytes.Buffer)
+	binary.Write(g, binary.BigEndian, tx.data.GasLimit)
+	gasLimit := common.LeftPadBytes(g.Bytes(), 32)
+
+	p := new(bytes.Buffer)
+	binary.Write(p, binary.BigEndian, tx.data.Price.Bytes())
+	gasPrice := common.LeftPadBytes(p.Bytes(), 32)
+
+	chainId := common.LeftPadBytes(s.chainId.Bytes(), 32)
+
+	// This should always be 20 bytes
+	to := tx.data.Recipient.Bytes()
+
+	// The signature hash commits to the nonce, gas limit,
+	// recipient and data
+	b := new(bytes.Buffer)
+	binary.Write(b, binary.BigEndian, nonce)
+	binary.Write(b, binary.BigEndian, gasLimit)
+	binary.Write(b, binary.BigEndian, gasPrice)
+	binary.Write(b, binary.BigEndian, chainId)
+	binary.Write(b, binary.BigEndian, to)
+	binary.Write(b, binary.BigEndian, tx.data.Payload)
+
+	hasher := sha3.NewLegacyKeccak256()
+	hasher.Write(b.Bytes())
+	digest := hasher.Sum(nil)
+
+	preimage := new(bytes.Buffer)
+	prefix := []byte("\x19Ethereum Signed Message:\n32")
+	binary.Write(preimage, binary.BigEndian, prefix)
+	binary.Write(preimage, binary.BigEndian, digest)
+
+	return preimage.Bytes()
 }
 
 // EIP155Transaction implements Signer using the EIP155 rules.

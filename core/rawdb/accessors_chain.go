@@ -338,6 +338,53 @@ func DeleteBody(db ethdb.KeyValueWriter, hash common.Hash, number uint64) {
 	}
 }
 
+// ReadTransactionMeta returns the transaction metadata associated with a
+// transaction hash.
+func ReadTransactionMeta(db ethdb.Reader, hash common.Hash) *types.TransactionMeta {
+	data := ReadTransactionMetaRaw(db, hash)
+	if len(data) == 0 {
+		return nil
+	}
+
+	meta, err := types.TxMetaDecode(data)
+	if err != nil {
+		log.Error("Invalid raw tx meta ", "hash", hash, "err", err)
+		return nil
+	}
+
+	return meta
+}
+
+// ReadTransactionMetaRaw returns the raw transaction metadata associated with a
+// transaction hash.
+func ReadTransactionMetaRaw(db ethdb.Reader, hash common.Hash) []byte {
+	data, _ := db.Get(txMetaKey(hash))
+	if len(data) > 0 {
+		return data
+	}
+	return nil
+}
+
+// WriteTransactionMeta writes the TransactionMeta to disk by hash.
+func WriteTransactionMeta(db ethdb.KeyValueWriter, hash common.Hash, meta *types.TransactionMeta) {
+	data := types.TxMetaEncode(meta)
+	WriteTransactionMetaRaw(db, hash, data)
+}
+
+// WriteTransactionMetaRaw writes the raw transaction metadata bytes to disk.
+func WriteTransactionMetaRaw(db ethdb.KeyValueWriter, hash common.Hash, data []byte) {
+	if err := db.Put(txMetaKey(hash), data); err != nil {
+		log.Crit("Failed to store transaction meta", "err", err)
+	}
+}
+
+// DeleteTransactionMeta removes the transaction metadata associated with a hash
+func DeleteTransactionMeta(db ethdb.KeyValueWriter, hash common.Hash) {
+	if err := db.Delete(txMetaKey(hash)); err != nil {
+		log.Crit("Failed to delete transaction meta", "err", err)
+	}
+}
+
 // ReadTdRLP retrieves a block's total difficulty corresponding to the hash in RLP encoding.
 func ReadTdRLP(db ethdb.Reader, hash common.Hash, number uint64) rlp.RawValue {
 	// First try to look up the data in ancient database. Extra hash
