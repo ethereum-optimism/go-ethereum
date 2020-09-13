@@ -60,6 +60,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rollup"
 	"github.com/ethereum/go-ethereum/rpc"
 	whisper "github.com/ethereum/go-ethereum/whisper/whisperv6"
 	pcsclite "github.com/gballet/go-libpcsclite"
@@ -749,6 +750,21 @@ var (
 		Usage: "External EVM configuration (default = built-in interpreter)",
 		Value: "",
 	}
+	// Flags associated with Layer 1 Transaction Ingestion
+	TxIngestionEnableFlag = cli.BoolFlag{
+		Name:  "txingestion.enable",
+		Usage: "Enable L1 Transaction Ingestion",
+	}
+	TxIngestionDBHostFlag = cli.StringFlag{
+		Name:  "txingestion.dbhost",
+		Usage: "HTTP host of SQL database to ingest transactions from",
+		Value: "http://localhost:5432",
+	}
+	TxIngestionPollIntervalFlag = cli.DurationFlag{
+		Name:  "txingestion.pollinterval",
+		Usage: "Time between polls for tranaction ingestion",
+		Value: time.Second * 10,
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -969,6 +985,19 @@ func setIPC(ctx *cli.Context, cfg *node.Config) {
 		cfg.IPCPath = ""
 	case ctx.GlobalIsSet(IPCPathFlag.Name):
 		cfg.IPCPath = ctx.GlobalString(IPCPathFlag.Name)
+	}
+}
+
+// setTransactionIngestion configures the transaction ingestion process.
+func setTxIngestion(ctx *cli.Context, cfg *rollup.Config) {
+	if ctx.GlobalIsSet(TxIngestionEnableFlag.Name) {
+		cfg.TxIngestionEnable = ctx.GlobalBool(TxIngestionEnableFlag.Name)
+	}
+	if ctx.GlobalIsSet(TxIngestionDBHostFlag.Name) {
+		cfg.TxIngestionDBHost = ctx.GlobalString(TxIngestionDBHostFlag.Name)
+	}
+	if ctx.GlobalIsSet(TxIngestionPollIntervalFlag.Name) {
+		cfg.TxIngestionPollInterval = ctx.GlobalDuration(TxIngestionPollIntervalFlag.Name)
 	}
 }
 
@@ -1429,6 +1458,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setMiner(ctx, &cfg.Miner)
 	setWhitelist(ctx, cfg)
 	setLes(ctx, cfg)
+	setTxIngestion(ctx, &cfg.Rollup)
 
 	if ctx.GlobalIsSet(SyncModeFlag.Name) {
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)

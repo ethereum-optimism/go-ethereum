@@ -146,6 +146,10 @@ var (
 		utils.EWASMInterpreterFlag,
 		utils.EVMInterpreterFlag,
 		configFileFlag,
+		// Additional Optimism flags
+		utils.TxIngestionEnableFlag,
+		utils.TxIngestionDBHostFlag,
+		utils.TxIngestionPollIntervalFlag,
 	}
 
 	rpcFlags = []cli.Flag{
