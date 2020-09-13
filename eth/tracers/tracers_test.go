@@ -123,7 +123,7 @@ type callTracerTest struct {
 func TestPrestateTracerCreate2(t *testing.T) {
 	t.Skip("OVM breaks this with `cannot read property` error, probably related to state manager.")
 
-	unsignedTx := types.NewTransaction(1, common.HexToAddress("0x00000000000000000000000000000000deadbeef"), new(big.Int), 5000000, big.NewInt(1), []byte{}, nil, nil)
+	unsignedTx := types.NewTransaction(1, common.HexToAddress("0x00000000000000000000000000000000deadbeef"), new(big.Int), 5000000, big.NewInt(1), []byte{}, nil, nil, types.SighashEIP155)
 
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	if err != nil {
