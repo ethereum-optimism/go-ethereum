@@ -30,7 +30,7 @@ func TestEIP155Signing(t *testing.T) {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	signer := NewEIP155Signer(big.NewInt(18))
-	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil), signer, key)
+	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestEIP155ChainId(t *testing.T) {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	signer := NewEIP155Signer(big.NewInt(18))
-	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil), signer, key)
+	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestEIP155ChainId(t *testing.T) {
 		t.Error("expected chainId to be", signer.chainId, "got", tx.ChainId())
 	}
 
-	tx = NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil)
+	tx = NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
 	tx, err = SignTx(tx, HomesteadSigner{}, key)
 	if err != nil {
 		t.Fatal(err)
@@ -118,7 +118,7 @@ func TestEIP155SigningVitalik(t *testing.T) {
 func TestChainId(t *testing.T) {
 	key, _ := defaultTestKey()
 
-	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil)
+	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
 
 	var err error
 	tx, err = SignTx(tx, NewEIP155Signer(big.NewInt(1)), key)
@@ -134,5 +134,96 @@ func TestChainId(t *testing.T) {
 	_, err = Sender(NewEIP155Signer(big.NewInt(1)), tx)
 	if err != nil {
 		t.Error("expected no error")
+	}
+}
+
+func TestOVMSigner(t *testing.T) {
+	key, _ := defaultTestKey()
+
+	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEthSign)
+
+	var err error
+	tx, err = SignTx(tx, NewOVMSigner(big.NewInt(1)), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = Sender(NewOVMSigner(big.NewInt(2)), tx)
+	if err != ErrInvalidChainId {
+		t.Error("expected error:", ErrInvalidChainId)
+	}
+
+	_, err = Sender(NewOVMSigner(big.NewInt(1)), tx)
+	if err != nil {
+		t.Error("expected no error")
+	}
+}
+
+func TestOVMSignerHash(t *testing.T) {
+	signer := NewOVMSigner(big.NewInt(1))
+
+	txNil := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
+	txEIP155 := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
+
+	hashNil := signer.Hash(txNil)
+	hashEIP155 := signer.Hash(txEIP155)
+	if hashNil != hashEIP155 {
+		t.Errorf("Signature hashes should be equal: %s != %s", hashNil.Hex(), hashEIP155.Hex())
+	}
+
+	// The signature hash should be different when using `SighashEthSign`
+	txEthSign := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEthSign)
+
+	hashEthSign := signer.Hash(txEthSign)
+	if hashEIP155 == hashEthSign {
+		t.Errorf("Signature hashes should not be equal: %s == %s", hashEIP155.Hex(), hashEthSign.Hex())
+	}
+}
+
+func TestOVMSignerSender(t *testing.T) {
+	// Create a keypair to sign transactions with and the corresponding address
+	// from the public key.
+	key, _ := crypto.GenerateKey()
+	addr := crypto.PubkeyToAddress(key.PublicKey)
+
+	// This test makes sure that both the EIP155 and EthSign signature hash
+	// codepaths work when using the OVMSigner.
+	signer := NewOVMSigner(big.NewInt(1))
+	var err error
+
+	// Create a transaction with EIP155 signature hash, sign the transaction,
+	// recover the address and assert that the address matches the key.
+	txEIP155 := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEIP155)
+
+	txEIP155, err = SignTx(txEIP155, signer, key)
+	if err != nil {
+		t.Errorf("No error expected")
+	}
+
+	recEIP155, err := signer.Sender(txEIP155)
+	if err != nil {
+		t.Errorf("No error expected")
+	}
+
+	if addr != recEIP155 {
+		t.Errorf("Recovered address doesn't match. Got %s, expected %s", recEIP155.Hex(), addr.Hex())
+	}
+
+	// Create a transaction with EthSign signature hash, sign the transaction,
+	// recover the address and assert that the address matches the key.
+	txEthSign := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, SighashEthSign)
+
+	txEthSign, err = SignTx(txEthSign, signer, key)
+	if err != nil {
+		t.Errorf("No error expected")
+	}
+
+	recEthSign, err := signer.Sender(txEthSign)
+	if err != nil {
+		t.Errorf("No error expected")
+	}
+
+	if addr != recEthSign {
+		t.Errorf("Recovered address doesn't match. Got %s, expected %s", recEthSign.Hex(), addr.Hex())
 	}
 }
