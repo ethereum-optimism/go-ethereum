@@ -7,6 +7,7 @@ package types
 import (
 	"bytes"
 	"encoding/binary"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -16,6 +17,7 @@ type TransactionMeta struct {
 	L1RollupTxId      *hexutil.Uint64   `json:"l1RollupTxId"`
 	L1MessageSender   *common.Address   `json:"l1MessageSender"`
 	SignatureHashType SignatureHashType `json:"signatureHashType"`
+	QueueOrigin       *big.Int          `json:"l1MessageSender,omitempty" rlp:"nil,?"`
 }
 
 func NewTransactionMeta(L1RollupTxId *hexutil.Uint64, L1MessageSender *common.Address, sighashType SignatureHashType) *TransactionMeta {

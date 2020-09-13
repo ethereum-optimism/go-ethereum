@@ -25,6 +25,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -85,6 +86,9 @@ type Message interface {
 	Nonce() uint64
 	CheckNonce() bool
 	Data() []byte
+	L1MessageSender() *common.Address
+	L1RollupTxId() *hexutil.Uint64
+	QueueOrigin() *big.Int
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -217,12 +221,12 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 
 	var (
 		evm = st.evm
-		// vm errors do not effect consensus and are therefor
+		// vm errors do not effect consensus and are therefore
 		// not assigned to err, except for insufficient balance
 		// error.
 		vmerr error
 	)
-	log.Debug("Applying new transaction (technically Message)!", "Tx (aka Message) data", st.msg)
+	log.Debug("Applying transaction", "tx data", msg)
 	executionMgrTime := st.evm.Time
 	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
 		executionMgrTime = big.NewInt(1)
@@ -232,24 +236,24 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		deployContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
 			executionMgrTime,        // lastL1Timestamp
-			new(big.Int),            // queueOrigin
+			msg.QueueOrigin(),       // queueOrigin
 			common.HexToAddress(""), // ovmEntrypoint
 			st.data,                 // callBytes
 			sender,                  // fromAddress
-			common.HexToAddress(""), // l1MsgSenderAddress
+			msg.L1MessageSender(),   // l1MsgSenderAddress
 			true,                    // allowRevert
 		)
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, deployContractCalldata, st.gas, st.value)
 	} else {
 		callContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
-			executionMgrTime,        // lastL1Timestamp
-			new(big.Int),            // queueOrigin
-			st.to(),                 // ovmEntrypoint
-			st.data,                 // callBytes
-			sender,                  // fromAddress
-			common.HexToAddress(""), // l1MsgSenderAddress
-			true,                    // allowRevert
+			executionMgrTime,      // lastL1Timestamp
+			msg.QueueOrigin(),     // queueOrigin
+			st.to(),               // ovmEntrypoint
+			st.data,               // callBytes
+			sender,                // fromAddress
+			msg.L1MessageSender(), // l1MsgSenderAddress
+			true,                  // allowRevert
 		)
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, callContractCalldata, st.gas, st.value)
 	}

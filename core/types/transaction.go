@@ -97,6 +97,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		L1RollupTxId:      l1RollupTxId,
 		L1MessageSender:   l1MessageSender,
 		SignatureHashType: sighashType,
+		QueueOrigin:       big.NewInt(0),
 	}
 
 	d := txdata{
@@ -276,6 +277,7 @@ func (tx *Transaction) Hash() common.Hash {
 	}
 
 	v := rlpHash(tx)
+
 	tx.hash.Store(v)
 	return v
 }
@@ -303,9 +305,10 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		gasLimit:          tx.data.GasLimit,
 		gasPrice:          new(big.Int).Set(tx.data.Price),
 		to:                tx.data.Recipient,
-		l1MessageSender:   tx.meta.L1MessageSender,
-		l1RollupTxId:      tx.meta.L1RollupTxId,
+		l1MessageSender:   tx.data.L1MessageSender,
+		l1RollupTxId:      tx.data.L1RollupTxId,
 		signatureHashType: tx.meta.SignatureHashType,
+		queueOrigin:       tx.data.QueueOrigin,
 		amount:            tx.data.Amount,
 		data:              tx.data.Payload,
 		checkNonce:        true,
@@ -476,6 +479,7 @@ type Message struct {
 	l1MessageSender   *common.Address
 	l1RollupTxId      *hexutil.Uint64
 	signatureHashType SignatureHashType
+	queueOrigin       *big.Int
 	from              common.Address
 	nonce             uint64
 	amount            *big.Int
@@ -485,19 +489,19 @@ type Message struct {
 	checkNonce        bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, signatureHashType SignatureHashType) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64) Message {
 	return Message{
-		from:              from,
-		to:                to,
-		nonce:             nonce,
-		amount:            amount,
-		gasLimit:          gasLimit,
-		gasPrice:          gasPrice,
-		data:              data,
-		checkNonce:        checkNonce,
-		l1RollupTxId:      l1RollupTxId,
-		l1MessageSender:   l1MessageSender,
-		signatureHashType: signatureHashType,
+		from:            from,
+		to:              to,
+		nonce:           nonce,
+		amount:          amount,
+		gasLimit:        gasLimit,
+		gasPrice:        gasPrice,
+		data:            data,
+		checkNonce:      checkNonce,
+		l1RollupTxId:    l1RollupTxId,
+		l1MessageSender: l1MessageSender,
+		queueOrigin:     big.NewInt(0),
 	}
 }
 
@@ -506,6 +510,7 @@ func (m Message) To() *common.Address                  { return m.to }
 func (m Message) L1MessageSender() *common.Address     { return m.l1MessageSender }
 func (m Message) L1RollupTxId() *hexutil.Uint64        { return m.l1RollupTxId }
 func (m Message) SignatureHashType() SignatureHashType { return m.signatureHashType }
+func (m Message) QueueOrigin() *big.Int                { return m.queueOrigin }
 func (m Message) GasPrice() *big.Int                   { return m.gasPrice }
 func (m Message) Value() *big.Int                      { return m.amount }
 func (m Message) Gas() uint64                          { return m.gasLimit }
