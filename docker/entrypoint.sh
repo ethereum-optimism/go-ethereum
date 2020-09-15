@@ -23,7 +23,7 @@ geth --dev \
   --rpc \
   --rpcaddr $HOSTNAME \
   --rpcvhosts='*' \
-  --rpccorsdomain '*' \
+  --rpccorsdomain='*' \
   --rpcport $PORT \
   --networkid $NETWORK_ID \
   --rpcapi 'eth,net' \
