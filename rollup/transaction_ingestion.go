@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/jmoiron/sqlx"
@@ -33,35 +34,42 @@ const (
 	txMaxSize = 2 * txSlotSize // 64KB, don't bump without EIP-2464 support
 )
 
-// TODO: look at instantiation of TxPool
-// is NewTxPool(&config) pattern used?
-// could add various config options to the
-// TxIngestion struct
-// Add:
-//   - db
-//   - logger
-
 type TxIngestion struct {
 	loopTicker    *time.Ticker
 	db            *sqlx.DB
 	signer        types.Signer
 	bc            *core.BlockChain
+	txpool        *core.TxPool
 	currentState  *state.StateDB // Current state in the blockchain head
 	currentMaxGas uint64         // Current gas limit for transaction caps
+	vmConfig      *vm.Config
 }
 
-// What is the correct thing to pass in here?
-// Processor? Might need to pull some logic out of the
-// TxPool
-// TxPool.addTx calls TxPool.verifyTx
-func NewTxIngestion(cfg Config, chaincfg *params.ChainConfig, chain *core.BlockChain) *TxIngestion {
-	interval := cfg.TxIngestionPollInterval * time.Second
+// Should this have a safety check on cfg.TxIngestionPollInterval?
+func NewTxIngestion(cfg Config, chaincfg *params.ChainConfig, chain *core.BlockChain, txpool *core.TxPool) *TxIngestion {
+	vmConfig := chain.GetVMConfig()
+	if vmConfig == nil {
+		log.Error("no Blockchain.VMConfig")
+		return nil
+	}
 
 	txIngestion := TxIngestion{
-		loopTicker: time.NewTicker(interval),
-		signer:     types.NewEIP155Signer(chaincfg.ChainID), // should be NewOVMSigner
+		loopTicker: time.NewTicker(cfg.TxIngestionPollInterval),
+		signer:     types.NewOVMSigner(chaincfg.ChainID),
 		bc:         chain,
+		txpool:     txpool,
+		vmConfig:   vmConfig,
 	}
+
+	head := txIngestion.bc.CurrentBlock().Header()
+	statedb, err := txIngestion.bc.StateAt(head.Root)
+	if err != nil {
+		log.Error("Cannot get statedb", "msg", err.Error())
+		return nil
+	}
+
+	txIngestion.currentState = statedb
+	txIngestion.currentMaxGas = head.GasLimit // this needs to be updated
 
 	if cfg.IsTxIngestionEnabled() {
 		conn := txIngestion.makeConn(&cfg)
@@ -73,20 +81,46 @@ func NewTxIngestion(cfg Config, chaincfg *params.ChainConfig, chain *core.BlockC
 
 		txIngestion.db = db
 
-		head := txIngestion.bc.CurrentBlock().Header()
-		statedb, err := txIngestion.bc.StateAt(head.Root)
-		if err != nil {
-			log.Error("Cannot get statedb", "msg", err.Error())
-			return nil
-		}
-
-		txIngestion.currentState = statedb
-		txIngestion.currentMaxGas = head.GasLimit // this needs to be updated
-
 		go txIngestion.loop()
 	}
 
 	return &txIngestion
+}
+
+func (t *TxIngestion) applyTransaction(tx *types.Transaction) error {
+	err := t.validateTx(tx)
+	if err != nil {
+		return err
+	}
+
+	return t.txpool.AddLocal(tx)
+
+	/*
+		header := types.Header{GasLimit: 210000000000}
+		txs := []*types.Transaction{tx}
+		// how do i set the gas limit on the block?
+		block := types.NewBlock(&header, txs, []*types.Header{}, []*types.Receipt{})
+
+		processor := t.bc.Processor()
+		// usedGas is used in bc.verifyer.Verify, which checks the output of
+		// processor.Process against the block. I don't think we need to compute
+		// the receipts root for the block?
+		receipts, logs, _, err := processor.Process(block, t.currentState, *t.vmConfig)
+		if err != nil {
+			return err
+		}
+
+		status, err := t.bc.WriteBlockWithState(block, receipts, logs, t.currentState, false)
+		if err != nil {
+			return err
+		}
+
+		if status == core.NonStatTy {
+			return fmt.Errorf("Unable to write tx %x to disk", tx.Hash())
+		}
+
+		return nil
+	*/
 }
 
 func (t *TxIngestion) loop() {
@@ -96,47 +130,12 @@ func (t *TxIngestion) loop() {
 			log.Error(err.Error())
 			continue
 		}
-		fmt.Println(tx)
 
-		err = t.validateTx(tx)
+		// TODO: some sort of performance metering
+		err = t.applyTransaction(tx)
+
 		if err != nil {
 			log.Error(err.Error())
-			continue
-		}
-
-		// There is another codepath:
-		// core.ApplyTransaction
-
-		header := types.Header{}
-		txs := []*types.Transaction{}
-		block := types.NewBlock(&header, txs, []*types.Header{}, []*types.Receipt{})
-
-		// Potentially fetch state like this instead
-		// of using t.currentState
-		// statedb, err := state.New(parent.Root, bc.stateCache)
-
-		processor, vmConfig := t.bc.Processor(), t.bc.GetVMConfig()
-		if vmConfig == nil {
-			log.Error("No blockchain.VMConfig")
-			continue
-		}
-		// usedGas is used in bc.verifyer.Verify, which checks the output of
-		// processor.Process against the block. I don't think we need to compute
-		// the receipts root for the block?
-		receipts, logs, _, err := processor.Process(block, t.currentState, *vmConfig)
-		if err != nil {
-			log.Error(err.Error())
-			continue
-		}
-
-		status, err := t.bc.WriteBlockWithState(block, receipts, logs, t.currentState, false)
-		if err != nil {
-			log.Error(err.Error())
-			continue
-		}
-
-		if status == core.NonStatTy {
-			log.Error("Unable to write block to disk")
 			continue
 		}
 	}
@@ -157,43 +156,38 @@ func (t *TxIngestion) validateTx(tx *types.Transaction) error {
 	if tx.Value().Sign() < 0 {
 		return core.ErrNegativeValue
 	}
-	// Ensure the
-	// transaction
-	// doesn't exceed
-	// the current block
-	// limit gas.
+	// Ensure the transaction doesn't exceed
+	// the current block limit gas.
 	if t.currentMaxGas < tx.Gas() {
 		return core.ErrGasLimit
 	}
-
 	// Make sure the transaction is signed properly
 	from, err := types.Sender(t.signer, tx)
 	if err != nil {
 		return core.ErrInvalidSender
 	}
-
 	// Ensure the transaction adheres to nonce ordering
 	if t.currentState.GetNonce(from) > tx.Nonce() {
 		return core.ErrNonceTooLow
 	}
-
 	// Transactor should have enough funds
 	// to cover the costs cost == V + GP * GL
 	if t.currentState.GetBalance(from).Cmp(tx.Cost()) < 0 {
 		return core.ErrInsufficientFunds
 	}
-
 	// Ensure the transaction has more gas than the basic tx fee.
-	intrGas, err := core.IntrinsicGas(tx.Data(), tx.To() == nil, true, true)
+	intrGas, err := t.IntrinsicGas()
 	if err != nil {
 		return err
 	}
-
 	if tx.Gas() < intrGas {
 		return core.ErrIntrinsicGas
 	}
-
 	return nil
+}
+
+func (t *TxIngestion) IntrinsicGas() (uint64, error) {
+	return 0, nil
 }
 
 func (t *TxIngestion) Stop() {
