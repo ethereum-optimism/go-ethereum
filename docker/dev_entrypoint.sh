@@ -20,6 +20,7 @@ TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-4294967295}
   --rpc \
   --rpcaddr $HOSTNAME \
   --rpcvhosts='*' \
+  --rpccorsdomain='*' \
   --rpcport $PORT \
   --networkid $NETWORK_ID \
   --rpcapi 'eth,net' \
