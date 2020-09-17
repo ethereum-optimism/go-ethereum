@@ -285,7 +285,6 @@ func (tx *Transaction) Hash() common.Hash {
 	}
 
 	v := rlpHash(tx)
-
 	tx.hash.Store(v)
 	return v
 }
