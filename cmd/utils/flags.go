@@ -758,12 +758,32 @@ var (
 	TxIngestionDBHostFlag = cli.StringFlag{
 		Name:  "txingestion.dbhost",
 		Usage: "HTTP host of SQL database to ingest transactions from",
-		Value: "http://localhost:5432",
+		Value: "localhost",
+	}
+	TxIngestionDBPortFlag = cli.IntFlag{
+		Name:  "txingestion.dbport",
+		Usage: "HTTP port of SQL database to ingest transactions from",
+		Value: 5432,
+	}
+	TxIngestionDBNameFlag = cli.StringFlag{
+		Name:  "txingestion.dbname",
+		Usage: "Database name to ingest transactions from",
+		Value: "rollup",
+	}
+	TxIngestionDBUserFlag = cli.StringFlag{
+		Name:  "txingestion.dbuser",
+		Usage: "Database username",
+		Value: "admin",
+	}
+	TxIngestionDBPasswordFlag = cli.StringFlag{
+		Name:  "txingestion.dbpassword",
+		Usage: "Database password",
+		Value: "admin",
 	}
 	TxIngestionPollIntervalFlag = cli.DurationFlag{
 		Name:  "txingestion.pollinterval",
 		Usage: "Time between polls for tranaction ingestion",
-		Value: time.Second * 10,
+		Value: 50 * time.Millisecond,
 	}
 )
 
@@ -995,6 +1015,18 @@ func setTxIngestion(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(TxIngestionDBHostFlag.Name) {
 		cfg.TxIngestionDBHost = ctx.GlobalString(TxIngestionDBHostFlag.Name)
+	}
+	if ctx.GlobalIsSet(TxIngestionDBPortFlag.Name) {
+		cfg.TxIngestionDBPort = ctx.GlobalUint(TxIngestionDBPortFlag.Name)
+	}
+	if ctx.GlobalIsSet(TxIngestionDBNameFlag.Name) {
+		cfg.TxIngestionDBName = ctx.GlobalString(TxIngestionDBNameFlag.Name)
+	}
+	if ctx.GlobalIsSet(TxIngestionDBUserFlag.Name) {
+		cfg.TxIngestionDBUser = ctx.GlobalString(TxIngestionDBUserFlag.Name)
+	}
+	if ctx.GlobalIsSet(TxIngestionDBPasswordFlag.Name) {
+		cfg.TxIngestionDBPassword = ctx.GlobalString(TxIngestionDBPasswordFlag.Name)
 	}
 	if ctx.GlobalIsSet(TxIngestionPollIntervalFlag.Name) {
 		cfg.TxIngestionPollInterval = ctx.GlobalDuration(TxIngestionPollIntervalFlag.Name)
