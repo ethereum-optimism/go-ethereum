@@ -87,6 +87,8 @@ func NewTxIngestion(cfg Config, chaincfg *params.ChainConfig, chain *core.BlockC
 	return &txIngestion
 }
 
+// TODO(mark): adding to the mempool will call the pool.validateTx
+// so it does not need to be called here.
 func (t *TxIngestion) applyTransaction(tx *types.Transaction) error {
 	err := t.validateTx(tx)
 	if err != nil {
@@ -94,33 +96,6 @@ func (t *TxIngestion) applyTransaction(tx *types.Transaction) error {
 	}
 
 	return t.txpool.AddLocal(tx)
-
-	/*
-		header := types.Header{GasLimit: 210000000000}
-		txs := []*types.Transaction{tx}
-		// how do i set the gas limit on the block?
-		block := types.NewBlock(&header, txs, []*types.Header{}, []*types.Receipt{})
-
-		processor := t.bc.Processor()
-		// usedGas is used in bc.verifyer.Verify, which checks the output of
-		// processor.Process against the block. I don't think we need to compute
-		// the receipts root for the block?
-		receipts, logs, _, err := processor.Process(block, t.currentState, *t.vmConfig)
-		if err != nil {
-			return err
-		}
-
-		status, err := t.bc.WriteBlockWithState(block, receipts, logs, t.currentState, false)
-		if err != nil {
-			return err
-		}
-
-		if status == core.NonStatTy {
-			return fmt.Errorf("Unable to write tx %x to disk", tx.Hash())
-		}
-
-		return nil
-	*/
 }
 
 func (t *TxIngestion) loop() {
