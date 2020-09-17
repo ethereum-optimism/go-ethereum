@@ -39,6 +39,9 @@ func TestApplyTransaction(t *testing.T) {
 
 	signer := types.NewOVMSigner(chainId)
 	tx, err := types.SignTx(types.NewTransaction(0, addr, new(big.Int), 21000, new(big.Int), []byte{}, &addr, nil, types.QueueOriginL1ToL2, types.SighashEIP155), signer, key)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	err = txIngestion.applyTransaction(tx)
 	if err != nil {

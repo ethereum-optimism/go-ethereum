@@ -41,9 +41,9 @@ func GetMostRecentQueuedTransaction(db *sqlx.DB) (*types.Transaction, error) {
 	}
 
 	// Deserialize from database serialization to Transaction serialization
-	nonce := uint64(tx.Nonce) // how to best handle numeric type?
+	nonce := tx.Nonce // how to best handle numeric type?
 	amount, gasPrice := big.NewInt(0), big.NewInt(0)
-	gasLimit := uint64(tx.GasLimit)
+	gasLimit := tx.GasLimit
 	data, err := hexutil.Decode(tx.Calldata)
 	if err != nil {
 		return nil, err
