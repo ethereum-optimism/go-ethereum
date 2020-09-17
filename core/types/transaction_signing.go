@@ -100,11 +100,16 @@ type Signer interface {
 // `eth_sign` based signature hash.
 type OVMSigner struct {
 	EIP155Signer
+	chainId, chainIdMul *big.Int
 }
 
 func NewOVMSigner(chainId *big.Int) OVMSigner {
 	signer := NewEIP155Signer(chainId)
-	return OVMSigner{signer}
+	return OVMSigner{
+		chainId:      signer.chainId,
+		chainIdMul:   signer.chainIdMul,
+		EIP155Signer: signer,
+	}
 }
 
 func (s OVMSigner) Equal(s2 Signer) bool {
@@ -119,7 +124,7 @@ func (s OVMSigner) Hash(tx *Transaction) common.Hash {
 		msg := s.OVMSignerTemplateSighashPreimage(tx)
 
 		hasher := sha3.NewLegacyKeccak256()
-		hasher.Write(msg)
+		hasher.Write(msg[:])
 		digest := hasher.Sum(nil)
 
 		return common.BytesToHash(digest)

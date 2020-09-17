@@ -51,7 +51,6 @@ func callStateManager(input []byte, evm *EVM, contract *Contract) (ret []byte, e
 		return method(evm, contract, input)
 	}
 
-	ret, err = methodIds[methodID](evm, contract, input)
 	return nil, fmt.Errorf("state manager call not found: %s", methodID)
 }
 

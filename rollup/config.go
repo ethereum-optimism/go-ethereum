@@ -5,7 +5,7 @@ import "time"
 type Config struct {
 	TxIngestionEnable       bool
 	TxIngestionDBHost       string
-	TxIngestionDBPort       uint32
+	TxIngestionDBPort       uint
 	TxIngestionDBName       string
 	TxIngestionDBUser       string
 	TxIngestionDBPassword   string

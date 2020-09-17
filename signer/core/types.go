@@ -65,6 +65,7 @@ func (v *ValidationMessages) getWarnings() error {
 	return nil
 }
 
+// TODO(mark): double check adding QueueOrigin to this won't break anything
 // SendTxArgs represents the arguments to submit a transaction
 type SendTxArgs struct {
 	From     common.MixedcaseAddress  `json:"from"`
@@ -78,7 +79,8 @@ type SendTxArgs struct {
 	Input             *hexutil.Bytes           `json:"input,omitempty"`
 	L1MessageSender   *common.MixedcaseAddress `json:"l1MessageSender,omitempty"`
 	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId,omitempty"`
-	SignatureHashType types.SignatureHashType  `json:"signatureHashType,omitempty"`
+	SignatureHashType types.SignatureHashType  `json:"signatureHashType"`
+	QueueOrigin       types.QueueOrigin        `json:"queueOrigin"`
 }
 
 func (args SendTxArgs) String() string {
@@ -107,5 +109,5 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		*l1RollupTxId = *args.L1RollupTxId
 	}
 
-	return types.NewTransaction(uint64(args.Nonce), args.To.Address(), (*big.Int)(&args.Value), (uint64)(args.Gas), (*big.Int)(&args.GasPrice), input, l1MessageSender, l1RollupTxId, args.SignatureHashType)
+	return types.NewTransaction(uint64(args.Nonce), args.To.Address(), (*big.Int)(&args.Value), (uint64)(args.Gas), (*big.Int)(&args.GasPrice), input, l1MessageSender, l1RollupTxId, args.QueueOrigin, args.SignatureHashType)
 }
