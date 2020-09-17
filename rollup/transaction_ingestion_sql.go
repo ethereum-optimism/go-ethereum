@@ -11,15 +11,6 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type QueueOrigin int16
-
-const (
-	// Possible `queue_origin` values
-	L1ToL2Queue QueueOrigin = 0
-	SafetyQueue QueueOrigin = 1
-	Sequencer   QueueOrigin = 2
-)
-
 const (
 	MOST_RECENT_UNQUEUED_ROLLUP_TX = `
 SELECT l1_tx_hash, l1_tx_log_index, queue_origin
@@ -63,7 +54,7 @@ type QueuedTransaction struct {
 	L1TxHash                 string `db:"l1_tx_hash"`
 	L1TxIndex                uint16 `db:"l1_tx_index"`
 	L1TxLogIndex             uint16 `db:"l1_tx_log_index"`
-	QueueOrigin              uint8  `db:"queue_origin"`
+	QueueOrigin              uint16 `db:"queue_origin"` // ?
 	Sender                   string `db:"sender"`
 	L1MessageSender          string `db:"l1_message_sender"`
 	GasLimit                 uint64 `db:"gas_limit"`
@@ -86,7 +77,7 @@ type L1RollupTx struct {
 	Target                   string    `db:"target"`
 	Calldata                 string    `db:"calldata"`
 	QueueOrigin              int16     `db:"queue_origin"`
-	Nonce                    string    `db:"nonce"`     // numeric type
+	Nonce                    string    `db:"nonce"`     // numeric type ?
 	GasLimit                 string    `db:"gas_limit"` // numeric type
 	Signature                string    `db:"signature"`
 	GethSubmissionQueueIndex int64     `db:"geth_submission_queue_index"`
@@ -147,7 +138,7 @@ func UpdateSentSubmissionStatus(db *sqlx.DB, index uint32) error {
 
 // GetMostRecentUnqueuedRollupTx queries for the most recent item in the
 // unqueued_rollup_tx view.
-func GetMostRecentUnqueuedRollupTx(db *sqlx.DB, origins []QueueOrigin) (*UnqueuedRollupTxEntry, error) {
+func GetMostRecentUnqueuedRollupTx(db *sqlx.DB, origins []types.QueueOrigin) (*UnqueuedRollupTxEntry, error) {
 	query, args, err := sqlx.In(MOST_RECENT_UNQUEUED_ROLLUP_TX, origins)
 	if err != nil {
 		return nil, err
