@@ -16,21 +16,25 @@ var (
 		txid        *hexutil.Uint64
 		msgSender   *common.Address
 		sighashType SignatureHashType
+		queueOrigin QueueOrigin
 	}{
 		{
 			txid:        &txid,
 			msgSender:   &addr,
 			sighashType: SighashEthSign,
+			queueOrigin: QueueOriginSequencer,
 		},
 		{
 			txid:        nil,
 			msgSender:   &addr,
 			sighashType: SighashEthSign,
+			queueOrigin: QueueOriginSequencer,
 		},
 		{
 			txid:        &txid,
 			msgSender:   nil,
 			sighashType: SighashEthSign,
+			queueOrigin: QueueOriginSequencer,
 		},
 	}
 
@@ -51,7 +55,7 @@ var (
 
 func TestTransactionMetaEncode(t *testing.T) {
 	for _, test := range txMetaSerializationTests {
-		txmeta := NewTransactionMeta(test.txid, test.msgSender, test.sighashType)
+		txmeta := NewTransactionMeta(test.txid, test.msgSender, test.queueOrigin, test.sighashType)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 
@@ -66,8 +70,9 @@ func TestTransactionMetaEncode(t *testing.T) {
 }
 
 func TestTransactionSighashEncode(t *testing.T) {
+	queueOrigin := QueueOriginSequencer
 	for _, test := range txMetaSighashEncodeTests {
-		txmeta := NewTransactionMeta(&txid, &addr, test.input)
+		txmeta := NewTransactionMeta(&txid, &addr, queueOrigin, test.input)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 
@@ -103,6 +108,10 @@ func isTxMetaEqual(meta1 *TransactionMeta, meta2 *TransactionMeta) bool {
 	}
 
 	if meta1.SignatureHashType != meta2.SignatureHashType {
+		return false
+	}
+
+	if !bytes.Equal(meta1.QueueOrigin.Bytes(), meta2.QueueOrigin.Bytes()) {
 		return false
 	}
 
