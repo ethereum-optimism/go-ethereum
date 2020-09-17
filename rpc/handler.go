@@ -368,12 +368,7 @@ func (h *handler) handleSubscribe(cp *callProc, msg *jsonrpcMessage) *jsonrpcMes
 func (h *handler) runMethod(ctx context.Context, msg *jsonrpcMessage, callb *callback, args []reflect.Value) *jsonrpcMessage {
 	var result interface{}
 	var err error
-	// TODO: think about long term maintainability of altered RPC methods
-	if msg.Method == "eth_estimateGas" {
-		result = 0xffffffff //Gas Limit
-	} else {
-		result, err = callb.call(ctx, msg.Method, args)
-	}
+	result, err = callb.call(ctx, msg.Method, args)
 	if err != nil {
 		return msg.errorResponse(err)
 	}
