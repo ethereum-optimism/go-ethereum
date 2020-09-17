@@ -549,7 +549,6 @@ func testTransactionStatus(t *testing.T, protocol int) {
 			cost := server.peer.peer.GetRequestCost(GetTxStatusMsg, 1)
 			sendRequest(server.peer.app, GetTxStatusMsg, reqID, cost, []common.Hash{tx.Hash()})
 		}
-		// here
 		if err := expectResponse(server.peer.app, TxStatusMsg, reqID, testBufLimit, []light.TxStatus{expStatus}); err != nil {
 			t.Errorf("transaction status mismatch")
 		}
