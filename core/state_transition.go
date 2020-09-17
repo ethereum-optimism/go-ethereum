@@ -210,7 +210,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
 
-	// Pay intrinsic gas
+	// TODO(mark): pay intrinsic gas function needs to be updated
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
 	if err != nil {
 		return nil, 0, false, err
@@ -238,30 +238,42 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
 		executionMgrTime = big.NewInt(1)
 	}
+
+	// TODO: queue origin is always 0 with current version of em
+	queueOrigin := big.NewInt(0)
+
+	l1MessageSender := msg.L1MessageSender()
+	if l1MessageSender == nil {
+		addr := common.HexToAddress("")
+		l1MessageSender = &addr
+	}
+
 	if contractCreation {
 		// Here we are going to call the EM directly
 		deployContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
 			executionMgrTime,        // lastL1Timestamp
-			msg.QueueOrigin(),       // queueOrigin
+			queueOrigin,             // queueOrigin
 			common.HexToAddress(""), // ovmEntrypoint
 			st.data,                 // callBytes
 			sender,                  // fromAddress
-			msg.L1MessageSender(),   // l1MsgSenderAddress
+			l1MessageSender,         // l1MsgSenderAddress
 			true,                    // allowRevert
 		)
+
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, deployContractCalldata, st.gas, st.value)
 	} else {
 		callContractCalldata, _ := executionManagerAbi.Pack(
 			"executeTransaction",
-			executionMgrTime,      // lastL1Timestamp
-			msg.QueueOrigin(),     // queueOrigin
-			st.to(),               // ovmEntrypoint
-			st.data,               // callBytes
-			sender,                // fromAddress
-			msg.L1MessageSender(), // l1MsgSenderAddress
-			true,                  // allowRevert
+			executionMgrTime, // lastL1Timestamp
+			queueOrigin,      // queueOrigin
+			st.to(),          // ovmEntrypoint
+			st.data,          // callBytes
+			sender,           // fromAddress
+			l1MessageSender,  // l1MsgSenderAddress
+			true,             // allowRevert
 		)
+
 		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, callContractCalldata, st.gas, st.value)
 	}
 	if vmerr != nil {
