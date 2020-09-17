@@ -206,7 +206,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
-	eth.txIngestion = rollup.NewTxIngestion(config.Rollup, chainConfig, eth.blockchain, eth.txPool)
+	eth.txIngestion = rollup.NewTxIngestion(config.Rollup, chainConfig, eth.txPool)
 
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit
@@ -554,7 +554,6 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
-
 	return nil
 }
 
