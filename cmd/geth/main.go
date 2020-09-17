@@ -146,9 +146,15 @@ var (
 		utils.EWASMInterpreterFlag,
 		utils.EVMInterpreterFlag,
 		configFileFlag,
-		// Additional Optimism flags
+	}
+
+	optimismFlags = []cli.Flag{
 		utils.TxIngestionEnableFlag,
 		utils.TxIngestionDBHostFlag,
+		utils.TxIngestionDBPortFlag,
+		utils.TxIngestionDBNameFlag,
+		utils.TxIngestionDBUserFlag,
+		utils.TxIngestionDBPasswordFlag,
 		utils.TxIngestionPollIntervalFlag,
 	}
 
@@ -230,6 +236,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	app.Flags = append(app.Flags, nodeFlags...)
+	app.Flags = append(app.Flags, optimismFlags...)
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)
