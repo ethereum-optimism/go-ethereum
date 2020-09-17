@@ -100,16 +100,11 @@ type Signer interface {
 // `eth_sign` based signature hash.
 type OVMSigner struct {
 	EIP155Signer
-	chainId, chainIdMul *big.Int
 }
 
 func NewOVMSigner(chainId *big.Int) OVMSigner {
 	signer := NewEIP155Signer(chainId)
-	return OVMSigner{
-		chainId:      signer.chainId,
-		chainIdMul:   signer.chainIdMul,
-		EIP155Signer: signer,
-	}
+	return OVMSigner{signer}
 }
 
 func (s OVMSigner) Equal(s2 Signer) bool {
