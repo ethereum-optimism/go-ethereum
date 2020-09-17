@@ -63,7 +63,11 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	Rollup: rollup.Config{
-		TxIngestionEnable: false,
+		TxIngestionEnable:       false,
+		TxIngestionDBHost:       "localhost",
+		TxIngestionDBPort:       5432,
+		TxIngestionDBName:       "rollup",
+		TxIngestionPollInterval: 1000 * time.Millisecond,
 	},
 }
 

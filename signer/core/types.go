@@ -65,6 +65,7 @@ func (v *ValidationMessages) getWarnings() error {
 	return nil
 }
 
+// TODO(mark): double check adding QueueOrigin to this won't break anything
 // SendTxArgs represents the arguments to submit a transaction
 type SendTxArgs struct {
 	From     common.MixedcaseAddress  `json:"from"`
