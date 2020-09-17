@@ -241,7 +241,8 @@ func applyMessageToState(currentState *state.StateDB, from common.Address, to co
 			false,
 			&ZERO_ADDRESS,
 			nil,
-			0,
+			types.QueueOriginSequencer, // TODO: verify
+			types.SighashEthSign,       // TODO: verify
 		)
 	} else {
 		// Otherwise we actually use the `to` field!
@@ -256,7 +257,8 @@ func applyMessageToState(currentState *state.StateDB, from common.Address, to co
 			false,
 			&ZERO_ADDRESS,
 			nil,
-			0,
+			types.QueueOriginSequencer, // TODO: verify
+			types.SighashEthSign,       // TODO: verify
 		)
 	}
 
