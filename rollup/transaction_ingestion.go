@@ -1,11 +1,5 @@
 package rollup
 
-// TODO:
-//    config.IsByzantium - always return true
-//    config.IsEIP158 - always return true
-//    ChainConfig.IsHomestead ?
-//	  ChainConfig.IsIstanbul
-
 import (
 	"fmt"
 	"time"
