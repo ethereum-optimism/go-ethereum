@@ -54,6 +54,7 @@ var (
 			msgSender:   &addr,
 			sighashType: SighashEthSign,
 			queueOrigin: big.NewInt(0),
+			queueOrigin: QueueOriginSequencer,
 		},
 	}
 
@@ -77,6 +78,7 @@ func TestTransactionMetaEncode(t *testing.T) {
 		txmeta := NewTransactionMeta(test.txid, test.msgSender, test.sighashType)
 		txmeta.QueueOrigin = test.queueOrigin
 
+		txmeta := NewTransactionMeta(test.txid, test.msgSender, test.queueOrigin, test.sighashType)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 
@@ -91,8 +93,9 @@ func TestTransactionMetaEncode(t *testing.T) {
 }
 
 func TestTransactionSighashEncode(t *testing.T) {
+	queueOrigin := QueueOriginSequencer
 	for _, test := range txMetaSighashEncodeTests {
-		txmeta := NewTransactionMeta(&txid, &addr, test.input)
+		txmeta := NewTransactionMeta(&txid, &addr, queueOrigin, test.input)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 

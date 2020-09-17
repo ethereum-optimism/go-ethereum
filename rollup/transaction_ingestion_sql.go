@@ -127,7 +127,11 @@ func GetMostRecentQueuedTransaction(db *sqlx.DB) (*types.Transaction, error) {
 	}
 	l1TxHash := hexutil.Uint64(l1Txid)
 
-	txn := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data, &l1From, &l1TxHash)
+	// TODO: sighash type needs to be in the database
+	sighash := types.SighashEIP155
+	queueOrigin := types.QueueOrigin(tx.QueueOrigin)
+
+	txn := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, data, &l1From, &l1TxHash, queueOrigin, sighash)
 
 	return txn, nil
 }
