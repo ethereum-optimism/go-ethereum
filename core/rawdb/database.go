@@ -266,11 +266,11 @@ func InspectDatabase(db ethdb.Database) error {
 		)
 		total += size
 		switch {
-		case bytes.HasPrefix(key, headerPrefix) && bytes.HasSuffix(key, headerTDSuffix):
+		case bytes.HasPrefix(key, HeaderPrefix) && bytes.HasSuffix(key, headerTDSuffix):
 			tdSize += size
-		case bytes.HasPrefix(key, headerPrefix) && bytes.HasSuffix(key, headerHashSuffix):
+		case bytes.HasPrefix(key, HeaderPrefix) && bytes.HasSuffix(key, headerHashSuffix):
 			numHashPairing += size
-		case bytes.HasPrefix(key, headerPrefix) && len(key) == (len(headerPrefix)+8+common.HashLength):
+		case bytes.HasPrefix(key, HeaderPrefix) && len(key) == (len(HeaderPrefix)+8+common.HashLength):
 			headerSize += size
 		case bytes.HasPrefix(key, headerNumberPrefix) && len(key) == (len(headerNumberPrefix)+common.HashLength):
 			hashNumPairing += size
@@ -280,7 +280,7 @@ func InspectDatabase(db ethdb.Database) error {
 			receiptSize += size
 		case bytes.HasPrefix(key, txLookupPrefix) && len(key) == (len(txLookupPrefix)+common.HashLength):
 			txlookupSize += size
-		case bytes.HasPrefix(key, preimagePrefix) && len(key) == (len(preimagePrefix)+common.HashLength):
+		case bytes.HasPrefix(key, PreimagePrefix) && len(key) == (len(PreimagePrefix)+common.HashLength):
 			preimageSize += size
 		case bytes.HasPrefix(key, bloomBitsPrefix) && len(key) == (len(bloomBitsPrefix)+10+common.HashLength):
 			bloomBitsSize += size

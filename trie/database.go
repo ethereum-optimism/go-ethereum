@@ -59,8 +59,11 @@ var (
 // secureKeyPrefix is the database key prefix used to store trie node preimages.
 var secureKeyPrefix = []byte("secure-key-")
 
-// secureKeyLength is the length of the above prefix + 32byte hash.
-const secureKeyLength = 11 + 32
+// keyDelineation delineates a prefix and/or suffix from the rest of the key
+var keyDelineation = []byte("-fix-")
+
+// secureKeyLength is the length of the above prefix + KeyDelineator + 32byte hash
+const secureKeyLength = 11 + 5 + 32
 
 // Database is an intermediate write layer between the trie data structures and
 // the disk database. The aim is to accumulate trie writes in-memory and only
@@ -452,7 +455,8 @@ func (db *Database) preimage(hash common.Hash) ([]byte, error) {
 // buffer. The caller must not hold onto the return value because it will become
 // invalid on the next call.
 func (db *Database) secureKey(key []byte) []byte {
-	buf := append(db.seckeybuf[:0], secureKeyPrefix...)
+	delineatedPrefix := append(secureKeyPrefix, keyDelineation...)
+	buf := append(db.seckeybuf[:0], delineatedPrefix...)
 	buf = append(buf, key...)
 	return buf
 }
