@@ -136,6 +136,15 @@ var (
 		utils.EWASMInterpreterFlag,
 		utils.EVMInterpreterFlag,
 		configFileFlag,
+		utils.PostgresDatastoreFlag,
+		utils.PostgresDatabaseNameFlag,
+		utils.PostgresHostnameFlag,
+		utils.PostgresPortFlag,
+		utils.PostgresUserFlag,
+		utils.PostgresPasswordFlag,
+		utils.PostgresMaxOpenConnectionsFlag,
+		utils.PostgresMaxIdleConnectionsFlag,
+		utils.PostgresMaxConnLifetimeFlag,
 	}
 
 	optimismFlags = []cli.Flag{

@@ -46,6 +46,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
 	"github.com/ethereum/go-ethereum/ethstats"
 	"github.com/ethereum/go-ethereum/graphql"
 	"github.com/ethereum/go-ethereum/log"
@@ -685,6 +686,7 @@ var (
 		Usage: "External EVM configuration (default = built-in interpreter)",
 		Value: "",
 	}
+
 	// Flags associated with Layer 1 Transaction Ingestion
 	// TODO(mark): deprecate these flags
 	TxIngestionEnableFlag = cli.BoolFlag{
@@ -730,6 +732,7 @@ var (
 		Name:  "txingestion.signerkeyfile",
 		Usage: "File holding key to authenticate L1 to L2 txs",
 	}
+
 	// New Transaction Ingestion Flags
 	Eth1SyncServiceEnable = cli.BoolFlag{
 		Name:  "eth1.syncservice",
@@ -767,6 +770,52 @@ var (
 	RollupEnableVerifierFlag = cli.BoolFlag{
 		Name:  "rollup.verifier",
 		Usage: "Enable the verifier",
+	}
+
+	// Postgres flags
+	PostgresDatastoreFlag = cli.BoolFlag{
+		Name:  "postgres",
+		Usage: "Turn on Postgres as the backing datastore",
+	}
+	PostgresHostnameFlag = cli.StringFlag{
+		Name:  "postgres.hostname",
+		Usage: "Hostname for the Postgres database",
+		Value: "localhost",
+	}
+	PostgresPortFlag = cli.IntFlag{
+		Name:  "postgres.port",
+		Usage: "Port for the Postgres database",
+		Value: 5432,
+	}
+	PostgresUserFlag = cli.StringFlag{
+		Name:  "postgres.user",
+		Usage: "User for the Postgres database",
+		Value: "postgres",
+	}
+	PostgresPasswordFlag = cli.StringFlag{
+		Name:  "postgres.password",
+		Usage: "Password for the Postgres database",
+		Value: "",
+	}
+	PostgresDatabaseNameFlag = cli.StringFlag{
+		Name:  "postgres.database",
+		Usage: "Name for the Postgres database",
+		Value: "geth",
+	}
+	PostgresMaxOpenConnectionsFlag = cli.IntFlag{
+		Name:  "postgres.maxopen",
+		Usage: "Max number of open Postgres connections",
+		Value: 1024,
+	}
+	PostgresMaxIdleConnectionsFlag = cli.IntFlag{
+		Name:  "postgres.maxidle",
+		Usage: "Max number of idle Postgres connections",
+		Value: 1,
+	}
+	PostgresMaxConnLifetimeFlag = cli.DurationFlag{
+		Name:  "postgres.maxlifetime",
+		Usage: "Max lifetime for Postgres connections",
+		Value: 0,
 	}
 )
 
@@ -1215,6 +1264,9 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	setNodeUserIdent(ctx, cfg)
 	setDataDir(ctx, cfg)
 	setSmartCard(ctx, cfg)
+	if ctx.GlobalBool(PostgresDatastoreFlag.Name) {
+		setNodePostgres(ctx, cfg)
+	}
 
 	if ctx.GlobalIsSet(ExternalSignerFlag.Name) {
 		cfg.ExternalSigner = ctx.GlobalString(ExternalSignerFlag.Name)
@@ -1231,6 +1283,43 @@ func SetNodeConfig(ctx *cli.Context, cfg *node.Config) {
 	}
 	if ctx.GlobalIsSet(InsecureUnlockAllowedFlag.Name) {
 		cfg.InsecureUnlockAllowed = ctx.GlobalBool(InsecureUnlockAllowedFlag.Name)
+	}
+}
+
+func setNodePostgres(ctx *cli.Context, cfg *node.Config) {
+	if !ctx.GlobalIsSet(PostgresDatabaseNameFlag.Name) {
+		log.Info("Node: Postgres database name not provided, defaulting to 'geth'")
+	}
+	if !ctx.GlobalIsSet(PostgresHostnameFlag.Name) {
+		log.Info("Node: Postgres hostname not provided, defaulting to localhost")
+	}
+	if !ctx.GlobalIsSet(PostgresPortFlag.Name) {
+		log.Info("Node: Postgres port not provided, defaulting to 5432")
+	}
+	if !ctx.GlobalIsSet(PostgresUserFlag.Name) {
+		log.Info("Node: Postgres user not provided, defaulting to 'postgres'")
+	}
+	if !ctx.GlobalIsSet(PostgresPasswordFlag.Name) {
+		log.Info("Node: Postgres password not provided")
+	}
+	if !ctx.GlobalIsSet(PostgresMaxOpenConnectionsFlag.Name) {
+		log.Info("Node: Postgres MaxOpenConnections not set, defaulting to 1024")
+	}
+	if !ctx.GlobalIsSet(PostgresMaxIdleConnectionsFlag.Name) {
+		log.Info("Node: Postgres MaxIdleConnections not set, defaulting to 16")
+	}
+	if !ctx.GlobalIsSet(PostgresMaxConnLifetimeFlag.Name) {
+		log.Info("Node: Postgres MaxConnLifetime not set, defaulting to no limit")
+	}
+	cfg.PostgresConfig = &postgres.Config{
+		Database:    ctx.GlobalString(PostgresDatabaseNameFlag.Name),
+		Hostname:    ctx.GlobalString(PostgresHostnameFlag.Name),
+		Port:        ctx.GlobalInt(PostgresPortFlag.Name),
+		User:        ctx.GlobalString(PostgresUserFlag.Name),
+		Password:    ctx.GlobalString(PostgresPasswordFlag.Name),
+		MaxOpen:     ctx.GlobalInt(PostgresMaxOpenConnectionsFlag.Name),
+		MaxIdle:     ctx.GlobalInt(PostgresMaxIdleConnectionsFlag.Name),
+		MaxLifetime: ctx.GlobalDuration(PostgresMaxConnLifetimeFlag.Name),
 	}
 }
 
@@ -1455,15 +1544,11 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setEthash(ctx, cfg)
 	setMiner(ctx, &cfg.Miner)
 	setWhitelist(ctx, cfg)
-<<<<<<< HEAD
-	setLes(ctx, cfg)
 	setTxIngestion(ctx, &cfg.Rollup)
-<<<<<<< HEAD
 	setEth1(ctx, &cfg.Rollup)
-=======
-=======
->>>>>>> Refactor (#40)
->>>>>>> Refactor (#40)
+	if ctx.GlobalBool(PostgresDatastoreFlag.Name) {
+		setEthPostgres(ctx, cfg)
+	}
 
 	if ctx.GlobalIsSet(SyncModeFlag.Name) {
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
@@ -1556,6 +1641,43 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}
+	}
+}
+
+func setEthPostgres(ctx *cli.Context, cfg *eth.Config) {
+	if !ctx.GlobalIsSet(PostgresDatabaseNameFlag.Name) {
+		log.Info("Eth: Postgres database name not provided, defaulting to 'geth'")
+	}
+	if !ctx.GlobalIsSet(PostgresHostnameFlag.Name) {
+		log.Info("Eth: Postgres hostname not provided, defaulting to localhost")
+	}
+	if !ctx.GlobalIsSet(PostgresPortFlag.Name) {
+		log.Info("Eth: Postgres port not provided, defaulting to 5432")
+	}
+	if !ctx.GlobalIsSet(PostgresUserFlag.Name) {
+		log.Info("Eth: Postgres user not provided, defaulting to 'postgres'")
+	}
+	if !ctx.GlobalIsSet(PostgresPasswordFlag.Name) {
+		log.Info("Eth: Postgres password not provided")
+	}
+	if !ctx.GlobalIsSet(PostgresMaxOpenConnectionsFlag.Name) {
+		log.Info("Eth: Postgres MaxOpenConnections not set, defaulting to 1024")
+	}
+	if !ctx.GlobalIsSet(PostgresMaxIdleConnectionsFlag.Name) {
+		log.Info("Eth: Postgres MaxIdleConnections not set, defaulting to 16")
+	}
+	if !ctx.GlobalIsSet(PostgresMaxConnLifetimeFlag.Name) {
+		log.Info("Eth: Postgres MaxConnLifetime not set, defaulting to no limit")
+	}
+	cfg.PostgresConfig = &postgres.Config{
+		Database:    ctx.GlobalString(PostgresDatabaseNameFlag.Name),
+		Hostname:    ctx.GlobalString(PostgresHostnameFlag.Name),
+		Port:        ctx.GlobalInt(PostgresPortFlag.Name),
+		User:        ctx.GlobalString(PostgresUserFlag.Name),
+		Password:    ctx.GlobalString(PostgresPasswordFlag.Name),
+		MaxOpen:     ctx.GlobalInt(PostgresMaxOpenConnectionsFlag.Name),
+		MaxIdle:     ctx.GlobalInt(PostgresMaxIdleConnectionsFlag.Name),
+		MaxLifetime: ctx.GlobalDuration(PostgresMaxConnLifetimeFlag.Name),
 	}
 }
 
