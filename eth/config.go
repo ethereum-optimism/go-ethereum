@@ -24,6 +24,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
@@ -160,4 +162,7 @@ type Config struct {
 
 	// Optimism Rollup Config
 	Rollup rollup.Config
+
+	// Config params for Postgres database
+	PostgresConfig *postgres.Config
 }

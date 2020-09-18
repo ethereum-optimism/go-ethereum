@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/external"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -191,6 +193,9 @@ type Config struct {
 	staticNodesWarning     bool
 	trustedNodesWarning    bool
 	oldGethResourceWarning bool
+
+	// Config params for using Postgres database
+	PostgresConfig *postgres.Config
 }
 
 // IPCEndpoint resolves an IPC endpoint based on a configured value, taking into
