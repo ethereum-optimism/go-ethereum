@@ -24,7 +24,7 @@
   "params": {
     "accountStartNonce": "0x0",
     "maximumExtraDataSize": "0x20",
-    "minGasLimit": "0xee6b2800",
+    "minGasLimit": "0x3d0900",
     "gasLimitBoundDivisor": "0x400",
     "networkID": "0x4cb2e",
     "chainID": "0x4cb2e",
