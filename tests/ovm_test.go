@@ -43,6 +43,74 @@ const GAS_LIMIT = 15000000
 var ZERO_ADDRESS = common.HexToAddress("0000000000000000000000000000000000000000")
 var OTHER_FROM_ADDR = common.HexToAddress("8888888888888888888888888888888888888888")
 
+// Test that only the expected accounts exist in the initial state.
+func TestInitialState(t *testing.T) {
+	statedb := newState()
+	dump := statedb.RawDump(false, false, false)
+
+	codeHashes := map[string]bool{
+		"0xa1f84b08c881419b7613ee47706e14d299a31489406e90a2241060e0f71a86f8": false, // l2ToL1MessagePasser
+		"0x48d23ca42f0e829df8d9d209b5f1bd2e11dd2070360e990d6b2241770d09748c": false, // l1MessageSender
+		"0xceeb746577be10dbb38cf1fdc13b91bfbd2576a98acd4411fb8890449f8653e2": false, // l1ToL2TransactionQueue
+		"0xc0975e74abecc7c273856515bc4aadce0d98707fdf82c3a51639fab5df796835": false, // safetyTransactionQueue
+		"0x2048a117a17e9c935dbcd2bd4a62e2ec6cd7093f13849914d4dfbb20177eeace": false, // canonicalTransactionChain
+		"0xccdc6c88ec97957ef2c650e0c1d240083ee922c8bc4315a6332769d2ae76c4a4": false, // stateCommitmentChain
+		"0xc0e1da11ff303bc9edb57f738486d90b8faa0c220740ce9bfe842d1e524952d1": false, // stateManager
+		"0xb3280a0dcdaa02d4697a585fa277ac7fa9a8a954c19cdd657cff491647d8fe56": false, // executionManager
+		"0xf5b4acd84b7166857aa3d0e6e1ec12c9ad131944d50bf596e658d67e317104f3": false, // safetyChecker
+		"0xa7315354bc8316236311a724d004c093448f0c2898b3e8da68d53e1a26e569a1": false, // fraudVerifier
+		"0x65a6a9877bee45fa60dec96595ffa6d6feba50679c041e6e57ef011cbdd59896": false, // rollupMerkleUtils
+		"0x61e0098e85b19f9d913ef53504da6b3f40f03e127f3bd32b3570fd41455674ba": false, // addressResolver
+		"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470": false, // deployment EOA
+	}
+
+	addresses := map[string]bool{
+		"0x00000000000000000000000000000000DEAD0009": false, // rollupMerkleUtils
+		"0x00000000000000000000000000000000DEAD0002": false, // safetyTransactionQueue
+		"0x4200000000000000000000000000000000000001": false, // l1MessageSender
+		"0x00000000000000000000000000000000DEad0008": false, // safetyChecker
+		"0x00000000000000000000000000000000DEad0003": false, // addressResolver
+		"0x00000000000000000000000000000000DEAD0001": false, // stateManager
+		"0x00000000000000000000000000000000DeAd0006": false, // stateCommitmentChain
+		"0x4200000000000000000000000000000000000000": false, // l2ToL1MessagePasser
+		"0x00000000000000000000000000000000DEaD000b": false, // deployment EOA
+		"0x00000000000000000000000000000000DeAd0000": false, // executionManager
+		"0x00000000000000000000000000000000DeAD0004": false, // canonicalTransactionChain
+		"0x00000000000000000000000000000000DEaD000C": false, // l1ToL2TransactionQueue
+		"0x00000000000000000000000000000000dEad0005": false, // fraudVerifier
+	}
+
+	for address, account := range dump.Accounts {
+		_, ok := addresses[address.Hex()]
+		if !ok {
+			t.Fatalf("Unknown account in initial state: %s", address.Hex())
+		}
+		addresses[address.Hex()] = true
+
+		codeHash := "0x" + account.CodeHash
+		seen, ok := codeHashes[codeHash]
+		if !ok {
+			t.Fatalf("Unknown code hash in initial state. Account %s, hash %s", address.Hex(), codeHash)
+		}
+		if seen {
+			t.Fatalf("Code hash seen more than once")
+		}
+		codeHashes[codeHash] = true
+	}
+
+	for k, v := range codeHashes {
+		if v != true {
+			t.Fatalf("Code hash %s not found in initial state", k)
+		}
+	}
+
+	for k, v := range addresses {
+		if v != true {
+			t.Fatalf("Address %s not found in initial state", k)
+		}
+	}
+}
+
 func TestContractCreationAndSimpleStorageTxs(t *testing.T) {
 	currentState := newState()
 
@@ -216,6 +284,7 @@ func newState() *state.StateDB {
 	db := state.NewDatabase(rawdb.NewMemoryDatabase())
 	state, _ := state.New(common.Hash{}, db)
 	core.ApplyOvmStateToState(state)
+	_, _ = state.Commit(false)
 	return state
 }
 
