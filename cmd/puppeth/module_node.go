@@ -165,10 +165,10 @@ type nodeInfos struct {
 // most - but not all - fields for reporting to the user.
 func (info *nodeInfos) Report() map[string]string {
 	report := map[string]string{
-		"Data directory":           info.datadir,
-		"Listener port":            strconv.Itoa(info.port),
-		"Peer count (all total)":   strconv.Itoa(info.peersTotal),
-		"Ethstats username":        info.ethstats,
+		"Data directory":         info.datadir,
+		"Listener port":          strconv.Itoa(info.port),
+		"Peer count (all total)": strconv.Itoa(info.peersTotal),
+		"Ethstats username":      info.ethstats,
 	}
 	if info.gasTarget > 0 {
 		// Miner or signer node

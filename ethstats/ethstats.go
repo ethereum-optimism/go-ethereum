@@ -68,9 +68,9 @@ type blockChain interface {
 // Service implements an Ethereum netstats reporting daemon that pushes local
 // chain statistics up to a monitoring server.
 type Service struct {
-	server *p2p.Server        // Peer-to-peer server to retrieve networking infos
-	eth    *eth.Ethereum      // Full Ethereum service if monitoring a full node
-	engine consensus.Engine   // Consensus engine to retrieve variadic block fields
+	server *p2p.Server      // Peer-to-peer server to retrieve networking infos
+	eth    *eth.Ethereum    // Full Ethereum service if monitoring a full node
+	engine consensus.Engine // Consensus engine to retrieve variadic block fields
 
 	node string // Name of the node to display on the monitoring page
 	pass string // Password to authorize access to the monitoring page
@@ -82,6 +82,9 @@ type Service struct {
 
 // New returns a monitoring service ready for stats reporting.
 func New(url string, ethServ *eth.Ethereum) (*Service, error) {
+	if ethServ == nil {
+		return nil, fmt.Errorf("ethstate.New requires a non-nil *eth.Ethereum service")
+	}
 	// Parse the netstats connection url
 	re := regexp.MustCompile("([^:@]*)(:([^@]*))?@(.+)")
 	parts := re.FindStringSubmatch(url)
@@ -89,13 +92,9 @@ func New(url string, ethServ *eth.Ethereum) (*Service, error) {
 		return nil, fmt.Errorf("invalid netstats url: \"%s\", should be nodename:secret@host:port", url)
 	}
 	// Assemble and return the stats service
-	var engine consensus.Engine
-	if ethServ != nil {
-		engine = ethServ.Engine()
-	}
 	return &Service{
 		eth:    ethServ,
-		engine: engine,
+		engine: ethServ.Engine(),
 		node:   parts[1],
 		pass:   parts[3],
 		host:   parts[4],
