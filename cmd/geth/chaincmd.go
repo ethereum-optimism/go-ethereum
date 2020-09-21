@@ -212,7 +212,7 @@ func initGenesis(ctx *cli.Context) error {
 	stack := makeFullNode(ctx)
 	defer stack.Close()
 
-	for _, name := range []string{"chaindata", "lightchaindata"} {
+	for _, name := range []string{"chaindata"} {
 		chaindb, err := stack.OpenDatabase(name, 0, 0, "")
 		if err != nil {
 			utils.Fatalf("Failed to open database: %v", err)
@@ -465,13 +465,6 @@ func removeDB(ctx *cli.Context) error {
 		confirmAndRemoveDB(path, "full node ancient database")
 	} else {
 		log.Info("Full node ancient database missing", "path", path)
-	}
-	// Remove the light node database
-	path = stack.ResolvePath("lightchaindata")
-	if common.FileExist(path) {
-		confirmAndRemoveDB(path, "light node database")
-	} else {
-		log.Info("Light node database missing", "path", path)
 	}
 	return nil
 }

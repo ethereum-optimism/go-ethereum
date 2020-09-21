@@ -92,17 +92,12 @@ func deployNode(client *sshClient, network string, bootnodes []string, config *n
 	workdir := fmt.Sprintf("%d", rand.Int63())
 	files := make(map[string][]byte)
 
-	lightFlag := ""
-	if config.peersLight > 0 {
-		lightFlag = fmt.Sprintf("--lightpeers=%d --lightserv=50", config.peersLight)
-	}
 	dockerfile := new(bytes.Buffer)
 	template.Must(template.New("").Parse(nodeDockerfile)).Execute(dockerfile, map[string]interface{}{
 		"NetworkID": config.network,
 		"Port":      config.port,
 		"IP":        client.address,
 		"Peers":     config.peersTotal,
-		"LightFlag": lightFlag,
 		"Bootnodes": strings.Join(bootnodes, ","),
 		"Ethstats":  config.ethstats,
 		"Etherbase": config.etherbase,
@@ -121,8 +116,6 @@ func deployNode(client *sshClient, network string, bootnodes []string, config *n
 		"Network":    network,
 		"Port":       config.port,
 		"TotalPeers": config.peersTotal,
-		"Light":      config.peersLight > 0,
-		"LightPeers": config.peersLight,
 		"Ethstats":   config.ethstats[:strings.Index(config.ethstats, ":")],
 		"Etherbase":  config.etherbase,
 		"GasTarget":  config.gasTarget,
@@ -160,7 +153,6 @@ type nodeInfos struct {
 	port       int
 	enode      string
 	peersTotal int
-	peersLight int
 	etherbase  string
 	keyJSON    string
 	keyPass    string
@@ -176,7 +168,6 @@ func (info *nodeInfos) Report() map[string]string {
 		"Data directory":           info.datadir,
 		"Listener port":            strconv.Itoa(info.port),
 		"Peer count (all total)":   strconv.Itoa(info.peersTotal),
-		"Peer count (light nodes)": strconv.Itoa(info.peersLight),
 		"Ethstats username":        info.ethstats,
 	}
 	if info.gasTarget > 0 {
@@ -222,7 +213,6 @@ func checkNode(client *sshClient, network string, boot bool) (*nodeInfos, error)
 	}
 	// Resolve a few types from the environmental variables
 	totalPeers, _ := strconv.Atoi(infos.envvars["TOTAL_PEERS"])
-	lightPeers, _ := strconv.Atoi(infos.envvars["LIGHT_PEERS"])
 	gasTarget, _ := strconv.ParseFloat(infos.envvars["GAS_TARGET"], 64)
 	gasLimit, _ := strconv.ParseFloat(infos.envvars["GAS_LIMIT"], 64)
 	gasPrice, _ := strconv.ParseFloat(infos.envvars["GAS_PRICE"], 64)
@@ -258,7 +248,6 @@ func checkNode(client *sshClient, network string, boot bool) (*nodeInfos, error)
 		ethashdir:  infos.volumes["/root/.ethash"],
 		port:       port,
 		peersTotal: totalPeers,
-		peersLight: lightPeers,
 		ethstats:   infos.envvars["STATS_NAME"],
 		etherbase:  infos.envvars["MINER_NAME"],
 		keyJSON:    keyJSON,
