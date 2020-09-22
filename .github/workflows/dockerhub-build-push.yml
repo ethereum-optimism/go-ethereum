@@ -1,0 +1,27 @@
+name: Build & Push to DockerHub
+
+on:
+  push:
+    branches:
+      - testnet
+
+jobs:
+  build:
+    name: Build & Push to DockerHub
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup node
+        uses: actions/setup-node@v1
+
+      - name: Login to DockerHub Registry
+        run: echo ${{ secrets.DOCKERHUB_ACCESS_TOKEN_SECRET }} | docker login -u ${{ secrets.DOCKERHUB_ACCESS_TOKEN_USERNAME}} --password-stdin
+
+      - name: Build and push Optimistic Ethereum Node image to DockerHub
+        run: |
+          docker build -t ethereumoptimism/optimistic-ethereum-node:latest .
+          docker push ethereumoptimism/optimistic-ethereum-node:latest
+
+      - name: Logout of DockerHub
+        run: docker logout
