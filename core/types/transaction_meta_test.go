@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,21 +17,43 @@ var (
 		txid        *hexutil.Uint64
 		msgSender   *common.Address
 		sighashType SignatureHashType
+		queueOrigin *big.Int
 	}{
 		{
 			txid:        &txid,
 			msgSender:   &addr,
 			sighashType: SighashEthSign,
+			queueOrigin: big.NewInt(2),
 		},
 		{
 			txid:        nil,
 			msgSender:   &addr,
 			sighashType: SighashEthSign,
+			queueOrigin: big.NewInt(2),
 		},
 		{
 			txid:        &txid,
 			msgSender:   nil,
 			sighashType: SighashEthSign,
+			queueOrigin: big.NewInt(2),
+		},
+		{
+			txid:        &txid,
+			msgSender:   &addr,
+			sighashType: SighashEthSign,
+			queueOrigin: nil,
+		},
+		{
+			txid:        nil,
+			msgSender:   nil,
+			sighashType: SighashEthSign,
+			queueOrigin: nil,
+		},
+		{
+			txid:        &txid,
+			msgSender:   &addr,
+			sighashType: SighashEthSign,
+			queueOrigin: big.NewInt(0),
 		},
 	}
 
@@ -52,6 +75,8 @@ var (
 func TestTransactionMetaEncode(t *testing.T) {
 	for _, test := range txMetaSerializationTests {
 		txmeta := NewTransactionMeta(test.txid, test.msgSender, test.sighashType)
+		txmeta.QueueOrigin = test.queueOrigin
+
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 
@@ -103,6 +128,17 @@ func isTxMetaEqual(meta1 *TransactionMeta, meta2 *TransactionMeta) bool {
 	}
 
 	if meta1.SignatureHashType != meta2.SignatureHashType {
+		return false
+	}
+
+	if meta1.QueueOrigin == nil || meta2.QueueOrigin == nil {
+		// Note: this only works because it is the final comparison
+		if meta1.QueueOrigin == nil && meta2.QueueOrigin == nil {
+			return true
+		}
+	}
+
+	if !bytes.Equal(meta1.QueueOrigin.Bytes(), meta2.QueueOrigin.Bytes()) {
 		return false
 	}
 
