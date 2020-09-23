@@ -49,35 +49,39 @@ func TestInitialState(t *testing.T) {
 	dump := statedb.RawDump(false, false, false)
 
 	codeHashes := map[string]bool{
-		"0xa1f84b08c881419b7613ee47706e14d299a31489406e90a2241060e0f71a86f8": false, // l2ToL1MessagePasser
-		"0x48d23ca42f0e829df8d9d209b5f1bd2e11dd2070360e990d6b2241770d09748c": false, // l1MessageSender
-		"0xceeb746577be10dbb38cf1fdc13b91bfbd2576a98acd4411fb8890449f8653e2": false, // l1ToL2TransactionQueue
-		"0xc0975e74abecc7c273856515bc4aadce0d98707fdf82c3a51639fab5df796835": false, // safetyTransactionQueue
-		"0x2048a117a17e9c935dbcd2bd4a62e2ec6cd7093f13849914d4dfbb20177eeace": false, // canonicalTransactionChain
-		"0xccdc6c88ec97957ef2c650e0c1d240083ee922c8bc4315a6332769d2ae76c4a4": false, // stateCommitmentChain
-		"0xc0e1da11ff303bc9edb57f738486d90b8faa0c220740ce9bfe842d1e524952d1": false, // stateManager
-		"0xb3280a0dcdaa02d4697a585fa277ac7fa9a8a954c19cdd657cff491647d8fe56": false, // executionManager
-		"0xf5b4acd84b7166857aa3d0e6e1ec12c9ad131944d50bf596e658d67e317104f3": false, // safetyChecker
-		"0xa7315354bc8316236311a724d004c093448f0c2898b3e8da68d53e1a26e569a1": false, // fraudVerifier
-		"0x65a6a9877bee45fa60dec96595ffa6d6feba50679c041e6e57ef011cbdd59896": false, // rollupMerkleUtils
-		"0x61e0098e85b19f9d913ef53504da6b3f40f03e127f3bd32b3570fd41455674ba": false, // addressResolver
+		"0xe5ac91913949a832a99293323b31665ca6bd007bca03154d64e1236aeba0b197": false, // l2ToL1MessagePasser
+		"0xcc7bd5598904db5b838a6b00471ba54fb5c2dc426cc89494d3a0e90f4ffeb505": false, // l1MessageSender
+		"0xe8c7ea1431f29500679b1382b4456796fc3bc1b9e28b87db81843ffc313b5c1a": false, // l1ToL2TransactionQueue
+		"0xeb6841864a7bb7884ae85ade69b0bb164a62a46de81749d9b5ef5716a2a8be0c": false, // safetyTransactionQueue
+		"0xd39c5a5b3b7637c20e47ed8afd352b115256d6d7a4f4e2c3b9c31eb8a715dcf9": false, // canonicalTransactionChain
+		"0xe5a029d654de78fc1a0d49be48148fecbcca22fd4071ea6ae5e93d0da0a79c75": false, // stateCommitmentChain
+		"0xab0448158015a88b7858056922ac7dc309d6fa1a1fad33cbe2f6bb6183e1a709": false, // stateManager
+		"0x82a23436493f28362ab1d7ceaad22207bb667021ab3c292518456a5a0d8d1730": false, // executionManager
+		"0x438eec98a6a47190006c4165134d48232cc4c3d7df5281bb310efe90846e7af2": false, // safetyChecker
+		"0xba2674085018444d1d6d02ff9cf18d360ee8d46d2773e392d312926ff74da41c": false, // fraudVerifier
+		"0xc6e120fbc52b6d76231bea4c12088810b3f2f785cffb4d6e51be9441e7958198": false, // rollupMerkleUtils
 		"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470": false, // deployment EOA
+		"0xe87f70d10b89a185d4d7dd8cbd4d57dc0dab3e098a6bc6189d02e9e5ab6f7ed2": false, // deployerWhitelist
+		"0x2ddfa25b687d8e01d56c9082a21496e277838bb506590105064e8030b10f710b": false, // gasConsumer
+		"0x73d9ed53f1efc616ffb09773a97586fd3534d2aa2d1b313dcc4b82ade559d6ee": false, // addressResolver
 	}
 
 	addresses := map[string]bool{
-		"0x00000000000000000000000000000000DEAD0009": false, // rollupMerkleUtils
-		"0x00000000000000000000000000000000DEAD0002": false, // safetyTransactionQueue
+		"0x00000000000000000000000000000000DEAD0002": false, // l1ToL1TransactionQueue
 		"0x4200000000000000000000000000000000000001": false, // l1MessageSender
-		"0x00000000000000000000000000000000DEad0008": false, // safetyChecker
+		"0x00000000000000000000000000000000DEad0008": false, // deployerWhitelist
 		"0x00000000000000000000000000000000DEad0003": false, // addressResolver
 		"0x00000000000000000000000000000000DEAD0001": false, // stateManager
-		"0x00000000000000000000000000000000DeAd0006": false, // stateCommitmentChain
+		"0x00000000000000000000000000000000DeAd0006": false, // gasConsumer
 		"0x4200000000000000000000000000000000000000": false, // l2ToL1MessagePasser
 		"0x00000000000000000000000000000000DEaD000b": false, // deployment EOA
 		"0x00000000000000000000000000000000DeAd0000": false, // executionManager
-		"0x00000000000000000000000000000000DeAD0004": false, // canonicalTransactionChain
-		"0x00000000000000000000000000000000DEaD000C": false, // l1ToL2TransactionQueue
-		"0x00000000000000000000000000000000dEad0005": false, // fraudVerifier
+		"0x00000000000000000000000000000000DeAD0004": false, // safetyTransactionQueue
+		"0x00000000000000000000000000000000DEaD000C": false, // fraudVerifier
+		"0x00000000000000000000000000000000dEad0005": false, // canonicalTransactionChain
+		"0x00000000000000000000000000000000deaD000a": false, // stateCommitmentChain
+		"0x00000000000000000000000000000000deaD0007": false, // safetyChecker
+		"0x00000000000000000000000000000000deAD000E": false, // rollupMerkleUtils
 	}
 
 	for address, account := range dump.Accounts {
