@@ -49,6 +49,12 @@ var (
 			sighashType: SighashEthSign,
 			queueOrigin: nil,
 		},
+		{
+			txid:        &txid,
+			msgSender:   &addr,
+			sighashType: SighashEthSign,
+			queueOrigin: big.NewInt(0),
+		},
 	}
 
 	txMetaSighashEncodeTests = []struct {
