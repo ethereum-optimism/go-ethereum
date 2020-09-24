@@ -1059,6 +1059,9 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+	QueueOrigin      string          `json:"queueOrigin"`
+	Type             string          `json:"type"`
+	L1MessageSender  *common.Address `json:"l1MessageSender"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1089,6 +1092,23 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.BlockHash = &blockHash
 		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
+	}
+
+	if meta := tx.GetMeta(); meta != nil {
+		result.L1MessageSender = meta.L1MessageSender
+		if meta.QueueOrigin != nil {
+			switch meta.QueueOrigin.Uint64() {
+			case uint64(2):
+				result.QueueOrigin = "sequencer"
+			}
+		}
+
+		switch meta.SignatureHashType {
+		case types.SighashEthSign:
+			result.Type = "EthSign"
+		case types.SighashEIP155:
+			result.Type = "EIP155"
+		}
 	}
 	return result
 }
@@ -1508,6 +1528,8 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
+	meta := types.NewTransactionMeta(nil, nil, types.SighashEIP155)
+	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
@@ -1520,8 +1542,8 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-
-	tx.SetSignatureHashType(types.SighashEthSign)
+	meta := types.NewTransactionMeta(nil, nil, types.SighashEthSign)
+	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
