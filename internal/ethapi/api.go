@@ -1060,6 +1060,8 @@ type RPCTransaction struct {
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
 	QueueOrigin      *big.Int        `json:"queueOrigin"`
+	Type             string          `json:"type"`
+	L1MessageSender  *common.Address `json:"l1MessageSender"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1091,11 +1093,20 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
+
+	// TODO(mark): temp debug
 	fmt.Printf("%#v\n", tx)
 
-	// everything in meta is nil
 	if meta := tx.GetMeta(); meta != nil {
 		result.QueueOrigin = meta.QueueOrigin
+		result.L1MessageSender = meta.L1MessageSender
+
+		switch meta.SignatureHashType {
+		case types.SighashEthSign:
+			result.Type = "EthSign"
+		case types.SighashEIP155:
+			result.Type = "EIP155"
+		}
 	}
 	return result
 }
