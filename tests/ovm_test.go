@@ -50,38 +50,38 @@ func TestInitialState(t *testing.T) {
 
 	codeHashes := map[string]bool{
 		"0xe5ac91913949a832a99293323b31665ca6bd007bca03154d64e1236aeba0b197": false, // l2ToL1MessagePasser
-		"0x08c32c18cdaf8b92c32b2c5cd181f7cba6656d404c3892f264decb22fd3c7510": false, // l1MessageSender
 		"0xe8c7ea1431f29500679b1382b4456796fc3bc1b9e28b87db81843ffc313b5c1a": false, // l1ToL2TransactionQueue
 		"0xeb6841864a7bb7884ae85ade69b0bb164a62a46de81749d9b5ef5716a2a8be0c": false, // safetyTransactionQueue
 		"0xd39c5a5b3b7637c20e47ed8afd352b115256d6d7a4f4e2c3b9c31eb8a715dcf9": false, // canonicalTransactionChain
-		"0xad1736290b4f564f37bae2c6083f4673ef6782670faffadc1339ad54311cd280": false, // stateCommitmentChain
 		"0xab0448158015a88b7858056922ac7dc309d6fa1a1fad33cbe2f6bb6183e1a709": false, // stateManager
-		"0x41c5aca1c7140c5a7725b92923bb8078b8eb299bb455932d1f009a9db0a20b42": false, // executionManager
 		"0x438eec98a6a47190006c4165134d48232cc4c3d7df5281bb310efe90846e7af2": false, // safetyChecker
-		"0x5598c6213e53b6f5cb5411e5caf67633f0e6df42a44a37c10d896b20580e4c31": false, // fraudVerifier
 		"0xc6e120fbc52b6d76231bea4c12088810b3f2f785cffb4d6e51be9441e7958198": false, // rollupMerkleUtils
 		"0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470": false, // deployment EOA
-		"0xe87f70d10b89a185d4d7dd8cbd4d57dc0dab3e098a6bc6189d02e9e5ab6f7ed2": false, // deployerWhitelist
+		"0x4044e9eadcdf15c2a05308829395f9bd9be4d13ebc3d28dd6635df8a304407a6": false, // deployerWhitelist
 		"0x2ddfa25b687d8e01d56c9082a21496e277838bb506590105064e8030b10f710b": false, // gasConsumer
 		"0x73d9ed53f1efc616ffb09773a97586fd3534d2aa2d1b313dcc4b82ade559d6ee": false, // addressResolver
+		"0x0b048aa281f6651f6e6ff9a50769aa840e8752ad10c184a38fcb6ac481ff4f20": false, // fraudVerifier
+		"0xc467defedf1680e67dfeefe8b0ed1fbd99e9d79f3973ab1041c113f7b7c84736": false, // executionManager
+		"0x05f83b255045536a390b98113d380ea5b0bd8ad992bf6c8417d38a676d35c5e5": false, // l1MessageSender
+		"0x42701ac1a05b7f6cb5a6e2d5719f462ff5e4017abe10275e8f3d40fadd18aae1": false, // stateCommitmentChain
 	}
 
 	addresses := map[string]bool{
-		"0x00000000000000000000000000000000DEAD0002": false, // deployment EOA
 		"0x4200000000000000000000000000000000000001": false, // l1MessageSender
 		"0x00000000000000000000000000000000DEAD0001": false, // stateManager
-		"0x00000000000000000000000000000000DeAd0006": false, // safetyTransactionQueue
+		"0x00000000000000000000000000000000DeAd0006": false, // fraudVerifier
 		"0x4200000000000000000000000000000000000000": false, // l2ToL1MessagePasser
-		"0x00000000000000000000000000000000DEaD000b": false, // rollupMerkleUtils
+		"0x00000000000000000000000000000000DEaD000b": false, // l1ToL2TransactionQueue
 		"0x00000000000000000000000000000000DeAd0000": false, // executionManager
-		"0x00000000000000000000000000000000DEaD000C": false, // fraudVerifier
-		"0x00000000000000000000000000000000dEad0005": false, // addressResolver
-		"0x00000000000000000000000000000000deaD000a": false, // l1ToL2TransactionQueue
-		"0x00000000000000000000000000000000deaD0007": false, // canonicalTransactionChain
-		"0x00000000000000000000000000000000deAD000E": false, // stateCommitmentChain
-		"0x00000000000000000000000000000000DEAD0009": false, // safetyChecker
-		"0x00000000000000000000000000000000DeAD0004": false, // gasConsumer
+		"0x00000000000000000000000000000000deaD0007": false, // rollupMerkleUtils
+		"0x00000000000000000000000000000000deAD000E": false, // safetyChecker
+		"0x00000000000000000000000000000000DEAD0009": false, // EOA deployment
+		"0x00000000000000000000000000000000DeAD0004": false, // canonicalTransactionChain
 		"0x4200000000000000000000000000000000000002": false, // deployerWhitelist
+		"0x00000000000000000000000000000000DEad0008": false, // stateCommitmentChain
+		"0x00000000000000000000000000000000DEad0003": false, // safetyTransactionQueue
+		"0x00000000000000000000000000000000dEad0005": false, // gasConsumer
+		"0x00000000000000000000000000000000DEaD000C": false, // addressResolver
 	}
 
 	for address, account := range dump.Accounts {
