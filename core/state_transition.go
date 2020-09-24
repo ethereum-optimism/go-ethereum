@@ -229,7 +229,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		to = msg.To().Hex()
 	}
 
-	log.Debug("Applying transaction", "from", msg.From().Hex(), "to", to, "nonce", msg.Nonce(), "data", hexutil.Encode(msg.Data()))
+	log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "data", hexutil.Encode(msg.Data()))
 
 	executionMgrTime := st.evm.Time
 	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
