@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -385,7 +386,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	log.Debug("Setting State!", "Contract address:", hex.EncodeToString(addr.Bytes()), "Key:", hex.EncodeToString(key.Bytes()), "Value:", hex.EncodeToString(value.Bytes()))
+	log.Debug("Setting State!", "Contract address", addr.Hex(), "Key", hexutil.Encode(key.Bytes()), "Value", hexutil.Encode(value.Bytes()))
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(s.db, key, value)

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -48,7 +49,7 @@ type (
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
 	// Intercept the StateManager calls
 	if contract.Address() == StateManagerAddress {
-		log.Debug("Calling State Manager contract.", "StateManagerAddress", hex.EncodeToString(StateManagerAddress.Bytes()))
+		log.Debug("Calling State Manager contract.", "StateManagerAddress", StateManagerAddress.Hex())
 		ret, err := callStateManager(input, evm, contract)
 		if err != nil {
 			log.Error("State manager error!", "error", err)
@@ -201,7 +202,7 @@ func (evm *EVM) Interpreter() Interpreter {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
-	log.Debug("~~~ New Call ~~~", "Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()), "Calldata:", hex.EncodeToString(input))
+	log.Debug("~~~ New Call ~~~", "Contract caller", caller.Address().Hex(), "Contract target address:", addr.Hex(), "Calldata:", hexutil.Encode(input))
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}

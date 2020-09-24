@@ -25,6 +25,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -222,7 +223,14 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
-	log.Debug("Applying new transaction (technically Message)!", "Tx (aka Message) data", st.msg)
+
+	to := "<nil>"
+	if msg.To() != nil {
+		to = msg.To().Hex()
+	}
+
+	log.Debug("Applying transaction", "from", msg.From().Hex(), "to", to, "nonce", msg.Nonce(), "data", hexutil.Encode(msg.Data()))
+
 	executionMgrTime := st.evm.Time
 	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
 		executionMgrTime = big.NewInt(1)

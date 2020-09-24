@@ -167,23 +167,23 @@ func (b *TransitionBatchBuilder) buildLoop(maxBlockTime time.Duration) {
 // handleNewBlock processes a newly received Geth Block, ignoring old / future blocks
 // and building and submitting TransitionBatches if the pending TransitionBatch is full.
 func (b *TransitionBatchBuilder) handleNewBlock(block *types.Block) (bool, error) {
-	logger.Debug("handling new block in transition batch builder", "block", block)
+	logger.Debug("handling new block in transition batch builder", "block", block, "block number", block.NumberU64())
 	if block.NumberU64() <= b.lastProcessedBlockNumber {
-		logger.Debug("handling old block -- ignoring", "block", block)
+		logger.Debug("handling old block -- ignoring", "block number", block.NumberU64(), "last processed", b.lastProcessedBlockNumber)
 		return false, nil
 	}
 	if block.NumberU64() > b.lastProcessedBlockNumber+1 {
-		logger.Error("received future block", "block", block, "expectedNumber", b.lastProcessedBlockNumber+1)
+		logger.Error("received future block", "block number", block.NumberU64(), "expected number", b.lastProcessedBlockNumber+1)
 		// TODO: add to queue and/or try to fetch blocks in between.
 		return false, nil
 	}
 
 	if txCount := len(block.Transactions()); txCount > 1 {
 		// should never happen
-		logger.Error("received block with more than one transaction", "block", block)
+		logger.Error("received block with more than one transaction", "tx count", len(block.Transactions()))
 		return false, ErrMoreThanOneTxInBlock
 	} else if txCount == 0 {
-		logger.Debug("handling empty block -- ignoring", "block", block)
+		logger.Debug("handling empty block -- ignoring", "hash", block)
 		b.lastProcessedBlockNumber = block.NumberU64()
 		return false, nil
 	}
