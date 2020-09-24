@@ -1093,6 +1093,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	}
 	fmt.Printf("%#v\n", tx)
 
+	// everything in meta is nil
 	if meta := tx.GetMeta(); meta != nil {
 		result.QueueOrigin = meta.QueueOrigin
 	}
@@ -1514,6 +1515,8 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
+	meta := types.NewTransactionMeta(nil, nil, types.SighashEIP155)
+	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
@@ -1526,8 +1529,8 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-
-	tx.SetSignatureHashType(types.SighashEthSign)
+	meta := types.NewTransactionMeta(nil, nil, types.SighashEthSign)
+	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
