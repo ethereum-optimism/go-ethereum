@@ -312,7 +312,6 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	}
 
 	var err error
-	// TODO(mark): is this from always correct?
 	msg.from, err = Sender(s, tx)
 	return msg, err
 }
