@@ -1059,7 +1059,7 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
-	QueueOrigin      *big.Int        `json:"queueOrigin"`
+	QueueOrigin      string          `json:"queueOrigin"`
 	Type             string          `json:"type"`
 	L1MessageSender  *common.Address `json:"l1MessageSender"`
 }
@@ -1094,12 +1094,14 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
 
-	// TODO(mark): temp debug
-	fmt.Printf("%#v\n", tx)
-
 	if meta := tx.GetMeta(); meta != nil {
-		result.QueueOrigin = meta.QueueOrigin
 		result.L1MessageSender = meta.L1MessageSender
+		if meta.QueueOrigin != nil {
+			switch meta.QueueOrigin.Uint64() {
+			case uint64(2):
+				result.QueueOrigin = "sequencer"
+			}
+		}
 
 		switch meta.SignatureHashType {
 		case types.SighashEthSign:
