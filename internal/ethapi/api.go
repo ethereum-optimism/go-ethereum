@@ -1091,6 +1091,8 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(blockNumber))
 		result.TransactionIndex = (*hexutil.Uint64)(&index)
 	}
+	fmt.Printf("%#v\n", tx)
+
 	if meta := tx.GetMeta(); meta != nil {
 		result.QueueOrigin = meta.QueueOrigin
 	}
