@@ -108,18 +108,6 @@ var AppHelpFlagGroups = []flagGroup{
 		},
 	},
 	{
-		Name: "LIGHT CLIENT",
-		Flags: []cli.Flag{
-			utils.LightServeFlag,
-			utils.LightIngressFlag,
-			utils.LightEgressFlag,
-			utils.LightMaxPeersFlag,
-			utils.UltraLightServersFlag,
-			utils.UltraLightFractionFlag,
-			utils.UltraLightOnlyAnnounceFlag,
-		},
-	},
-	{
 		Name: "DEVELOPER CHAIN",
 		Flags: []cli.Flag{
 			utils.DeveloperFlag,
@@ -258,14 +246,8 @@ var AppHelpFlagGroups = []flagGroup{
 		Flags: metricsFlags,
 	},
 	{
-		Name:  "WHISPER (EXPERIMENTAL)",
-		Flags: whisperFlags,
-	},
-	{
 		Name: "DEPRECATED",
 		Flags: []cli.Flag{
-			utils.LightLegacyServFlag,
-			utils.LightLegacyPeersFlag,
 			utils.MinerLegacyThreadsFlag,
 			utils.MinerLegacyGasTargetFlag,
 			utils.MinerLegacyGasPriceFlag,
