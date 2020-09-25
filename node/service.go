@@ -17,13 +17,13 @@
 package node
 
 import (
-	"path/filepath"
 	"reflect"
+
+	"github.com/ethereum/go-ethereum/core/rawdb"
 
 	"github.com/ethereum/go-ethereum/ethdb/postgres"
 
 	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -43,45 +43,19 @@ type ServiceContext struct {
 // OpenDatabase opens an existing database with the given name (or creates one
 // if no previous can be found) from within the node's data directory. If the
 // node is an ephemeral one, a memory database is returned.
-func (ctx *ServiceContext) OpenDatabase(name string, cache int, handles int, namespace string) (ethdb.Database, error) {
-	if ctx.config.PostgresConfig != nil {
-		return ctx.openPostgresDatabase()
-	}
-	if ctx.config.DataDir == "" {
-		return rawdb.NewMemoryDatabase(), nil
-	}
-	return rawdb.NewLevelDBDatabase(ctx.config.ResolvePath(name), cache, handles, namespace)
-}
-
-// OpenDatabaseWithFreezer opens an existing database with the given name (or
-// creates one if no previous can be found) from within the node's data directory,
-// also attaching a chain freezer to it that moves ancient chain data from the
-// database to immutable append-only files. If the node is an ephemeral one, a
-// memory database is returned.
-func (ctx *ServiceContext) OpenDatabaseWithFreezer(name string, cache int, handles int, freezer string, namespace string) (ethdb.Database, error) {
-	if ctx.config.PostgresConfig != nil {
-		return ctx.openPostgresDatabase()
-	}
-	if ctx.config.DataDir == "" {
-		return rawdb.NewMemoryDatabase(), nil
-	}
-	root := ctx.config.ResolvePath(name)
-
-	switch {
-	case freezer == "":
-		freezer = filepath.Join(root, "ancient")
-	case !filepath.IsAbs(freezer):
-		freezer = ctx.config.ResolvePath(freezer)
-	}
-	return rawdb.NewLevelDBDatabaseWithFreezer(root, cache, handles, freezer, namespace)
-}
-
-func (ctx *ServiceContext) openPostgresDatabase() (ethdb.Database, error) {
+func (ctx *ServiceContext) OpenDatabase() (ethdb.Database, error) {
 	db, err := postgres.NewDB(ctx.config.PostgresConfig)
 	if err != nil {
 		return nil, err
 	}
 	return postgres.NewDatabase(db), nil
+}
+
+// OpenDatabaseWithCleaner opens an existing database with the given name (or
+// creates one if no previous can be found) from within the node's data directory,
+// also attaching a chain cleaner to it that removes ancient chain data
+func (ctx *ServiceContext) OpenDatabaseWithCleaner() (ethdb.Database, error) {
+	return rawdb.NewDatabaseWithCleaner(ctx.config.PostgresConfig)
 }
 
 // ResolvePath resolves a user path into the data directory if that was relative

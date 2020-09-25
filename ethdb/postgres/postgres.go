@@ -21,17 +21,11 @@ import (
 	_ "github.com/lib/pq" //postgres driver
 )
 
-type DB struct {
-	*sqlx.DB
-	Node   *NodeInfo
-	NodeID int64
-}
-
-func NewDB(conf *Config) (*DB, error) {
+func NewDB(conf *Config) (*sqlx.DB, error) {
 	connectString := DbConnectionString(conf)
 	db, err := sqlx.Connect("postgres", connectString)
 	if err != nil {
-		return &DB{}, err
+		return nil, err
 	}
 	if conf.MaxOpen > 0 {
 		db.SetMaxOpenConns(conf.MaxOpen)
@@ -42,30 +36,5 @@ func NewDB(conf *Config) (*DB, error) {
 	if conf.MaxLifetime > 0 {
 		db.SetConnMaxLifetime(conf.MaxLifetime)
 	}
-	pg := &DB{DB: db, Node: conf.NodeInfo}
-	if err := pg.CreateNode(conf.NodeInfo); err != nil {
-		return &DB{}, err
-	}
-	return pg, nil
-}
-
-func (db *DB) CreateNode(node *NodeInfo) error {
-	var nodeID int64
-	err := db.QueryRow(
-		`INSERT INTO nodes (genesis_block, network_id, node_id, client_name, chain_id)
-                VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (genesis_block, network_id, node_id, chain_id)
-                  DO UPDATE
-                    SET genesis_block = $1,
-                        network_id = $2,
-                        node_id = $3,
-                        client_name = $4,
-						chain_id = $5
-                RETURNING id`,
-		node.GenesisBlock, node.NetworkID, node.ID, node.ClientName, node.ChainID).Scan(&nodeID)
-	if err != nil {
-		return err
-	}
-	db.NodeID = nodeID
-	return nil
+	return db, nil
 }

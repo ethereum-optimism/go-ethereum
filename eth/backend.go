@@ -114,7 +114,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	log.Info("Allocated trie memory caches", "clean", common.StorageSize(config.TrieCleanCache)*1024*1024, "dirty", common.StorageSize(config.TrieDirtyCache)*1024*1024)
 
 	// Assemble the Ethereum object
-	chainDb, err := ctx.OpenDatabaseWithFreezer("chaindata", config.DatabaseCache, config.DatabaseHandles, config.DatabaseFreezer, "eth/db/chaindata/")
+	chainDb, err := ctx.OpenDatabaseWithCleaner()
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		checkpoint = params.TrustedCheckpoints[genesisHash]
 	}
 	blockSubmitter := rollup.NewBlockSubmitter()
-	rollupBlockBuilder, e := rollup.NewTransitionBatchBuilder(chainDb, eth.blockchain, blockSubmitter, 5*time.Minute, 100_000_000_000, 200)
+	rollupBlockBuilder, e := rollup.NewTransitionBatchBuilder(chainDb, eth.blockchain, blockSubmitter, 5*time.Minute, 100000000000, 200)
 	if e != nil {
 		return nil, e
 	}

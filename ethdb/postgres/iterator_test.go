@@ -19,7 +19,6 @@ package postgres_test
 import (
 	"database/sql"
 
-	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/ethdb/postgres"
 	. "github.com/onsi/ginkgo"
@@ -35,12 +34,12 @@ var (
 	testEthKey4         = []byte{'\x01', '\x0e'}
 	testEthKey5         = []byte{'\x01', '\x02', '\x01'}
 	testEthKey6         = []byte{'\x01', '\x0e', '\x01'}
-	prefixedTestEthKey1 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey1...)
-	prefixedTestEthKey2 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey2...)
-	prefixedTestEthKey3 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey3...)
-	prefixedTestEthKey4 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey4...)
-	prefixedTestEthKey5 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey5...)
-	prefixedTestEthKey6 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey6...)
+	prefixedTestEthKey1 = append(append(testPrefix, postgres.PrefixDelineation...), testEthKey1...)
+	prefixedTestEthKey2 = append(append(testPrefix, postgres.PrefixDelineation...), testEthKey2...)
+	prefixedTestEthKey3 = append(append(testPrefix, postgres.PrefixDelineation...), testEthKey3...)
+	prefixedTestEthKey4 = append(append(testPrefix, postgres.PrefixDelineation...), testEthKey4...)
+	prefixedTestEthKey5 = append(append(testPrefix, postgres.PrefixDelineation...), testEthKey5...)
+	prefixedTestEthKey6 = append(append(testPrefix, postgres.PrefixDelineation...), testEthKey6...)
 	mockValue1          = []byte{1}
 	mockValue2          = []byte{2}
 	mockValue3          = []byte{3}

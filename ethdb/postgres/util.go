@@ -20,14 +20,14 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/core/rawdb"
-
 	_ "github.com/lib/pq" //postgres driver
 )
 
+var PrefixDelineation = []byte("-fix-")
+
 // ResolveKeyPrefix returns the key and its prefix, if it has one
 func ResolveKeyPrefix(key []byte) ([]byte, []byte, error) {
-	sk := bytes.Split(key, rawdb.PrefixDelineation)
+	sk := bytes.Split(key, PrefixDelineation)
 	switch l := len(sk); {
 	case l == 1:
 		return key, nil, nil

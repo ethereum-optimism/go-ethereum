@@ -24,14 +24,14 @@ import (
 
 // Batch is the type that satisfies the ethdb.Batch interface for PG-IPFS Ethereum data using a direct Postgres connection
 type Batch struct {
-	db          *DB
+	db          *sqlx.DB
 	tx          *sqlx.Tx
 	valueSize   int
 	replayCache map[string][]byte
 }
 
 // NewBatch returns a ethdb.Batch interface for PG-IPFS
-func NewBatch(db *DB, tx *sqlx.Tx) ethdb.Batch {
+func NewBatch(db *sqlx.DB, tx *sqlx.Tx) ethdb.Batch {
 	b := &Batch{
 		db:          db,
 		tx:          tx,

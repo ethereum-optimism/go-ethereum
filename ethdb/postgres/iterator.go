@@ -18,6 +18,7 @@ package postgres
 
 import (
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -42,14 +43,14 @@ type nextModel struct {
 
 // Iterator is the type that satisfies the ethdb.Iterator interface for PG-IPFS Ethereum data using a direct Postgres connection
 type Iterator struct {
-	db                               *DB
+	db                               *sqlx.DB
 	currentKey, prefix, currentValue []byte
 	err                              error
 	init                             bool
 }
 
 // NewIterator returns an ethdb.Iterator interface for PG-IPFS
-func NewIterator(start, prefix []byte, db *DB) ethdb.Iterator {
+func NewIterator(start, prefix []byte, db *sqlx.DB) ethdb.Iterator {
 	return &Iterator{
 		db:         db,
 		prefix:     prefix,

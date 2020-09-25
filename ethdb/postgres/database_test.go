@@ -19,6 +19,8 @@ package postgres_test
 import (
 	"math/big"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/ethereum/go-ethereum/core/rawdb"
 
 	"github.com/ethereum/go-ethereum/core/types"
@@ -31,16 +33,16 @@ import (
 
 var (
 	database           ethdb.Database
-	db                 *postgres.DB
+	db                 *sqlx.DB
 	err                error
 	testHeader         = types.Header{Number: big.NewInt(1337)}
 	testValue, _       = rlp.EncodeToBytes(testHeader)
 	testKeccakEthKey   = testHeader.Hash().Bytes()
-	testPrefixedEthKey = append(append(testPrefix, rawdb.PrefixDelineation...), testKeccakEthKey...)
-	testSuffixedEthKey = append(append(testPrefixedEthKey, rawdb.SuffixDelineation...), []byte("suffix")...)
-	testHeaderEthKey   = append(append(append(append(rawdb.HeaderPrefix, rawdb.PrefixDelineation...),
+	testPrefixedEthKey = append(append(testPrefix, postgres.PrefixDelineation...), testKeccakEthKey...)
+	testSuffixedEthKey = append(testPrefixedEthKey, []byte("suffix")...)
+	testHeaderEthKey   = append(append(append(append(rawdb.HeaderPrefix, postgres.PrefixDelineation...),
 		[]byte("number")...), rawdb.NumberDelineation...), testKeccakEthKey...)
-	testPreimageEthKey = append(append(rawdb.PreimagePrefix, rawdb.PrefixDelineation...), testKeccakEthKey...)
+	testPreimageEthKey = append(append(rawdb.PreimagePrefix, postgres.PrefixDelineation...), testKeccakEthKey...)
 )
 
 var _ = Describe("Database", func() {

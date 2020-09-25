@@ -20,6 +20,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -66,7 +68,11 @@ func TestLookupStorage(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			db := NewMemoryDatabase()
+			db, pdb, err := postgres.TestDatabase()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer postgres.ResetTestDB(pdb)
 
 			sender1 := common.BytesToAddress([]byte{0x44})
 			sender2 := common.BytesToAddress([]byte{0x55})

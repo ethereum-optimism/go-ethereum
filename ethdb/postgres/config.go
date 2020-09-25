@@ -21,6 +21,13 @@ import (
 	"time"
 )
 
+var TestPostgresConfig = Config{
+	Database: "optimism_testing",
+	Hostname: "localhost",
+	Port:     5432,
+	User:     "postgres",
+}
+
 // Config holds Postgres connection pool configuration params
 type Config struct {
 	Database string
@@ -33,22 +40,10 @@ type Config struct {
 	MaxOpen     int
 	MaxIdle     int
 	MaxLifetime time.Duration
-
-	// Node info
-	NodeInfo *NodeInfo
-}
-
-// NodeInfo struct holds info about the geth node
-type NodeInfo struct {
-	GenesisBlock string
-	NetworkID    string
-	ChainID      uint64
-	ID           string
-	ClientName   string
 }
 
 // NewConfig returns a new config struct from provided params
-func NewConfig(database, hostname, password, user string, port, maxOpen, maxIdle int, maxLifetime time.Duration, info *NodeInfo) *Config {
+func NewConfig(database, hostname, password, user string, port, maxOpen, maxIdle int, maxLifetime time.Duration) *Config {
 	return &Config{
 		Database:    database,
 		Hostname:    hostname,
@@ -58,7 +53,6 @@ func NewConfig(database, hostname, password, user string, port, maxOpen, maxIdle
 		MaxOpen:     maxOpen,
 		MaxLifetime: maxLifetime,
 		MaxIdle:     maxIdle,
-		NodeInfo:    info,
 	}
 }
 

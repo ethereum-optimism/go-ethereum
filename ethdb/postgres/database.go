@@ -34,19 +34,19 @@ const (
 
 // Database is the type that satisfies the ethdb.Database and ethdb.KeyValueStore interfaces for PG-IPFS Ethereum data using a direct Postgres connection
 type Database struct {
-	db        *DB
+	db        *sqlx.DB
 	ancientTx *sqlx.Tx
 }
 
 // NewKeyValueStore returns a ethdb.KeyValueStore interface for PG-IPFS
-func NewKeyValueStore(db *DB) ethdb.KeyValueStore {
+func NewKeyValueStore(db *sqlx.DB) ethdb.KeyValueStore {
 	return &Database{
 		db: db,
 	}
 }
 
 // NewDatabase returns a ethdb.Database interface for PG-IPFS
-func NewDatabase(db *DB) ethdb.Database {
+func NewDatabase(db *sqlx.DB) ethdb.Database {
 	return &Database{
 		db: db,
 	}

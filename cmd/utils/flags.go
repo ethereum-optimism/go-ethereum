@@ -810,7 +810,7 @@ var (
 	PostgresMaxIdleConnectionsFlag = cli.IntFlag{
 		Name:  "postgres.maxidle",
 		Usage: "Max number of idle Postgres connections",
-		Value: 1,
+		Value: 32,
 	}
 	PostgresMaxConnLifetimeFlag = cli.DurationFlag{
 		Name:  "postgres.maxlifetime",
@@ -1766,12 +1766,7 @@ func SplitTagsFlag(tagsFlag string) map[string]string {
 
 // MakeChainDatabase open an LevelDB using the flags passed to the client and will hard crash if it fails.
 func MakeChainDatabase(ctx *cli.Context, stack *node.Node) ethdb.Database {
-	var (
-		cache   = ctx.GlobalInt(CacheFlag.Name) * ctx.GlobalInt(CacheDatabaseFlag.Name) / 100
-		handles = makeDatabaseHandles()
-	)
-	name := "chaindata"
-	chainDb, err := stack.OpenDatabaseWithFreezer(name, cache, handles, ctx.GlobalString(AncientFlag.Name), "")
+	chainDb, err := stack.OpenDatabaseWithCleaner()
 	if err != nil {
 		Fatalf("Could not open database: %v", err)
 	}

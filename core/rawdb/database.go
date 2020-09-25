@@ -23,6 +23,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/ethdb/leveldb"
@@ -216,6 +218,19 @@ func NewLevelDBDatabaseWithFreezer(file string, cache int, handles int, freezer 
 		return nil, err
 	}
 	return frdb, nil
+}
+
+// NewDatabaseWithCleaner creates a persistent key-value database with a
+// background cleaning process removing data below the immutability threshold
+func NewDatabaseWithCleaner(conf *postgres.Config) (ethdb.Database, error) {
+	db, err := postgres.NewDB(conf)
+	if err != nil {
+		return nil, err
+	}
+	pgethdb := postgres.NewDatabase(db)
+	cleaner := NewDBCleaner(pgethdb)
+	go cleaner.clean()
+	return pgethdb, nil
 }
 
 // InspectDatabase traverses the entire database and checks the size

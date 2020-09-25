@@ -16,25 +16,29 @@
 
 package postgres
 
-import "github.com/jmoiron/sqlx"
+import (
+	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/jmoiron/sqlx"
+)
 
 // TestDB connect to the testing database
-// it assumes the database has the IPFS public.blocks table present
 // DO NOT use a production db for the test db, as it will remove all contents of the public.blocks table
-func TestDB() (*DB, error) {
+func TestDB() (*sqlx.DB, error) {
 	connectStr := "postgresql://localhost:5432/optimism_testing?sslmode=disable"
-	db, err := sqlx.Connect("postgres", connectStr)
+	return sqlx.Connect("postgres", connectStr)
+}
+
+// TestDatabase build ethdb.Database interface on top of Postgres database
+func TestDatabase() (ethdb.Database, *sqlx.DB, error) {
+	db, err := TestDB()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &DB{
-		DB:   db,
-		Node: &NodeInfo{},
-	}, nil
+	return NewDatabase(db), db, nil
 }
 
 // ResetTestDB drops all rows in the test db public.blocks table
-func ResetTestDB(db *DB) error {
+func ResetTestDB(db *sqlx.DB) error {
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
