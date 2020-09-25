@@ -43,13 +43,11 @@ var DefaultConfig = Config{
 		DatasetsInMem:  1,
 		DatasetsOnDisk: 2,
 	},
-	NetworkId:          1,
-	LightPeers:         100,
-	UltraLightFraction: 75,
-	DatabaseCache:      512,
-	TrieCleanCache:     256,
-	TrieDirtyCache:     256,
-	TrieTimeout:        60 * time.Minute,
+	NetworkId:      1,
+	DatabaseCache:  512,
+	TrieCleanCache: 256,
+	TrieDirtyCache: 256,
+	TrieTimeout:    60 * time.Minute,
 	Miner: miner.Config{
 		GasFloor: 8000000,
 		GasCeil:  8000000,
@@ -100,17 +98,6 @@ type Config struct {
 
 	// Whitelist of required block number -> hash values to accept
 	Whitelist map[uint64]common.Hash `toml:"-"`
-
-	// Light client options
-	LightServ    int `toml:",omitempty"` // Maximum percentage of time allowed for serving LES requests
-	LightIngress int `toml:",omitempty"` // Incoming bandwidth limit for light servers
-	LightEgress  int `toml:",omitempty"` // Outgoing bandwidth limit for light servers
-	LightPeers   int `toml:",omitempty"` // Maximum number of LES client peers
-
-	// Ultra Light client options
-	UltraLightServers      []string `toml:",omitempty"` // List of trusted ultra light servers
-	UltraLightFraction     int      `toml:",omitempty"` // Percentage of trusted servers to accept an announcement
-	UltraLightOnlyAnnounce bool     `toml:",omitempty"` // Whether to only announce headers, or also serve them
 
 	// Database options
 	SkipBcVersionCheck bool `toml:"-"`
