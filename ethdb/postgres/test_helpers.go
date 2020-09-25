@@ -21,13 +21,20 @@ import "github.com/jmoiron/sqlx"
 // TestDB connect to the testing database
 // it assumes the database has the IPFS public.blocks table present
 // DO NOT use a production db for the test db, as it will remove all contents of the public.blocks table
-func TestDB() (*sqlx.DB, error) {
-	connectStr := "postgresql://localhost:5432/vulcanize_testing?sslmode=disable"
-	return sqlx.Connect("postgres", connectStr)
+func TestDB() (*DB, error) {
+	connectStr := "postgresql://localhost:5432/optimism_testing?sslmode=disable"
+	db, err := sqlx.Connect("postgres", connectStr)
+	if err != nil {
+		return nil, err
+	}
+	return &DB{
+		DB:   db,
+		Node: &NodeInfo{},
+	}, nil
 }
 
 // ResetTestDB drops all rows in the test db public.blocks table
-func ResetTestDB(db *sqlx.DB) error {
+func ResetTestDB(db *DB) error {
 	tx, err := db.Beginx()
 	if err != nil {
 		return err
@@ -42,10 +49,7 @@ func ResetTestDB(db *sqlx.DB) error {
 			err = tx.Commit()
 		}
 	}()
-	if _, err := tx.Exec("TRUNCATE public.blocks CASCADE"); err != nil {
-		return err
-	}
-	if _, err := tx.Exec("TRUNCATE eth.key_preimages CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE eth.kvstore CASCADE"); err != nil {
 		return err
 	}
 	if _, err := tx.Exec("TRUNCATE eth.ancient_headers CASCADE"); err != nil {

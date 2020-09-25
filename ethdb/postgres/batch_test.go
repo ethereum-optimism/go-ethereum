@@ -21,7 +21,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
-	pgipfsethdb "github.com/ethereum/go-ethereum/ethdb/postgres"
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
 	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -36,13 +36,13 @@ var (
 
 var _ = Describe("Batch", func() {
 	BeforeEach(func() {
-		db, err = pgipfsethdb.TestDB()
+		db, err = postgres.TestDB()
 		Expect(err).ToNot(HaveOccurred())
-		database = pgipfsethdb.NewDatabase(db)
+		database = postgres.NewDatabase(db)
 		batch = database.NewBatch()
 	})
 	AfterEach(func() {
-		err = pgipfsethdb.ResetTestDB(db)
+		err = postgres.ResetTestDB(db)
 		Expect(err).ToNot(HaveOccurred())
 	})
 

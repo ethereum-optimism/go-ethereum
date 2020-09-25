@@ -18,38 +18,38 @@ package postgres
 
 import (
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/jmoiron/sqlx"
 )
 
 const (
-	initPgStr = `SELECT eth_key, data FROM public.blocks
-				INNER JOIN eth.key_preimages ON (ipfs_key = key)
+	initPgStr = `SELECT eth_key, eth_data
+				FROM eth.kvstore 
 				WHERE eth_key = $1`
-	nextPgStr = `SELECT eth_key, data FROM public.blocks
-				INNER JOIN eth.key_preimages ON (ipfs_key = key)
+	nextPgStr = `SELECT eth_key, eth_data
+				FROM eth.kvstore
 				WHERE eth_key > $1
 				ORDER BY eth_key LIMIT 1`
-	nextPgStrWithPrefix = `SELECT eth_key, data FROM public.blocks
-				INNER JOIN eth.key_preimages ON (ipfs_key = key)
-				WHERE eth_key > $1 AND prefix = $2 
+	nextPgStrWithPrefix = `SELECT eth_key, eth_data
+				FROM eth.kvstore
+				WHERE eth_key > $1
+				AND prefix = $2 
 				ORDER BY eth_key LIMIT 1`
 )
 
 type nextModel struct {
 	Key   []byte `db:"eth_key"`
-	Value []byte `db:"data"`
+	Value []byte `db:"eth_data"`
 }
 
 // Iterator is the type that satisfies the ethdb.Iterator interface for PG-IPFS Ethereum data using a direct Postgres connection
 type Iterator struct {
-	db                               *sqlx.DB
+	db                               *DB
 	currentKey, prefix, currentValue []byte
 	err                              error
 	init                             bool
 }
 
 // NewIterator returns an ethdb.Iterator interface for PG-IPFS
-func NewIterator(start, prefix []byte, db *sqlx.DB) ethdb.Iterator {
+func NewIterator(start, prefix []byte, db *DB) ethdb.Iterator {
 	return &Iterator{
 		db:         db,
 		prefix:     prefix,

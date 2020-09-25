@@ -19,8 +19,9 @@ package postgres_test
 import (
 	"database/sql"
 
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethdb"
-	pgipfsethdb "github.com/ethereum/go-ethereum/ethdb/postgres"
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -34,12 +35,12 @@ var (
 	testEthKey4         = []byte{'\x01', '\x0e'}
 	testEthKey5         = []byte{'\x01', '\x02', '\x01'}
 	testEthKey6         = []byte{'\x01', '\x0e', '\x01'}
-	prefixedTestEthKey1 = append(append(testPrefix, pgipfsethdb.KeyDelineation...), testEthKey1...)
-	prefixedTestEthKey2 = append(append(testPrefix, pgipfsethdb.KeyDelineation...), testEthKey2...)
-	prefixedTestEthKey3 = append(append(testPrefix, pgipfsethdb.KeyDelineation...), testEthKey3...)
-	prefixedTestEthKey4 = append(append(testPrefix, pgipfsethdb.KeyDelineation...), testEthKey4...)
-	prefixedTestEthKey5 = append(append(testPrefix, pgipfsethdb.KeyDelineation...), testEthKey5...)
-	prefixedTestEthKey6 = append(append(testPrefix, pgipfsethdb.KeyDelineation...), testEthKey6...)
+	prefixedTestEthKey1 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey1...)
+	prefixedTestEthKey2 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey2...)
+	prefixedTestEthKey3 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey3...)
+	prefixedTestEthKey4 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey4...)
+	prefixedTestEthKey5 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey5...)
+	prefixedTestEthKey6 = append(append(testPrefix, rawdb.PrefixDelineation...), testEthKey6...)
 	mockValue1          = []byte{1}
 	mockValue2          = []byte{2}
 	mockValue3          = []byte{3}
@@ -50,9 +51,9 @@ var (
 
 var _ = Describe("Iterator", func() {
 	BeforeEach(func() {
-		db, err = pgipfsethdb.TestDB()
+		db, err = postgres.TestDB()
 		Expect(err).ToNot(HaveOccurred())
-		database = pgipfsethdb.NewDatabase(db)
+		database = postgres.NewDatabase(db)
 		// non-prefixed entries
 		err = database.Put(testEthKey1, mockValue1)
 		Expect(err).ToNot(HaveOccurred())
@@ -81,7 +82,7 @@ var _ = Describe("Iterator", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 	AfterEach(func() {
-		err = pgipfsethdb.ResetTestDB(db)
+		err = postgres.ResetTestDB(db)
 		Expect(err).ToNot(HaveOccurred())
 	})
 

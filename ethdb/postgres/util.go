@@ -17,47 +17,23 @@
 package postgres
 
 import (
+	"bytes"
 	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ipfs/go-ipfs-blockstore"
-	"github.com/ipfs/go-ipfs-ds-help"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+
 	_ "github.com/lib/pq" //postgres driver
-	"github.com/multiformats/go-multihash"
 )
 
-// MultihashKeyFromKeccak256 converts keccak256 hash bytes into a blockstore-prefixed multihash db key string
-func MultihashKeyFromKeccak256(h []byte) (string, error) {
-	mh, err := multihash.Encode(h, multihash.KECCAK_256)
-	if err != nil {
-		return "", err
-	}
-	dbKey := dshelp.MultihashToDsKey(mh)
-	return blockstore.BlockPrefix.String() + dbKey.String(), nil
-}
-
-// DatastoreKeyFromGethKey returns the public.blocks key from the provided geth key
-// It also returns the key's prefix, if it has one
-func DatastoreKeyFromGethKey(h []byte) (string, []byte, error) {
-	keyType, keyComponents := ResolveKeyType(h)
-	switch keyType {
-	case Keccak:
-		mhKey, err := MultihashKeyFromKeccak256(h)
-		return mhKey, nil, err
-	case Header:
-		mhKey, err := MultihashKeyFromKeccak256(keyComponents[1])
-		return mhKey, keyComponents[0], err
-	case Preimage:
-		mhKey, err := MultihashKeyFromKeccak256(keyComponents[1])
-		return mhKey, keyComponents[0], err
-	case Prefixed, Suffixed:
-		// This data is not mapped by hash => content by geth, store it using the prefixed/suffixed key directly
-		// I.e. the public.blocks datastore key == the hex representation of the geth key
-		// Alternatively, decompose the data and derive the hash
-		return common.Bytes2Hex(h), keyComponents[0], nil
-	case Static:
-		return common.Bytes2Hex(h), nil, nil
+// ResolveKeyPrefix returns the key and its prefix, if it has one
+func ResolveKeyPrefix(key []byte) ([]byte, []byte, error) {
+	sk := bytes.Split(key, rawdb.PrefixDelineation)
+	switch l := len(sk); {
+	case l == 1:
+		return key, nil, nil
+	case l == 2:
+		return key, sk[0], nil
 	default:
-		return "", nil, fmt.Errorf("invalid formatting of database key: %x", h)
+		return nil, nil, fmt.Errorf("unexpected number of key components: %d", l)
 	}
 }

@@ -24,14 +24,14 @@ import (
 
 // Batch is the type that satisfies the ethdb.Batch interface for PG-IPFS Ethereum data using a direct Postgres connection
 type Batch struct {
-	db          *sqlx.DB
+	db          *DB
 	tx          *sqlx.Tx
 	valueSize   int
 	replayCache map[string][]byte
 }
 
 // NewBatch returns a ethdb.Batch interface for PG-IPFS
-func NewBatch(db *sqlx.DB, tx *sqlx.Tx) ethdb.Batch {
+func NewBatch(db *DB, tx *sqlx.Tx) ethdb.Batch {
 	b := &Batch{
 		db:          db,
 		tx:          tx,
@@ -47,14 +47,11 @@ func NewBatch(db *sqlx.DB, tx *sqlx.Tx) ethdb.Batch {
 // Put inserts the given value into the key-value data store
 // Key is expected to be the keccak256 hash of value
 func (b *Batch) Put(key []byte, value []byte) (err error) {
-	dsKey, prefix, err := DatastoreKeyFromGethKey(key)
+	dsKey, prefix, err := ResolveKeyPrefix(key)
 	if err != nil {
 		return err
 	}
-	if _, err = b.tx.Exec(putPgStr, dsKey, value); err != nil {
-		return err
-	}
-	if _, err = b.tx.Exec(putPreimagePgStr, key, dsKey, prefix); err != nil {
+	if _, err = b.tx.Exec(putPgStr, dsKey, value, prefix); err != nil {
 		return err
 	}
 	b.valueSize += len(value)

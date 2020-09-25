@@ -19,13 +19,6 @@ package postgres
 import (
 	"fmt"
 	"time"
-
-	"github.com/jmoiron/sqlx"
-)
-
-var (
-	defaultMaxDBConnections   = 1024
-	defaultMaxIdleConnections = 16
 )
 
 // Config holds Postgres connection pool configuration params
@@ -40,10 +33,22 @@ type Config struct {
 	MaxOpen     int
 	MaxIdle     int
 	MaxLifetime time.Duration
+
+	// Node info
+	NodeInfo *NodeInfo
+}
+
+// NodeInfo struct holds info about the geth node
+type NodeInfo struct {
+	GenesisBlock string
+	NetworkID    string
+	ChainID      uint64
+	ID           string
+	ClientName   string
 }
 
 // NewConfig returns a new config struct from provided params
-func NewConfig(database, hostname, password, user string, port, maxOpen, maxIdle int, maxLifetime time.Duration) *Config {
+func NewConfig(database, hostname, password, user string, port, maxOpen, maxIdle int, maxLifetime time.Duration, info *NodeInfo) *Config {
 	return &Config{
 		Database:    database,
 		Hostname:    hostname,
@@ -53,6 +58,7 @@ func NewConfig(database, hostname, password, user string, port, maxOpen, maxIdle
 		MaxOpen:     maxOpen,
 		MaxLifetime: maxLifetime,
 		MaxIdle:     maxIdle,
+		NodeInfo:    info,
 	}
 }
 
@@ -67,25 +73,4 @@ func DbConnectionString(config *Config) string {
 			config.User, config.Hostname, config.Port, config.Database)
 	}
 	return fmt.Sprintf("postgresql://%s:%d/%s?sslmode=disable", config.Hostname, config.Port, config.Database)
-}
-
-// NewDB opens and returns a new Postgres connection pool using the provided config
-func NewDB(c *Config) (*sqlx.DB, error) {
-	connectStr := DbConnectionString(c)
-	db, err := sqlx.Connect("postgres", connectStr)
-	if err != nil {
-		return nil, err
-	}
-	if c.MaxIdle > 0 {
-		db.SetMaxIdleConns(c.MaxIdle)
-	} else {
-		db.SetMaxIdleConns(defaultMaxIdleConnections)
-	}
-	if c.MaxOpen > 0 {
-		db.SetMaxOpenConns(c.MaxOpen)
-	} else {
-		db.SetMaxOpenConns(defaultMaxDBConnections)
-	}
-	db.SetConnMaxLifetime(c.MaxLifetime)
-	return db, nil
 }

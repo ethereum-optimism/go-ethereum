@@ -19,47 +19,38 @@ package postgres_test
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
-	pgipfsethdb "github.com/ethereum/go-ethereum/ethdb/postgres"
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var (
-	database         ethdb.Database
-	db               *sqlx.DB
-	err              error
-	testHeader       = types.Header{Number: big.NewInt(1337)}
-	testValue, _     = rlp.EncodeToBytes(testHeader)
-	testKeccakEthKey = testHeader.Hash().Bytes()
-	testMhKey, _     = pgipfsethdb.MultihashKeyFromKeccak256(testKeccakEthKey)
-
-	testPrefixedEthKey = append(append([]byte("prefix"), pgipfsethdb.KeyDelineation...), testKeccakEthKey...)
-	testPrefixedDsKey  = common.Bytes2Hex(testPrefixedEthKey)
-
-	testSuffixedEthKey = append(append(testPrefixedEthKey, pgipfsethdb.KeyDelineation...), []byte("suffix")...)
-	testSuffixedDsKey  = common.Bytes2Hex(testSuffixedEthKey)
-
-	testHeaderEthKey = append(append(append(append(pgipfsethdb.HeaderPrefix, pgipfsethdb.KeyDelineation...),
-		[]byte("number")...), pgipfsethdb.NumberDelineation...), testKeccakEthKey...)
-	testHeaderDsKey = testMhKey
-
-	testPreimageEthKey = append(append(pgipfsethdb.PreimagePrefix, pgipfsethdb.KeyDelineation...), testKeccakEthKey...)
-	testPreimageDsKey  = testMhKey
+	database           ethdb.Database
+	db                 *postgres.DB
+	err                error
+	testHeader         = types.Header{Number: big.NewInt(1337)}
+	testValue, _       = rlp.EncodeToBytes(testHeader)
+	testKeccakEthKey   = testHeader.Hash().Bytes()
+	testPrefixedEthKey = append(append(testPrefix, rawdb.PrefixDelineation...), testKeccakEthKey...)
+	testSuffixedEthKey = append(append(testPrefixedEthKey, rawdb.SuffixDelineation...), []byte("suffix")...)
+	testHeaderEthKey   = append(append(append(append(rawdb.HeaderPrefix, rawdb.PrefixDelineation...),
+		[]byte("number")...), rawdb.NumberDelineation...), testKeccakEthKey...)
+	testPreimageEthKey = append(append(rawdb.PreimagePrefix, rawdb.PrefixDelineation...), testKeccakEthKey...)
 )
 
 var _ = Describe("Database", func() {
 	BeforeEach(func() {
-		db, err = pgipfsethdb.TestDB()
+		db, err = postgres.TestDB()
 		Expect(err).ToNot(HaveOccurred())
-		database = pgipfsethdb.NewDatabase(db)
+		database = postgres.NewDatabase(db)
 	})
 	AfterEach(func() {
-		err = pgipfsethdb.ResetTestDB(db)
+		err = postgres.ResetTestDB(db)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -70,9 +61,7 @@ var _ = Describe("Database", func() {
 			Expect(has).ToNot(BeTrue())
 		})
 		It("returns true if a key-pair exists in the db", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testMhKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testKeccakEthKey, testMhKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data) VALUES ($1, $2)", testKeccakEthKey, testValue)
 			Expect(err).ToNot(HaveOccurred())
 			has, err := database.Has(testKeccakEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -87,9 +76,7 @@ var _ = Describe("Database", func() {
 			Expect(has).ToNot(BeTrue())
 		})
 		It("returns true if a key-pair exists in the db", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testPrefixedDsKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testPrefixedEthKey, testPrefixedDsKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3)", testPrefixedEthKey, testValue, testPrefix)
 			Expect(err).ToNot(HaveOccurred())
 			has, err := database.Has(testPrefixedEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -104,9 +91,7 @@ var _ = Describe("Database", func() {
 			Expect(has).ToNot(BeTrue())
 		})
 		It("returns true if a key-pair exists in the db", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testSuffixedDsKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testSuffixedEthKey, testSuffixedDsKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data) VALUES ($1, $2)", testSuffixedEthKey, testValue)
 			Expect(err).ToNot(HaveOccurred())
 			has, err := database.Has(testSuffixedEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -121,9 +106,7 @@ var _ = Describe("Database", func() {
 			Expect(has).ToNot(BeTrue())
 		})
 		It("returns true if a key-pair exists in the db", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testHeaderDsKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testHeaderEthKey, testHeaderDsKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3)", testHeaderEthKey, testValue, rawdb.HeaderPrefix)
 			Expect(err).ToNot(HaveOccurred())
 			has, err := database.Has(testHeaderEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -138,9 +121,7 @@ var _ = Describe("Database", func() {
 			Expect(has).ToNot(BeTrue())
 		})
 		It("returns true if a key-pair exists in the db", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testPreimageDsKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testPreimageEthKey, testPreimageDsKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3)", testPreimageEthKey, testValue, rawdb.PreimagePrefix)
 			Expect(err).ToNot(HaveOccurred())
 			has, err := database.Has(testPreimageEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -155,9 +136,7 @@ var _ = Describe("Database", func() {
 			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 		})
 		It("returns the value associated with the key, if the pair exists", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testMhKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testKeccakEthKey, testMhKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data) VALUES ($1, $2)", testKeccakEthKey, testValue)
 			Expect(err).ToNot(HaveOccurred())
 			val, err := database.Get(testKeccakEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -172,9 +151,7 @@ var _ = Describe("Database", func() {
 			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 		})
 		It("returns the value associated with the key, if the pair exists", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testPrefixedDsKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testPrefixedEthKey, testPrefixedDsKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3)", testPrefixedEthKey, testValue, testPrefix)
 			Expect(err).ToNot(HaveOccurred())
 			val, err := database.Get(testPrefixedEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -189,9 +166,7 @@ var _ = Describe("Database", func() {
 			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 		})
 		It("returns the value associated with the key, if the pair exists", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testSuffixedDsKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testSuffixedEthKey, testSuffixedDsKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data) VALUES ($1, $2)", testSuffixedEthKey, testValue)
 			Expect(err).ToNot(HaveOccurred())
 			val, err := database.Get(testSuffixedEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -206,9 +181,7 @@ var _ = Describe("Database", func() {
 			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 		})
 		It("returns the value associated with the key, if the pair exists", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testHeaderDsKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testHeaderEthKey, testHeaderDsKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3)", testHeaderEthKey, testValue, rawdb.HeaderPrefix)
 			Expect(err).ToNot(HaveOccurred())
 			val, err := database.Get(testHeaderEthKey)
 			Expect(err).ToNot(HaveOccurred())
@@ -223,9 +196,7 @@ var _ = Describe("Database", func() {
 			Expect(err.Error()).To(ContainSubstring("sql: no rows in result set"))
 		})
 		It("returns the value associated with the key, if the pair exists", func() {
-			_, err = db.Exec("INSERT into public.blocks (key, data) VALUES ($1, $2)", testPreimageDsKey, testValue)
-			Expect(err).ToNot(HaveOccurred())
-			_, err = db.Exec("INSERT into eth.key_preimages (eth_key, ipfs_key) VALUES ($1, $2)", testPreimageEthKey, testPreimageDsKey)
+			_, err = db.Exec("INSERT into eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3)", testPreimageEthKey, testValue, rawdb.PreimagePrefix)
 			Expect(err).ToNot(HaveOccurred())
 			val, err := database.Get(testPreimageEthKey)
 			Expect(err).ToNot(HaveOccurred())

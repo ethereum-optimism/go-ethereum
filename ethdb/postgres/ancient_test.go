@@ -21,7 +21,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
-	pgipfsethdb "github.com/ethereum/go-ethereum/ethdb/postgres"
+	"github.com/ethereum/go-ethereum/ethdb/postgres"
 	"github.com/ethereum/go-ethereum/rlp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -41,13 +41,13 @@ var (
 
 var _ = Describe("Ancient", func() {
 	BeforeEach(func() {
-		db, err = pgipfsethdb.TestDB()
+		db, err = postgres.TestDB()
 		Expect(err).ToNot(HaveOccurred())
-		ancientDB = pgipfsethdb.NewDatabase(db)
+		ancientDB = postgres.NewDatabase(db)
 
 	})
 	AfterEach(func() {
-		err = pgipfsethdb.ResetTestDB(db)
+		err = postgres.ResetTestDB(db)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -71,15 +71,15 @@ var _ = Describe("Ancient", func() {
 		It("adds the eth objects to the Ancient database and returns the ancient objects on request", func() {
 			hasAncient(testBlockNumber, false)
 
-			_, err := ancientDB.Ancient(pgipfsethdb.FreezerHeaderTable, testBlockNumber)
+			_, err := ancientDB.Ancient(postgres.FreezerHeaderTable, testBlockNumber)
 			Expect(err).To(HaveOccurred())
-			_, err = ancientDB.Ancient(pgipfsethdb.FreezerHashTable, testBlockNumber)
+			_, err = ancientDB.Ancient(postgres.FreezerHashTable, testBlockNumber)
 			Expect(err).To(HaveOccurred())
-			_, err = ancientDB.Ancient(pgipfsethdb.FreezerBodiesTable, testBlockNumber)
+			_, err = ancientDB.Ancient(postgres.FreezerBodiesTable, testBlockNumber)
 			Expect(err).To(HaveOccurred())
-			_, err = ancientDB.Ancient(pgipfsethdb.FreezerReceiptTable, testBlockNumber)
+			_, err = ancientDB.Ancient(postgres.FreezerReceiptTable, testBlockNumber)
 			Expect(err).To(HaveOccurred())
-			_, err = ancientDB.Ancient(pgipfsethdb.FreezerDifficultyTable, testBlockNumber)
+			_, err = ancientDB.Ancient(postgres.FreezerDifficultyTable, testBlockNumber)
 			Expect(err).To(HaveOccurred())
 
 			err = ancientDB.AppendAncient(testBlockNumber, testAncientHash, testAncientHeaderRLP, testAncientBodyBytes, testAncientReceiptsBytes, testAncientTDBytes)
@@ -89,23 +89,23 @@ var _ = Describe("Ancient", func() {
 
 			hasAncient(testBlockNumber, true)
 
-			ancientHeader, err := ancientDB.Ancient(pgipfsethdb.FreezerHeaderTable, testBlockNumber)
+			ancientHeader, err := ancientDB.Ancient(postgres.FreezerHeaderTable, testBlockNumber)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientHeader).To(Equal(testAncientHeaderRLP))
 
-			ancientHash, err := ancientDB.Ancient(pgipfsethdb.FreezerHashTable, testBlockNumber)
+			ancientHash, err := ancientDB.Ancient(postgres.FreezerHashTable, testBlockNumber)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientHash).To(Equal(testAncientHash))
 
-			ancientBody, err := ancientDB.Ancient(pgipfsethdb.FreezerBodiesTable, testBlockNumber)
+			ancientBody, err := ancientDB.Ancient(postgres.FreezerBodiesTable, testBlockNumber)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientBody).To(Equal(testAncientBodyBytes))
 
-			ancientReceipts, err := ancientDB.Ancient(pgipfsethdb.FreezerReceiptTable, testBlockNumber)
+			ancientReceipts, err := ancientDB.Ancient(postgres.FreezerReceiptTable, testBlockNumber)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientReceipts).To(Equal(testAncientReceiptsBytes))
 
-			ancientTD, err := ancientDB.Ancient(pgipfsethdb.FreezerDifficultyTable, testBlockNumber)
+			ancientTD, err := ancientDB.Ancient(postgres.FreezerDifficultyTable, testBlockNumber)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientTD).To(Equal(testAncientTDBytes))
 		})
@@ -189,23 +189,23 @@ var _ = Describe("Ancient", func() {
 				hasAncient(i, true)
 			}
 
-			ancientHeaderSize, err := ancientDB.AncientSize(pgipfsethdb.FreezerHeaderTable)
+			ancientHeaderSize, err := ancientDB.AncientSize(postgres.FreezerHeaderTable)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientHeaderSize).To(Equal(uint64(106496)))
 
-			ancientHashSize, err := ancientDB.AncientSize(pgipfsethdb.FreezerHashTable)
+			ancientHashSize, err := ancientDB.AncientSize(postgres.FreezerHashTable)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientHashSize).To(Equal(uint64(32768)))
 
-			ancientBodySize, err := ancientDB.AncientSize(pgipfsethdb.FreezerBodiesTable)
+			ancientBodySize, err := ancientDB.AncientSize(postgres.FreezerBodiesTable)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientBodySize).To(Equal(uint64(73728)))
 
-			ancientReceiptsSize, err := ancientDB.AncientSize(pgipfsethdb.FreezerReceiptTable)
+			ancientReceiptsSize, err := ancientDB.AncientSize(postgres.FreezerReceiptTable)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientReceiptsSize).To(Equal(uint64(65536)))
 
-			ancientTDSize, err := ancientDB.AncientSize(pgipfsethdb.FreezerDifficultyTable)
+			ancientTDSize, err := ancientDB.AncientSize(postgres.FreezerDifficultyTable)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ancientTDSize).To(Equal(uint64(32768)))
 		})
@@ -213,19 +213,19 @@ var _ = Describe("Ancient", func() {
 })
 
 func hasAncient(blockNumber uint64, shouldHave bool) {
-	has, err := ancientDB.HasAncient(pgipfsethdb.FreezerHeaderTable, blockNumber)
+	has, err := ancientDB.HasAncient(postgres.FreezerHeaderTable, blockNumber)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(has).To(Equal(shouldHave))
-	has, err = ancientDB.HasAncient(pgipfsethdb.FreezerHashTable, blockNumber)
+	has, err = ancientDB.HasAncient(postgres.FreezerHashTable, blockNumber)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(has).To(Equal(shouldHave))
-	has, err = ancientDB.HasAncient(pgipfsethdb.FreezerBodiesTable, blockNumber)
+	has, err = ancientDB.HasAncient(postgres.FreezerBodiesTable, blockNumber)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(has).To(Equal(shouldHave))
-	has, err = ancientDB.HasAncient(pgipfsethdb.FreezerReceiptTable, blockNumber)
+	has, err = ancientDB.HasAncient(postgres.FreezerReceiptTable, blockNumber)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(has).To(Equal(shouldHave))
-	has, err = ancientDB.HasAncient(pgipfsethdb.FreezerDifficultyTable, blockNumber)
+	has, err = ancientDB.HasAncient(postgres.FreezerDifficultyTable, blockNumber)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(has).To(Equal(shouldHave))
 }
