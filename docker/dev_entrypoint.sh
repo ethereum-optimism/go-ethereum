@@ -3,6 +3,10 @@
 # Exits if any command fails
 set -e
 
+NETWORK_ID=${NETWORK_ID:-420}
+PORT=${PORT:-8545}
+TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
+
 if [ -n "$REBUILD" ]; then
   echo -e "\n\nREBUILD env var set, rebuilding...\n\n"
 
