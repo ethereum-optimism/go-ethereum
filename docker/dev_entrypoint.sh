@@ -18,7 +18,6 @@ fi
 
 echo "Starting Geth..."
 ## Command to kick off geth
-TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
 ./build/bin/geth --dev \
   --datadir $VOLUME_PATH \
   --rpc \
