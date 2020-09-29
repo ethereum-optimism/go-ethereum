@@ -18,7 +18,6 @@
 package state
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -26,6 +25,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
@@ -370,7 +370,7 @@ func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 }
 
 func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
-	log.Debug("Setting nonce!", "Contract address:", hex.EncodeToString(addr.Bytes()), "Nonce", nonce)
+	log.Debug("Setting nonce!", "Contract address", addr.Hex(), "Nonce", nonce)
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)
@@ -385,7 +385,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) {
 }
 
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) {
-	log.Debug("Setting State!", "Contract address:", hex.EncodeToString(addr.Bytes()), "Key:", hex.EncodeToString(key.Bytes()), "Value:", hex.EncodeToString(value.Bytes()))
+	log.Debug("Setting State!", "Contract address", addr.Hex(), "Key", hexutil.Encode(key.Bytes()), "Value", hexutil.Encode(value.Bytes()))
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetState(s.db, key, value)
