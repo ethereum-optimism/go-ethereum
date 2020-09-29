@@ -18,7 +18,6 @@
 package state
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -371,7 +370,7 @@ func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 }
 
 func (s *StateDB) SetNonce(addr common.Address, nonce uint64) {
-	log.Debug("Setting nonce!", "Contract address:", hex.EncodeToString(addr.Bytes()), "Nonce", nonce)
+	log.Debug("Setting nonce!", "Contract address", addr.Hex(), "Nonce", nonce)
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
 		stateObject.SetNonce(nonce)
