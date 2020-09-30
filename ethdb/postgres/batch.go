@@ -47,11 +47,49 @@ func NewBatch(db *sqlx.DB, tx *sqlx.Tx) ethdb.Batch {
 // Put inserts the given value into the key-value data store
 // Key is expected to be the keccak256 hash of value
 func (b *Batch) Put(key []byte, value []byte) (err error) {
-	dsKey, prefix, err := ResolveKeyPrefix(key)
+	prefix, table, num, fk, err := ResolvePutKey(key, value)
 	if err != nil {
 		return err
 	}
-	if _, err = b.tx.Exec(putPgStr, dsKey, value, prefix); err != nil {
+	var pgStr string
+	args := make([]interface{}, 0, 3)
+	args = append(args, key, value)
+	switch table {
+	case Undefined:
+		return unsupportedTableTypeErr
+	case KVStore:
+		pgStr = putKVPgStr
+		args = append(args, prefix)
+	case Headers:
+		pgStr = putHeaderPgStr
+		args = append(args, num)
+	case Hashes:
+		pgStr = putHashPgStr
+		args = append(args, fk)
+	case Bodies:
+		pgStr = putBodyPgStr
+		args = append(args, fk)
+	case Receipts:
+		pgStr = putReceiptPgStr
+		args = append(args, fk)
+	case TDs:
+		pgStr = putTDPgStr
+		args = append(args, fk)
+	case BloomBits:
+		pgStr = putBloomBitsPgStr
+	case TxLookUps:
+		pgStr = putTxLookupPgStr
+	case Preimages:
+		pgStr = putPreimagePgStr
+	case Numbers:
+		pgStr = putNumberPgStr
+		args = append(args, fk)
+	case Configs:
+		pgStr = putConfigPgStr
+	case BloomIndexes:
+		pgStr = putBloomIndexPgStr
+	}
+	if _, err = b.tx.Exec(pgStr, args...); err != nil {
 		return err
 	}
 	b.valueSize += len(value)
@@ -62,7 +100,40 @@ func (b *Batch) Put(key []byte, value []byte) (err error) {
 // Delete satisfies the ethdb.Batch interface
 // Delete removes the key from the key-value data store
 func (b *Batch) Delete(key []byte) (err error) {
-	_, err = b.tx.Exec(deletePgStr, key)
+	table, err := ResolveTable(key)
+	if err != nil {
+		return err
+	}
+	var pgStr string
+	switch table {
+	case Undefined:
+		return unsupportedTableTypeErr
+	case KVStore:
+		pgStr = deleteKVPgStr
+	case Headers:
+		pgStr = deleteHeaderPgStr
+	case Hashes:
+		pgStr = deleteHashPgStr
+	case Bodies:
+		pgStr = deleteBodyPgStr
+	case Receipts:
+		pgStr = deleteReceiptPgStr
+	case TDs:
+		pgStr = deleteTDPgStr
+	case BloomBits:
+		pgStr = deleteBloomBitsPgStr
+	case TxLookUps:
+		pgStr = deleteTxLookupPgStr
+	case Preimages:
+		pgStr = deletePreimagePgStr
+	case Numbers:
+		pgStr = deleteNumberPgStr
+	case Configs:
+		pgStr = deleteConfigPgStr
+	case BloomIndexes:
+		pgStr = deleteBloomIndexPgStr
+	}
+	_, err = b.tx.Exec(pgStr, key)
 	if err != nil {
 		return err
 	}

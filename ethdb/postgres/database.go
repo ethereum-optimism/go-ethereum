@@ -17,6 +17,7 @@
 package postgres
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -24,12 +25,72 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+var (
+	unsupportedTableTypeErr = errors.New("postgres ethdb: unsupported table")
+)
+
 const (
-	hasPgStr    = "SELECT exists(SELECT 1 FROM eth.kvstore WHERE eth_key = $1)"
-	getPgStr    = "SELECT eth_data FROM eth.kvstore WHERE eth_key = $1"
-	putPgStr    = "INSERT INTO eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3) ON CONFLICT (eth_key) DO NOTHING"
-	deletePgStr = "DELETE FROM eth.kvstore WHERE eth_key = $1"
-	dbSizePgStr = "SELECT pg_total_relation_size('eth.kvstore')"
+	dbSizePgStr = "SELECT pg_database_size(current_database())"
+
+	hasKVPgStr    = "SELECT exists(SELECT 1 FROM eth.kvstore WHERE eth_key = $1)"
+	getKVPgStr    = "SELECT eth_data FROM eth.kvstore WHERE eth_key = $1"
+	putKVPgStr    = "INSERT INTO eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3) ON CONFLICT (eth_key) DO NOTHING"
+	deleteKVPgStr = "DELETE FROM eth.kvstore WHERE eth_key = $1"
+
+	hasHeaderPgStr = "SELECT exists(SELECT 1 FROM eth.headers WHERE header_key = $1)"
+	getHeaderPgStr = "SELECT header FROM eth.headers WHERE header_key = $1"
+	putHeaderPgStr = "INSERT INTO eth.headers (header_key, header, height) VALUES ($1, $2, $3) ON CONFLICT (header_key) DO NOTHING"
+	deleteHeaderPgStr = "DELETE FROM eth.headers WHERE header_key = $1"
+
+	hasHashPgStr = "SELECT exists(SELECT 1 FROM eth.hashes WHERE hash_key = $1)"
+	getHashPgStr = "SELECT hash FROM eth.hashes WHERE hash_key = $1"
+	putHashPgStr = "INSERT INTO eth.hashes (hash_key, hash, header_fk) VALUES ($1, $2, $3) ON CONFLICT (hash_key) DO NOTHING"
+	deleteHashPgStr = "DELETE FROM eth.hashes WHERE hash_key = $1"
+
+	hasBodyPgStr = "SELECT exists(SELECT 1 FROM eth.bodies WHERE body_key = $1)"
+	getBodyPgStr = "SELECT body FROM eth.bodies WHERE body_key = $1"
+	putBodyPgStr = "INSERT INTO eth.bodies (body_key, body, header_fk) VALUES ($1, $2, $3) ON CONFLICT (body_key) DO NOTHING"
+	deleteBodyPgStr = "DELETE FROM eth.bodies WHERE body_key = $1"
+
+	hasReceiptPgStr = "SELECT exists(SELECT 1 FROM eth.receipts WHERE receipt_key = $1)"
+	getReceiptPgStr = "SELECT receipts FROM eth.receipts WHERE receipt_key = $1"
+	putReceiptPgStr = "INSERT INTO eth.receipts (receipt_key, receipts, header_fk) VALUES ($1, $2, $3) ON CONFLICT (receipt_key) DO NOTHING"
+	deleteReceiptPgStr = "DELETE FROM eth.receipts WHERE receipt_key = $1"
+
+	hasTDPgStr = "SELECT exists(SELECT 1 FROM eth.tds WHERE td_key = $1)"
+	getTDPgStr = "SELECT td FROM eth.tds WHERE td_key = $1"
+	putTDPgStr = "INSERT INTO eth.tds (td_key, td, header_fk) VALUES ($1, $2, $3) ON CONFLICT (td_key) DO NOTHING"
+	deleteTDPgStr = "DELETE FROM eth.tds WHERE td_key = $1"
+
+	hasBloomBitsPgStr = "SELECT exists(SELECT 1 FROM eth.bloom_bits WHERE bb_key = $1)"
+	getBloomBitsPgStr = "SELECT bits FROM eth.bloom_bits WHERE bb_key = $1"
+	putBloomBitsPgStr = "INSERT INTO eth.bloom_bits (bb_key, bits) VALUES ($1, $2) ON CONFLICT (bb_key) DO NOTHING"
+	deleteBloomBitsPgStr = "DELETE FROM eth.bloom_bits WHERE bb_key = $1"
+
+	hasTxLookupPgStr = "SELECT exists(SELECT 1 FROM eth.tx_lookups WHERE lookup_key = $1)"
+	getTxLookupPgStr = "SELECT lookup FROM eth.tx_lookups WHERE lookup_key = $1"
+	putTxLookupPgStr = "INSERT INTO eth.tx_lookups (lookup_key, lookup) VALUES ($1, $2) ON CONFLICT (lookup_key) DO NOTHING"
+	deleteTxLookupPgStr = "DELETE FROM eth.tx_lookups WHERE lookup_key = $1"
+
+	hasPreimagePgStr = "SELECT exists(SELECT 1 FROM eth.preimages WHERE preimage_key = $1)"
+	getPreimagePgStr = "SELECT preimage FROM eth.preimages WHERE preimage_key = $1"
+	putPreimagePgStr = "INSERT INTO eth.preimages (preimage_key, preimage) VALUES ($1, $2) ON CONFLICT (preimage_key) DO NOTHING"
+	deletePreimagePgStr = "DELETE FROM eth.preimages WHERE preimage_key = $1"
+
+	hasNumberPgStr = "SELECT exists(SELECT 1 FROM eth.numbers WHERE number_key = $1)"
+	getNumberPgStr = "SELECT number FROM eth.numbers WHERE number_key = $1"
+	putNumberPgStr = "INSERT INTO eth.numbers (number_key, number, header_fk) VALUES ($1, $2, $3) ON CONFLICT (number_key) DO NOTHING"
+	deleteNumberPgStr = "DELETE FROM eth.numbers WHERE number_key = $1"
+
+	hasConfigPgStr = "SELECT exists(SELECT 1 FROM eth.configs WHERE config_key = $1)"
+	getConfigPgStr = "SELECT config FROM eth.configs WHERE config_key = $1"
+	putConfigPgStr = "INSERT INTO eth.configs (config_key, config) VALUES ($1, $2) ON CONFLICT (config_key) DO NOTHING"
+	deleteConfigPgStr = "DELETE FROM eth.configs WHERE config_key = $1"
+
+	hasBloomIndexPgStr = "SELECT exists(SELECT 1 FROM eth.bloom_indexes WHERE bbi_key = $1)"
+	getBloomIndexPgStr = "SELECT index FROM eth.bloom_indexes WHERE bbi_key = $1"
+	putBloomIndexPgStr = "INSERT INTO eth.bloom_indexes (bbi_key, index) VALUES ($1, $2) ON CONFLICT (bbi_key) DO NOTHING"
+	deleteBloomIndexPgStr = "DELETE FROM eth.bloom_indexes WHERE bbi_key = $1"
 )
 
 // Database is the type that satisfies the ethdb.Database and ethdb.KeyValueStore interfaces for PG-IPFS Ethereum data using a direct Postgres connection
@@ -56,16 +117,82 @@ func NewDatabase(db *sqlx.DB) ethdb.Database {
 // Has retrieves if a key is present in the key-value data store
 // Has uses the eth.key_preimages table
 func (d *Database) Has(key []byte) (bool, error) {
+	table, err := ResolveTable(key)
+	if err != nil {
+		return false, err
+	}
+	var pgStr string
+	switch table {
+	case Undefined:
+		return false, unsupportedTableTypeErr
+	case KVStore:
+		pgStr = hasKVPgStr
+	case Headers:
+		pgStr = hasHeaderPgStr
+	case Hashes:
+		pgStr = hasHashPgStr
+	case Bodies:
+		pgStr = hasBodyPgStr
+	case Receipts:
+		pgStr = hasReceiptPgStr
+	case TDs:
+		pgStr = hasTDPgStr
+	case BloomBits:
+		pgStr = hasBloomBitsPgStr
+	case TxLookUps:
+		pgStr = hasTxLookupPgStr
+	case Preimages:
+		pgStr = hasPreimagePgStr
+	case Numbers:
+		pgStr = hasNumberPgStr
+	case Configs:
+		pgStr = hasConfigPgStr
+	case BloomIndexes:
+		pgStr = hasBloomIndexPgStr
+	}
 	var exists bool
-	return exists, d.db.Get(&exists, hasPgStr, key)
+	return exists, d.db.Get(&exists, pgStr, key)
 }
 
 // Get satisfies the ethdb.KeyValueReader interface
 // Get retrieves the given key if it's present in the key-value data store
 // Get uses the eth.key_preimages table
 func (d *Database) Get(key []byte) ([]byte, error) {
+	table, err := ResolveTable(key)
+	if err != nil {
+		return nil, err
+	}
+	var pgStr string
+	switch table {
+	case Undefined:
+		return nil, unsupportedTableTypeErr
+	case KVStore:
+		pgStr = getKVPgStr
+	case Headers:
+		pgStr = getHeaderPgStr
+	case Hashes:
+		pgStr = getHashPgStr
+	case Bodies:
+		pgStr = getBodyPgStr
+	case Receipts:
+		pgStr = getReceiptPgStr
+	case TDs:
+		pgStr = getTDPgStr
+	case BloomBits:
+		pgStr = getBloomBitsPgStr
+	case TxLookUps:
+		pgStr = getTxLookupPgStr
+	case Preimages:
+		pgStr = getPreimagePgStr
+	case Numbers:
+		pgStr = getNumberPgStr
+	case Configs:
+		pgStr = getConfigPgStr
+	case BloomIndexes:
+		pgStr = getBloomIndexPgStr
+	}
 	var data []byte
-	return data, d.db.Get(&data, getPgStr, key)
+	return data, d.db.Get(&data, pgStr, key)
 }
 
 // Put satisfies the ethdb.KeyValueWriter interface
@@ -73,11 +200,49 @@ func (d *Database) Get(key []byte) ([]byte, error) {
 // Key is expected to be the keccak256 hash of value
 // Put inserts the keccak256 key into the eth.key_preimages table
 func (d *Database) Put(key []byte, value []byte) error {
-	dsKey, prefix, err := ResolveKeyPrefix(key)
+	prefix, table, num, fk, err := ResolvePutKey(key, value)
 	if err != nil {
 		return err
 	}
-	if _, err = d.db.Exec(putPgStr, dsKey, value, prefix); err != nil {
+	var pgStr string
+	args := make([]interface{}, 0, 3)
+	args = append(args, key, value)
+	switch table {
+	case Undefined:
+		return unsupportedTableTypeErr
+	case KVStore:
+		pgStr = putKVPgStr
+		args = append(args, prefix)
+	case Headers:
+		pgStr = putHeaderPgStr
+		args = append(args, num)
+	case Hashes:
+		pgStr = putHashPgStr
+		args = append(args, fk)
+	case Bodies:
+		pgStr = putBodyPgStr
+		args = append(args, fk)
+	case Receipts:
+		pgStr = putReceiptPgStr
+		args = append(args, fk)
+	case TDs:
+		pgStr = putTDPgStr
+		args = append(args, fk)
+	case BloomBits:
+		pgStr = putBloomBitsPgStr
+	case TxLookUps:
+		pgStr = putTxLookupPgStr
+	case Preimages:
+		pgStr = putPreimagePgStr
+	case Numbers:
+		pgStr = putNumberPgStr
+		args = append(args, fk)
+	case Configs:
+		pgStr = putConfigPgStr
+	case BloomIndexes:
+		pgStr = putBloomIndexPgStr
+	}
+	if _, err = d.db.Exec(pgStr, args...); err != nil {
 		return err
 	}
 	return nil
@@ -87,7 +252,40 @@ func (d *Database) Put(key []byte, value []byte) error {
 // Delete removes the key from the key-value data store
 // Delete uses the eth.key_preimages table
 func (d *Database) Delete(key []byte) error {
-	_, err := d.db.Exec(deletePgStr, key)
+	table, err := ResolveTable(key)
+	if err != nil {
+		return err
+	}
+	var pgStr string
+	switch table {
+	case Undefined:
+		return unsupportedTableTypeErr
+	case KVStore:
+		pgStr = deleteKVPgStr
+	case Headers:
+		pgStr = deleteHeaderPgStr
+	case Hashes:
+		pgStr = deleteHashPgStr
+	case Bodies:
+		pgStr = deleteBodyPgStr
+	case Receipts:
+		pgStr = deleteReceiptPgStr
+	case TDs:
+		pgStr = deleteTDPgStr
+	case BloomBits:
+		pgStr = deleteBloomBitsPgStr
+	case TxLookUps:
+		pgStr = deleteTxLookupPgStr
+	case Preimages:
+		pgStr = deletePreimagePgStr
+	case Numbers:
+		pgStr = deleteNumberPgStr
+	case Configs:
+		pgStr = deleteConfigPgStr
+	case BloomIndexes:
+		pgStr = deleteBloomIndexPgStr
+	}
+	_, err = d.db.Exec(pgStr, key)
 	return err
 }
 
@@ -201,4 +399,9 @@ func (d *Database) NewIteratorWithPrefix(prefix []byte) ethdb.Iterator {
 // Close closes the db connection
 func (d *Database) Close() error {
 	return d.db.DB.Close()
+}
+
+// ExposeDB satisfies Exposer interface
+func (d *Database) ExposeDB() interface{} {
+	return d.db
 }
