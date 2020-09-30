@@ -8,28 +8,22 @@ PORT=${PORT:-8545}
 TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
 
 if [ -n "$REBUILD" ]; then
-  echo -e "\n\nREBUILD env var set, rebuilding...\n\n"
-
-  make geth
-  echo -e "\n\nCode built proceeding with ./entrypoint.sh...\n\n"
+    echo -e "\nRebuilding geth\n"
+    make geth
 else
-  echo -e "\n\nREBUILD env var not set, calling ./entrypoint.sh without building...\n\n"
+    echo "Starting Geth..."
+    ./build/bin/geth --dev \
+      --datadir $VOLUME_PATH \
+      --rpc \
+      --rpcaddr $HOSTNAME \
+      --rpcvhosts='*' \
+      --rpccorsdomain='*' \
+      --rpcport $PORT \
+      --networkid $NETWORK_ID \
+      --rpcapi 'eth,net' \
+      --gasprice '0' \
+      --targetgaslimit $TARGET_GAS_LIMIT \
+      --nousb \
+      --gcmode=archive \
+      --verbosity "6"
 fi
-
-echo "Starting Geth..."
-## Command to kick off geth
-TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
-./build/bin/geth --dev \
-  --datadir $VOLUME_PATH \
-  --rpc \
-  --rpcaddr $HOSTNAME \
-  --rpcvhosts='*' \
-  --rpccorsdomain='*' \
-  --rpcport $PORT \
-  --networkid $NETWORK_ID \
-  --rpcapi 'eth,net' \
-  --gasprice '0' \
-  --targetgaslimit $TARGET_GAS_LIMIT \
-  --nousb \
-  --gcmode=archive \
-  --verbosity "6"
