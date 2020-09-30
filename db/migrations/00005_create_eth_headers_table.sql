@@ -2,7 +2,8 @@
 CREATE TABLE IF NOT EXISTS eth.headers (
   header_key BYTEA PRIMARY KEY,
   header BYTEA NOT NULL,
-  height BIGINT NOT NULL
+  height BIGINT NOT NULL,
+  hash BYTEA NOT NULL
 );
 
 CREATE INDEX header_height_index ON eth.headers USING brin (height);

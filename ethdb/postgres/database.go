@@ -39,7 +39,7 @@ const (
 
 	hasHeaderPgStr = "SELECT exists(SELECT 1 FROM eth.headers WHERE header_key = $1)"
 	getHeaderPgStr = "SELECT header FROM eth.headers WHERE header_key = $1"
-	putHeaderPgStr = "INSERT INTO eth.headers (header_key, header, height) VALUES ($1, $2, $3) ON CONFLICT (header_key) DO NOTHING"
+	putHeaderPgStr = "INSERT INTO eth.headers (header_key, header, height, hash) VALUES ($1, $2, $3, $4) ON CONFLICT (header_key) DO NOTHING"
 	deleteHeaderPgStr = "DELETE FROM eth.headers WHERE header_key = $1"
 
 	hasHashPgStr = "SELECT exists(SELECT 1 FROM eth.hashes WHERE hash_key = $1)"
@@ -209,12 +209,12 @@ func (d *Database) Get(key []byte) ([]byte, error) {
 // Key is expected to be the keccak256 hash of value
 // Put inserts the keccak256 key into the eth.key_preimages table
 func (d *Database) Put(key []byte, value []byte) error {
-	prefix, table, num, fk, err := ResolvePutKey(key, value)
+	prefix, table, num, fk, hash, err := ResolvePutKey(key, value)
 	if err != nil {
 		return err
 	}
 	var pgStr string
-	args := make([]interface{}, 0, 3)
+	args := make([]interface{}, 0, 4)
 	args = append(args, key, value)
 	switch table {
 	case Undefined:
@@ -224,7 +224,7 @@ func (d *Database) Put(key []byte, value []byte) error {
 		args = append(args, prefix)
 	case Headers:
 		pgStr = putHeaderPgStr
-		args = append(args, num)
+		args = append(args, num, hash)
 	case Hashes:
 		pgStr = putHashPgStr
 		args = append(args, fk)

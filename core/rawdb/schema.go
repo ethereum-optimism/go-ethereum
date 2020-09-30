@@ -67,7 +67,7 @@ var (
 	// headEth1HeightKey tracks the latest processed Eth1 Height
 	headEth1HeightKey = []byte("LastEth1Height")
 
-	PreimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
+	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
 
 	configPrefix   = []byte("ethereum-config-") // config prefix for the db
 
@@ -177,7 +177,7 @@ func bloomBitsKey(bit uint, section uint64, hash common.Hash) []byte {
 
 // preimageKey = preimagePrefix + prefixDelineation + hash
 func preimageKey(hash common.Hash) []byte {
-	return append(append(PreimagePrefix, prefixDelineation...), hash.Bytes()...)
+	return append(append(preimagePrefix, prefixDelineation...), hash.Bytes()...)
 }
 
 // configKey = configPrefix + prefixDelineation + hash

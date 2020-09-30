@@ -47,7 +47,7 @@ func NewBatch(db *sqlx.DB, tx *sqlx.Tx) ethdb.Batch {
 // Put inserts the given value into the key-value data store
 // Key is expected to be the keccak256 hash of value
 func (b *Batch) Put(key []byte, value []byte) (err error) {
-	prefix, table, num, fk, err := ResolvePutKey(key, value)
+	prefix, table, num, fk, hash, err := ResolvePutKey(key, value)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (b *Batch) Put(key []byte, value []byte) (err error) {
 		args = append(args, prefix)
 	case Headers:
 		pgStr = putHeaderPgStr
-		args = append(args, num)
+		args = append(args, num, hash)
 	case Hashes:
 		pgStr = putHashPgStr
 		args = append(args, fk)
