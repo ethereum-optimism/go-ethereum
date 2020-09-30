@@ -214,6 +214,11 @@ func (db *Database) Len() int {
 	return len(db.db)
 }
 
+// ExposeDB exposes underlying db
+func (db *Database) ExposeDB() interface {} {
+	return db.db
+}
+
 // keyvalue is a key-value tuple tagged with a deletion field to allow creating
 // memory-database write batches.
 type keyvalue struct {

@@ -223,6 +223,12 @@ func (db *Database) Path() string {
 	return db.fn
 }
 
+// ExposeDB exposes underlying db
+func (db *Database) ExposeDB() interface{} {
+	return db.db
+}
+
+
 // meter periodically retrieves internal leveldb counters and reports them to
 // the metrics subsystem.
 //

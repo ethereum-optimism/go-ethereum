@@ -58,6 +58,7 @@ type Compacter interface {
 // KeyValueStore contains all the methods required to allow handling different
 // key-value data stores backing the high level database.
 type KeyValueStore interface {
+	Exposer
 	KeyValueReader
 	KeyValueWriter
 	Batcher
@@ -121,6 +122,7 @@ type AncientStore interface {
 // Database contains all the methods required by the high level database to not
 // only access the key-value data store but also the chain freezer.
 type Database interface {
+	Exposer
 	Reader
 	Writer
 	Batcher
@@ -128,4 +130,9 @@ type Database interface {
 	Stater
 	Compacter
 	io.Closer
+}
+
+// Exposer exposes the underlying database
+type Exposer interface {
+	ExposeDB() interface{}
 }
