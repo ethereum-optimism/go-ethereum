@@ -88,6 +88,8 @@ func (b *Batch) Put(key []byte, value []byte) (err error) {
 		pgStr = putConfigPgStr
 	case BloomIndexes:
 		pgStr = putBloomIndexPgStr
+	case TxMeta:
+		pgStr = putTxMetaPgStr
 	}
 	if _, err = b.tx.Exec(pgStr, args...); err != nil {
 		return err
@@ -132,6 +134,8 @@ func (b *Batch) Delete(key []byte) (err error) {
 		pgStr = deleteConfigPgStr
 	case BloomIndexes:
 		pgStr = deleteBloomIndexPgStr
+	case TxMeta:
+		pgStr = deleteTxMetaPgStr
 	}
 	_, err = b.tx.Exec(pgStr, key)
 	if err != nil {

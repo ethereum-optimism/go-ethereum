@@ -91,6 +91,11 @@ const (
 	getBloomIndexPgStr = "SELECT index FROM eth.bloom_indexes WHERE bbi_key = $1"
 	putBloomIndexPgStr = "INSERT INTO eth.bloom_indexes (bbi_key, index) VALUES ($1, $2) ON CONFLICT (bbi_key) DO NOTHING"
 	deleteBloomIndexPgStr = "DELETE FROM eth.bloom_indexes WHERE bbi_key = $1"
+
+	hasTxMetaPgStr = "SELECT exists(SELECT 1 FROM eth.tx_meta WHERE meta_key = $1)"
+	getTxMetaPgStr = "SELECT meta FROM eth.tx_meta WHERE meta_key = $1"
+	putTxMetaPgStr = "INSERT INTO eth.tx_meta (meta_key, meta) VALUES ($1, $2) ON CONFLICT (meta_key) DO NOTHING"
+	deleteTxMetaPgStr = "DELETE FROM eth.tx_meta WHERE meta_key = $1"
 )
 
 // Database is the type that satisfies the ethdb.Database and ethdb.KeyValueStore interfaces for PG-IPFS Ethereum data using a direct Postgres connection
@@ -149,6 +154,8 @@ func (d *Database) Has(key []byte) (bool, error) {
 		pgStr = hasConfigPgStr
 	case BloomIndexes:
 		pgStr = hasBloomIndexPgStr
+	case TxMeta:
+		pgStr = hasTxMetaPgStr
 	}
 	var exists bool
 	return exists, d.db.Get(&exists, pgStr, key)
@@ -190,6 +197,8 @@ func (d *Database) Get(key []byte) ([]byte, error) {
 		pgStr = getConfigPgStr
 	case BloomIndexes:
 		pgStr = getBloomIndexPgStr
+	case TxMeta:
+		pgStr = getTxMetaPgStr
 	}
 	var data []byte
 	return data, d.db.Get(&data, pgStr, key)
@@ -241,6 +250,8 @@ func (d *Database) Put(key []byte, value []byte) error {
 		pgStr = putConfigPgStr
 	case BloomIndexes:
 		pgStr = putBloomIndexPgStr
+	case TxMeta:
+		pgStr = putTxMetaPgStr
 	}
 	if _, err = d.db.Exec(pgStr, args...); err != nil {
 		return err
@@ -284,6 +295,8 @@ func (d *Database) Delete(key []byte) error {
 		pgStr = deleteConfigPgStr
 	case BloomIndexes:
 		pgStr = deleteBloomIndexPgStr
+	case TxMeta:
+		pgStr = deleteTxMetaPgStr
 	}
 	_, err = d.db.Exec(pgStr, key)
 	return err

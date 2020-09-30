@@ -41,6 +41,7 @@ const (
 	Numbers Table = "numbers"
 	Configs Table = "configs"
 	BloomIndexes Table = "bloom_indexes"
+	TxMeta Table = "tx_meta"
 )
 
 var (
@@ -61,6 +62,9 @@ var (
 
 	txLookupPrefix  = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
 	bloomBitsPrefix = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
+
+	// Optmism specific
+	txMetaPrefix = []byte("x") // txMetaPrefix + hash -> transaction metadata
 
 	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
 	configPrefix   = []byte("ethereum-config-") // config prefix for the db
@@ -122,6 +126,8 @@ func ResolvePutKey(key, val []byte) ([]byte, Table, uint64, []byte, error) {
 				return psk[0], Configs, 0, nil, nil
 			case bytes.Equal(prefix, bloomBitsIndexPrefix):
 				return psk[0], BloomIndexes, 0, nil, nil
+			case bytes.Equal(prefix, txMetaPrefix):
+				return psk[0], TxMeta, 0, nil, nil
 			}
 		}
 	case 3:
@@ -164,6 +170,8 @@ func ResolveTable(key []byte) (Table, error) {
 			return Configs, nil
 		case bytes.Equal(prefix, bloomBitsIndexPrefix):
 			return BloomIndexes, nil
+		case bytes.Equal(prefix, txMetaPrefix):
+			return TxMeta, nil
 		}
 	case 3:
 		switch suffix := psk[2]; {
