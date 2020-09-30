@@ -42,12 +42,12 @@ func (t *table) Close() error {
 
 // Has retrieves if a prefixed version of a key is present in the database.
 func (t *table) Has(key []byte) (bool, error) {
-	return t.db.Has(append([]byte(t.prefix), key...))
+	return t.db.Has(append(append([]byte(t.prefix), prefixDelineation...), key...))
 }
 
 // Get retrieves the given prefixed key if it's present in the database.
 func (t *table) Get(key []byte) ([]byte, error) {
-	return t.db.Get(append([]byte(t.prefix), key...))
+	return t.db.Get(append(append([]byte(t.prefix), prefixDelineation...), key...))
 }
 
 // HasAncient is a noop passthrough that just forwards the request to the underlying
@@ -95,12 +95,12 @@ func (t *table) Sync() error {
 // Put inserts the given value into the database at a prefixed version of the
 // provided key.
 func (t *table) Put(key []byte, value []byte) error {
-	return t.db.Put(append([]byte(t.prefix), key...), value)
+	return t.db.Put(append(append([]byte(t.prefix), prefixDelineation...), key...), value)
 }
 
 // Delete removes the given prefixed key from the database.
 func (t *table) Delete(key []byte) error {
-	return t.db.Delete(append([]byte(t.prefix), key...))
+	return t.db.Delete(append(append([]byte(t.prefix), prefixDelineation...), key...))
 }
 
 // NewIterator creates a binary-alphabetical iterator over the entire keyspace
@@ -119,12 +119,17 @@ func (t *table) NewIteratorWithStart(start []byte) ethdb.Iterator {
 // NewIteratorWithPrefix creates a binary-alphabetical iterator over a subset
 // of database content with a particular key prefix.
 func (t *table) NewIteratorWithPrefix(prefix []byte) ethdb.Iterator {
-	return t.db.NewIteratorWithPrefix(append([]byte(t.prefix), prefix...))
+	return t.db.NewIteratorWithPrefix(append(append([]byte(t.prefix), prefixDelineation...), prefix...))
 }
 
 // Stat returns a particular internal stat of the database.
 func (t *table) Stat(property string) (string, error) {
 	return t.db.Stat(property)
+}
+
+// ExposeDB exposes the underlying db
+func (t *table) ExposeDB() interface{} {
+	return t.db.ExposeDB()
 }
 
 // Compact flattens the underlying data store for the given key range. In essence,
@@ -175,12 +180,12 @@ type tableBatch struct {
 
 // Put inserts the given value into the batch for later committing.
 func (b *tableBatch) Put(key, value []byte) error {
-	return b.batch.Put(append([]byte(b.prefix), key...), value)
+	return b.batch.Put(append(append([]byte(b.prefix), prefixDelineation...), key...), value)
 }
 
 // Delete inserts the a key removal into the batch for later committing.
 func (b *tableBatch) Delete(key []byte) error {
-	return b.batch.Delete(append([]byte(b.prefix), key...))
+	return b.batch.Delete(append(append([]byte(b.prefix), prefixDelineation...), key...))
 }
 
 // ValueSize retrieves the amount of data queued up for writing.

@@ -237,12 +237,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bc.currentFastBlock.Store(nilBlock)
 
 	// TODO: Make default current timestamp configurable & make 0 if genesis else load from last block?
-
-	// Initialize the chain with ancient data if it isn't empty.
-	if bc.empty() {
-		rawdb.InitDatabaseFromFreezer(bc.db)
-	}
-
 	if err := bc.loadLastState(); err != nil {
 		return nil, err
 	}
@@ -571,8 +565,8 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 
 	// Prepare the genesis block and reinitialise the chain
 	batch := bc.db.NewBatch()
-	rawdb.WriteTd(batch, genesis.Hash(), genesis.NumberU64(), genesis.Difficulty())
 	rawdb.WriteBlock(batch, genesis)
+	rawdb.WriteTd(batch, genesis.Hash(), genesis.NumberU64(), genesis.Difficulty())
 	if err := batch.Write(); err != nil {
 		log.Crit("Failed to write genesis block", "err", err)
 	}
@@ -1296,8 +1290,8 @@ func (bc *BlockChain) writeBlockWithoutState(block *types.Block, td *big.Int) (e
 	defer bc.wg.Done()
 
 	batch := bc.db.NewBatch()
-	rawdb.WriteTd(batch, block.Hash(), block.NumberU64(), td)
 	rawdb.WriteBlock(batch, block)
+	rawdb.WriteTd(batch, block.Hash(), block.NumberU64(), td)
 	if err := batch.Write(); err != nil {
 		log.Crit("Failed to write block into disk", "err", err)
 	}
@@ -1349,8 +1343,8 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	// Note all the components of block(td, hash->number map, header, body, receipts)
 	// should be written atomically. BlockBatch is used for containing all components.
 	blockBatch := bc.db.NewBatch()
-	rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
 	rawdb.WriteBlock(blockBatch, block)
+	rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
 	for _, tx := range block.Transactions() {
 		rawdb.WriteTransactionMeta(blockBatch, tx.Hash(), tx.GetMeta())
 	}

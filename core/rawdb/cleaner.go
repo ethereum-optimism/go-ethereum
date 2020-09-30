@@ -1,9 +1,27 @@
+// Copyright 2018 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
 package rawdb
 
 import (
+	"database/sql"
+	"fmt"
+	"github.com/jmoiron/sqlx"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -19,117 +37,62 @@ const (
 	cleanerBatchLimit = 30000
 )
 
+const (
+	deleteHeadersPgStr = "DELETE FROM eth.headers WHERE height BETWEEN $1 AND $2"
+	getTailHeightPgStr = "SELECT height FROM eth.headers WHERE height > 0 ORDER BY height ASC LIMIT 1"
+	getHeadHeightPgStr = "SELECT height FROM eth.headers ORDER BY height DESC LIMIT 1"
+)
+
 type cleaner struct {
-	db      ethdb.KeyValueStore
-	cleaned uint64 // Number of blocks already frozen
+	db     *sqlx.DB
+	tail uint64
 }
 
-func NewDBCleaner(store ethdb.KeyValueStore) *cleaner {
-	hash := ReadHeadBlockHash(store)
-	if hash == (common.Hash{}) {
-		return &cleaner{db: store}
+func NewDBCleaner(store ethdb.KeyValueStore) (*cleaner, error) {
+	db := store.ExposeDB()
+	pgdb, ok := db.(*sqlx.DB)
+	if !ok {
+		return nil, fmt.Errorf("expected underlying db of type %T got %T", &sqlx.DB{}, db)
 	}
-	number := ReadHeaderNumber(store, hash)
-	if number == nil || 2*params.ImmutabilityThreshold > *number {
-		return &cleaner{db: store}
+	var tailHeight uint64
+	if err := pgdb.Get(&tailHeight, getTailHeightPgStr); err != nil {
+		if err == sql.ErrNoRows {
+			return &cleaner{
+				db:      pgdb,
+				tail: 1,
+			}, nil
+		}
+		return nil, err
 	}
 	return &cleaner{
-		db:      store,
-		cleaned: *number - 2*params.ImmutabilityThreshold,
-	}
+		db:      pgdb,
+		tail: tailHeight,
+	}, nil
 }
 
 func (c *cleaner) clean() {
-	nfdb := &nofreezedb{KeyValueStore: c.db}
-
+	//log.Info("Begining background consensus db cleaning routine")
+	t := time.NewTicker(cleanerRecheckInterval)
 	for {
-		// Retrieve the cleaning threshold.
-		hash := ReadHeadBlockHash(nfdb)
-		if hash == (common.Hash{}) {
-			log.Debug("Current full block hash unavailable") // new chain, empty database
-			time.Sleep(cleanerRecheckInterval)
-			continue
-		}
-		number := ReadHeaderNumber(nfdb, hash)
-		switch {
-		case number == nil:
-			log.Error("Current full block number unavailable", "hash", hash)
-			time.Sleep(cleanerRecheckInterval)
-			continue
-
-		case *number < params.ImmutabilityThreshold:
-			log.Debug("Current full block not old enough", "number", *number, "hash", hash, "delay", params.ImmutabilityThreshold)
-			time.Sleep(cleanerRecheckInterval)
-			continue
-
-		case *number-params.ImmutabilityThreshold <= c.cleaned:
-			log.Debug("Ancient blocks frozen already", "number", *number, "hash", hash, "frozen", c.cleaned)
-			time.Sleep(cleanerRecheckInterval)
-			continue
-		}
-		head := ReadHeader(nfdb, hash, *number)
-		if head == nil {
-			log.Error("Current full block unavailable", "number", *number, "hash", hash)
-			time.Sleep(cleanerRecheckInterval)
-			continue
-		}
-		// Seems we have data ready to be removed, process in usable batches
-		limit := *number - params.ImmutabilityThreshold
-		if limit-c.cleaned > cleanerBatchLimit {
-			limit = c.cleaned + cleanerBatchLimit
-		}
-		var (
-			start    = time.Now()
-			first    = c.cleaned
-			ancients = make([]common.Hash, 0, limit-first)
-		)
-		for c.cleaned < limit {
-			// Retrieves hashes within the range
-			hash := ReadCanonicalHash(nfdb, c.cleaned)
-			if hash == (common.Hash{}) {
-				log.Error("Canonical hash missing, can't prune", "number", c.cleaned)
-				break
-			}
-			ancients = append(ancients, hash)
-			c.cleaned++
-		}
-		// Prune block data from the active database
-		batch := c.db.NewBatch()
-		for i := 0; i < len(ancients); i++ {
-			// Always keep the genesis block in active database
-			if first+uint64(i) != 0 {
-				DeleteBlockWithoutNumber(batch, ancients[i], first+uint64(i))
-				DeleteCanonicalHash(batch, first+uint64(i))
-			}
-		}
-		if err := batch.Write(); err != nil {
-			log.Crit("Failed to prune canonical blocks", "err", err)
-		}
-		batch.Reset()
-		// Wipe out side chain also.
-		for number := first; number < c.cleaned; number++ {
-			// Always keep the genesis block in active database
-			if number != 0 {
-				for _, hash := range ReadAllHashes(c.db, number) {
-					DeleteBlock(batch, hash, number)
+		// TODO: enable smooth shutdown using quit channel
+		select {
+		case <- t.C:
+			var headHeight uint64
+			if err := c.db.Get(&headHeight, getHeadHeightPgStr); err != nil {
+				if err == sql.ErrNoRows {
+					continue
 				}
+				log.Error("Cleaner unable to retrieve head height")
+				continue
 			}
-		}
-		if err := batch.Write(); err != nil {
-			log.Crit("Failed to prune frozen side blocks", "err", err)
-		}
-		// Log something friendly for the user
-		context := []interface{}{
-			"blocks", c.cleaned - first, "elapsed", common.PrettyDuration(time.Since(start)), "number", c.cleaned - 1,
-		}
-		if n := len(ancients); n > 0 {
-			context = append(context, []interface{}{"hash", ancients[n-1]}...)
-		}
-		log.Info("Deep froze chain segment", context...)
-
-		// Avoid database thrashing with tiny writes
-		if c.cleaned-first < cleanerBatchLimit {
-			time.Sleep(cleanerRecheckInterval)
+			rangeEnd := c.tail + cleanerBatchLimit
+			if headHeight <= params.ImmutabilityThreshold || rangeEnd > headHeight - params.ImmutabilityThreshold {
+				continue
+			}
+			_, err := c.db.Exec(deleteHeadersPgStr, c.tail, rangeEnd)
+			if err != nil {
+				log.Error("Cleaner unable to remove data", "error", err)
+			}
 		}
 	}
 }

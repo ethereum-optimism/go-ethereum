@@ -229,8 +229,6 @@ func WriteHeader(db ethdb.KeyValueWriter, header *types.Header) {
 		hash   = header.Hash()
 		number = header.Number.Uint64()
 	)
-	// Write the hash -> number mapping
-	WriteHeaderNumber(db, hash, number)
 
 	// Write the encoded header
 	data, err := rlp.EncodeToBytes(header)
@@ -241,6 +239,8 @@ func WriteHeader(db ethdb.KeyValueWriter, header *types.Header) {
 	if err := db.Put(key, data); err != nil {
 		log.Crit("Failed to store header", "err", err)
 	}
+	// Write the hash -> number mapping
+	WriteHeaderNumber(db, hash, number)
 }
 
 // DeleteHeader removes all block header data associated with a hash.
@@ -582,8 +582,8 @@ func ReadBlock(db ethdb.Reader, hash common.Hash, number uint64) *types.Block {
 
 // WriteBlock serializes a block into the database, header and body separately.
 func WriteBlock(db ethdb.KeyValueWriter, block *types.Block) {
-	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
 	WriteHeader(db, block.Header())
+	WriteBody(db, block.Hash(), block.NumberU64(), block.Body())
 }
 
 // WriteAncientBlock writes entire block data into ancient store and returns the total written size.

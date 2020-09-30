@@ -157,8 +157,8 @@ func (hc *HeaderChain) WriteHeader(header *types.Header) (status WriteStatus, er
 	// Note all the components of header(td, hash->number index and header) should
 	// be written atomically.
 	headerBatch := hc.chainDb.NewBatch()
-	rawdb.WriteTd(headerBatch, hash, number, externTd)
 	rawdb.WriteHeader(headerBatch, header)
+	rawdb.WriteTd(headerBatch, hash, number, externTd)
 	if err := headerBatch.Write(); err != nil {
 		log.Crit("Failed to write header into disk", "err", err)
 	}

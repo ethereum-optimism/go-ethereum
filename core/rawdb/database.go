@@ -228,7 +228,10 @@ func NewDatabaseWithCleaner(conf *postgres.Config) (ethdb.Database, error) {
 		return nil, err
 	}
 	pgethdb := postgres.NewDatabase(db)
-	cleaner := NewDBCleaner(pgethdb)
+	cleaner, err := NewDBCleaner(pgethdb)
+	if err != nil {
+		return nil, err
+	}
 	go cleaner.clean()
 	return pgethdb, nil
 }
@@ -281,11 +284,11 @@ func InspectDatabase(db ethdb.Database) error {
 		)
 		total += size
 		switch {
-		case bytes.HasPrefix(key, HeaderPrefix) && bytes.HasSuffix(key, headerTDSuffix):
+		case bytes.HasPrefix(key, headerPrefix) && bytes.HasSuffix(key, headerTDSuffix):
 			tdSize += size
-		case bytes.HasPrefix(key, HeaderPrefix) && bytes.HasSuffix(key, headerHashSuffix):
+		case bytes.HasPrefix(key, headerPrefix) && bytes.HasSuffix(key, headerHashSuffix):
 			numHashPairing += size
-		case bytes.HasPrefix(key, HeaderPrefix) && len(key) == (len(HeaderPrefix)+8+common.HashLength):
+		case bytes.HasPrefix(key, headerPrefix) && len(key) == (len(headerPrefix)+8+common.HashLength):
 			headerSize += size
 		case bytes.HasPrefix(key, headerNumberPrefix) && len(key) == (len(headerNumberPrefix)+common.HashLength):
 			hashNumPairing += size
