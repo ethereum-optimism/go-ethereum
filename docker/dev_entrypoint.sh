@@ -6,6 +6,8 @@ set -e
 NETWORK_ID=${NETWORK_ID:-420}
 PORT=${PORT:-8545}
 TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
+TX_INGESTION=${TX_INGESTION:-false}
+TX_INGESTION_DB_HOST=${TX_INGESTION_DB_HOST:-localhost}
 
 if [ -n "$REBUILD" ]; then
     echo -e "\nRebuilding geth\n"
@@ -25,5 +27,7 @@ else
       --targetgaslimit $TARGET_GAS_LIMIT \
       --nousb \
       --gcmode=archive \
-      --verbosity "6"
+      --verbosity "6" \
+      --txingestion.enable="$TX_INGESTION" \
+      --txingestion.dbhost "$TX_INGESTION_DB_HOST"
 fi
