@@ -67,7 +67,9 @@ var DefaultConfig = Config{
 		TxIngestionDBHost:       "localhost",
 		TxIngestionDBPort:       5432,
 		TxIngestionDBName:       "rollup",
-		TxIngestionPollInterval: 1000 * time.Millisecond,
+		TxIngestionPollInterval: 100 * time.Millisecond,
+		TxIngestionDBUser:       "test",
+		TxIngestionDBPassword:   "test",
 	},
 }
 

@@ -758,32 +758,32 @@ var (
 	TxIngestionDBHostFlag = cli.StringFlag{
 		Name:  "txingestion.dbhost",
 		Usage: "HTTP host of SQL database to ingest transactions from",
-		Value: "localhost",
+		Value: eth.DefaultConfig.Rollup.TxIngestionDBHost,
 	}
 	TxIngestionDBPortFlag = cli.IntFlag{
 		Name:  "txingestion.dbport",
 		Usage: "HTTP port of SQL database to ingest transactions from",
-		Value: 5432,
+		Value: int(eth.DefaultConfig.Rollup.TxIngestionDBPort),
 	}
 	TxIngestionDBNameFlag = cli.StringFlag{
 		Name:  "txingestion.dbname",
 		Usage: "Database name to ingest transactions from",
-		Value: "rollup",
+		Value: eth.DefaultConfig.Rollup.TxIngestionDBName,
 	}
 	TxIngestionDBUserFlag = cli.StringFlag{
 		Name:  "txingestion.dbuser",
 		Usage: "Database username",
-		Value: "admin",
+		Value: eth.DefaultConfig.Rollup.TxIngestionDBUser,
 	}
 	TxIngestionDBPasswordFlag = cli.StringFlag{
 		Name:  "txingestion.dbpassword",
 		Usage: "Database password",
-		Value: "admin",
+		Value: eth.DefaultConfig.Rollup.TxIngestionDBPassword,
 	}
 	TxIngestionPollIntervalFlag = cli.DurationFlag{
 		Name:  "txingestion.pollinterval",
 		Usage: "Time between polls for tranaction ingestion",
-		Value: 50 * time.Millisecond,
+		Value: eth.DefaultConfig.Rollup.TxIngestionPollInterval,
 	}
 )
 
