@@ -53,54 +53,54 @@ func ResetTestDB(db *sqlx.DB) error {
 			err = tx.Commit()
 		}
 	}()
-	if _, err := tx.Exec("TRUNCATE eth.kvstore CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.kvstore CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.headers CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.headers CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.hashes CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.hashes CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.bodies CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.bodies CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.receipts CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.receipts CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.tds CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.tds CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.bloom_bits CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.bloom_bits CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.tx_lookups CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.tx_lookups CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.preimages CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.preimages CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.numbers CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.numbers CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.configs CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.configs CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.bloom_indexes CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.bloom_indexes CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.ancient_headers CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.ancient_headers CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.ancient_hashes CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.ancient_hashes CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.ancient_bodies CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.ancient_bodies CASCADE"); err != nil {
 		return err
 	}
-	if _, err := tx.Exec("TRUNCATE eth.ancient_receipts CASCADE"); err != nil {
+	if _, err := tx.Exec("TRUNCATE ethdb.ancient_receipts CASCADE"); err != nil {
 		return err
 	}
-	_, err = tx.Exec("TRUNCATE eth.ancient_tds CASCADE")
+	_, err = tx.Exec("TRUNCATE ethdb.ancient_tds CASCADE")
 	return err
 }

@@ -32,70 +32,70 @@ var (
 const (
 	dbSizePgStr = "SELECT pg_database_size(current_database())"
 
-	hasKVPgStr    = "SELECT exists(SELECT 1 FROM eth.kvstore WHERE eth_key = $1)"
-	getKVPgStr    = "SELECT eth_data FROM eth.kvstore WHERE eth_key = $1"
-	putKVPgStr    = "INSERT INTO eth.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3) ON CONFLICT (eth_key) DO NOTHING"
-	deleteKVPgStr = "DELETE FROM eth.kvstore WHERE eth_key = $1"
+	hasKVPgStr    = "SELECT exists(SELECT 1 FROM ethdb.kvstore WHERE eth_key = $1)"
+	getKVPgStr    = "SELECT eth_data FROM ethdb.kvstore WHERE eth_key = $1"
+	putKVPgStr    = "INSERT INTO ethdb.kvstore (eth_key, eth_data, prefix) VALUES ($1, $2, $3) ON CONFLICT (eth_key) DO NOTHING"
+	deleteKVPgStr = "DELETE FROM ethdb.kvstore WHERE eth_key = $1"
 
-	hasHeaderPgStr = "SELECT exists(SELECT 1 FROM eth.headers WHERE header_key = $1)"
-	getHeaderPgStr = "SELECT header FROM eth.headers WHERE header_key = $1"
-	putHeaderPgStr = "INSERT INTO eth.headers (header_key, header, height, hash) VALUES ($1, $2, $3, $4) ON CONFLICT (header_key) DO NOTHING"
-	deleteHeaderPgStr = "DELETE FROM eth.headers WHERE header_key = $1"
+	hasHeaderPgStr = "SELECT exists(SELECT 1 FROM ethdb.headers WHERE header_key = $1)"
+	getHeaderPgStr = "SELECT header FROM ethdb.headers WHERE header_key = $1"
+	putHeaderPgStr = "INSERT INTO ethdb.headers (header_key, header, height, hash) VALUES ($1, $2, $3, $4) ON CONFLICT (header_key) DO NOTHING"
+	deleteHeaderPgStr = "DELETE FROM ethdb.headers WHERE header_key = $1"
 
-	hasHashPgStr = "SELECT exists(SELECT 1 FROM eth.hashes WHERE hash_key = $1)"
-	getHashPgStr = "SELECT hash FROM eth.hashes WHERE hash_key = $1"
-	putHashPgStr = "INSERT INTO eth.hashes (hash_key, hash, header_fk) VALUES ($1, $2, $3) ON CONFLICT (hash_key) DO NOTHING"
-	deleteHashPgStr = "DELETE FROM eth.hashes WHERE hash_key = $1"
+	hasHashPgStr = "SELECT exists(SELECT 1 FROM ethdb.hashes WHERE hash_key = $1)"
+	getHashPgStr = "SELECT hash FROM ethdb.hashes WHERE hash_key = $1"
+	putHashPgStr = "INSERT INTO ethdb.hashes (hash_key, hash, header_fk) VALUES ($1, $2, $3) ON CONFLICT (hash_key) DO NOTHING"
+	deleteHashPgStr = "DELETE FROM ethdb.hashes WHERE hash_key = $1"
 
-	hasBodyPgStr = "SELECT exists(SELECT 1 FROM eth.bodies WHERE body_key = $1)"
-	getBodyPgStr = "SELECT body FROM eth.bodies WHERE body_key = $1"
-	putBodyPgStr = "INSERT INTO eth.bodies (body_key, body, header_fk) VALUES ($1, $2, $3) ON CONFLICT (body_key) DO NOTHING"
-	deleteBodyPgStr = "DELETE FROM eth.bodies WHERE body_key = $1"
+	hasBodyPgStr = "SELECT exists(SELECT 1 FROM ethdb.bodies WHERE body_key = $1)"
+	getBodyPgStr = "SELECT body FROM ethdb.bodies WHERE body_key = $1"
+	putBodyPgStr = "INSERT INTO ethdb.bodies (body_key, body, header_fk) VALUES ($1, $2, $3) ON CONFLICT (body_key) DO NOTHING"
+	deleteBodyPgStr = "DELETE FROM ethdb.bodies WHERE body_key = $1"
 
-	hasReceiptPgStr = "SELECT exists(SELECT 1 FROM eth.receipts WHERE receipt_key = $1)"
-	getReceiptPgStr = "SELECT receipts FROM eth.receipts WHERE receipt_key = $1"
-	putReceiptPgStr = "INSERT INTO eth.receipts (receipt_key, receipts, header_fk) VALUES ($1, $2, $3) ON CONFLICT (receipt_key) DO NOTHING"
-	deleteReceiptPgStr = "DELETE FROM eth.receipts WHERE receipt_key = $1"
+	hasReceiptPgStr = "SELECT exists(SELECT 1 FROM ethdb.receipts WHERE receipt_key = $1)"
+	getReceiptPgStr = "SELECT receipts FROM ethdb.receipts WHERE receipt_key = $1"
+	putReceiptPgStr = "INSERT INTO ethdb.receipts (receipt_key, receipts, header_fk) VALUES ($1, $2, $3) ON CONFLICT (receipt_key) DO NOTHING"
+	deleteReceiptPgStr = "DELETE FROM ethdb.receipts WHERE receipt_key = $1"
 
-	hasTDPgStr = "SELECT exists(SELECT 1 FROM eth.tds WHERE td_key = $1)"
-	getTDPgStr = "SELECT td FROM eth.tds WHERE td_key = $1"
-	putTDPgStr = "INSERT INTO eth.tds (td_key, td, header_fk) VALUES ($1, $2, $3) ON CONFLICT (td_key) DO NOTHING"
-	deleteTDPgStr = "DELETE FROM eth.tds WHERE td_key = $1"
+	hasTDPgStr = "SELECT exists(SELECT 1 FROM ethdb.tds WHERE td_key = $1)"
+	getTDPgStr = "SELECT td FROM ethdb.tds WHERE td_key = $1"
+	putTDPgStr = "INSERT INTO ethdb.tds (td_key, td, header_fk) VALUES ($1, $2, $3) ON CONFLICT (td_key) DO NOTHING"
+	deleteTDPgStr = "DELETE FROM ethdb.tds WHERE td_key = $1"
 
-	hasBloomBitsPgStr = "SELECT exists(SELECT 1 FROM eth.bloom_bits WHERE bb_key = $1)"
-	getBloomBitsPgStr = "SELECT bits FROM eth.bloom_bits WHERE bb_key = $1"
-	putBloomBitsPgStr = "INSERT INTO eth.bloom_bits (bb_key, bits) VALUES ($1, $2) ON CONFLICT (bb_key) DO NOTHING"
-	deleteBloomBitsPgStr = "DELETE FROM eth.bloom_bits WHERE bb_key = $1"
+	hasBloomBitsPgStr = "SELECT exists(SELECT 1 FROM ethdb.bloom_bits WHERE bb_key = $1)"
+	getBloomBitsPgStr = "SELECT bits FROM ethdb.bloom_bits WHERE bb_key = $1"
+	putBloomBitsPgStr = "INSERT INTO ethdb.bloom_bits (bb_key, bits) VALUES ($1, $2) ON CONFLICT (bb_key) DO NOTHING"
+	deleteBloomBitsPgStr = "DELETE FROM ethdb.bloom_bits WHERE bb_key = $1"
 
-	hasTxLookupPgStr = "SELECT exists(SELECT 1 FROM eth.tx_lookups WHERE lookup_key = $1)"
-	getTxLookupPgStr = "SELECT lookup FROM eth.tx_lookups WHERE lookup_key = $1"
-	putTxLookupPgStr = "INSERT INTO eth.tx_lookups (lookup_key, lookup) VALUES ($1, $2) ON CONFLICT (lookup_key) DO NOTHING"
-	deleteTxLookupPgStr = "DELETE FROM eth.tx_lookups WHERE lookup_key = $1"
+	hasTxLookupPgStr = "SELECT exists(SELECT 1 FROM ethdb.tx_lookups WHERE lookup_key = $1)"
+	getTxLookupPgStr = "SELECT lookup FROM ethdb.tx_lookups WHERE lookup_key = $1"
+	putTxLookupPgStr = "INSERT INTO ethdb.tx_lookups (lookup_key, lookup) VALUES ($1, $2) ON CONFLICT (lookup_key) DO NOTHING"
+	deleteTxLookupPgStr = "DELETE FROM ethdb.tx_lookups WHERE lookup_key = $1"
 
-	hasPreimagePgStr = "SELECT exists(SELECT 1 FROM eth.preimages WHERE preimage_key = $1)"
-	getPreimagePgStr = "SELECT preimage FROM eth.preimages WHERE preimage_key = $1"
-	putPreimagePgStr = "INSERT INTO eth.preimages (preimage_key, preimage) VALUES ($1, $2) ON CONFLICT (preimage_key) DO NOTHING"
-	deletePreimagePgStr = "DELETE FROM eth.preimages WHERE preimage_key = $1"
+	hasPreimagePgStr = "SELECT exists(SELECT 1 FROM ethdb.preimages WHERE preimage_key = $1)"
+	getPreimagePgStr = "SELECT preimage FROM ethdb.preimages WHERE preimage_key = $1"
+	putPreimagePgStr = "INSERT INTO ethdb.preimages (preimage_key, preimage) VALUES ($1, $2) ON CONFLICT (preimage_key) DO NOTHING"
+	deletePreimagePgStr = "DELETE FROM ethdb.preimages WHERE preimage_key = $1"
 
-	hasNumberPgStr = "SELECT exists(SELECT 1 FROM eth.numbers WHERE number_key = $1)"
-	getNumberPgStr = "SELECT number FROM eth.numbers WHERE number_key = $1"
-	putNumberPgStr = "INSERT INTO eth.numbers (number_key, number, header_fk) VALUES ($1, $2, $3) ON CONFLICT (number_key) DO NOTHING"
-	deleteNumberPgStr = "DELETE FROM eth.numbers WHERE number_key = $1"
+	hasNumberPgStr = "SELECT exists(SELECT 1 FROM ethdb.numbers WHERE number_key = $1)"
+	getNumberPgStr = "SELECT number FROM ethdb.numbers WHERE number_key = $1"
+	putNumberPgStr = "INSERT INTO ethdb.numbers (number_key, number, header_fk) VALUES ($1, $2, $3) ON CONFLICT (number_key) DO NOTHING"
+	deleteNumberPgStr = "DELETE FROM ethdb.numbers WHERE number_key = $1"
 
-	hasConfigPgStr = "SELECT exists(SELECT 1 FROM eth.configs WHERE config_key = $1)"
-	getConfigPgStr = "SELECT config FROM eth.configs WHERE config_key = $1"
-	putConfigPgStr = "INSERT INTO eth.configs (config_key, config) VALUES ($1, $2) ON CONFLICT (config_key) DO NOTHING"
-	deleteConfigPgStr = "DELETE FROM eth.configs WHERE config_key = $1"
+	hasConfigPgStr = "SELECT exists(SELECT 1 FROM ethdb.configs WHERE config_key = $1)"
+	getConfigPgStr = "SELECT config FROM ethdb.configs WHERE config_key = $1"
+	putConfigPgStr = "INSERT INTO ethdb.configs (config_key, config) VALUES ($1, $2) ON CONFLICT (config_key) DO NOTHING"
+	deleteConfigPgStr = "DELETE FROM ethdb.configs WHERE config_key = $1"
 
-	hasBloomIndexPgStr = "SELECT exists(SELECT 1 FROM eth.bloom_indexes WHERE bbi_key = $1)"
-	getBloomIndexPgStr = "SELECT index FROM eth.bloom_indexes WHERE bbi_key = $1"
-	putBloomIndexPgStr = "INSERT INTO eth.bloom_indexes (bbi_key, index) VALUES ($1, $2) ON CONFLICT (bbi_key) DO NOTHING"
-	deleteBloomIndexPgStr = "DELETE FROM eth.bloom_indexes WHERE bbi_key = $1"
+	hasBloomIndexPgStr = "SELECT exists(SELECT 1 FROM ethdb.bloom_indexes WHERE bbi_key = $1)"
+	getBloomIndexPgStr = "SELECT index FROM ethdb.bloom_indexes WHERE bbi_key = $1"
+	putBloomIndexPgStr = "INSERT INTO ethdb.bloom_indexes (bbi_key, index) VALUES ($1, $2) ON CONFLICT (bbi_key) DO NOTHING"
+	deleteBloomIndexPgStr = "DELETE FROM ethdb.bloom_indexes WHERE bbi_key = $1"
 
-	hasTxMetaPgStr = "SELECT exists(SELECT 1 FROM eth.tx_meta WHERE meta_key = $1)"
-	getTxMetaPgStr = "SELECT meta FROM eth.tx_meta WHERE meta_key = $1"
-	putTxMetaPgStr = "INSERT INTO eth.tx_meta (meta_key, meta) VALUES ($1, $2) ON CONFLICT (meta_key) DO NOTHING"
-	deleteTxMetaPgStr = "DELETE FROM eth.tx_meta WHERE meta_key = $1"
+	hasTxMetaPgStr = "SELECT exists(SELECT 1 FROM ethdb.tx_meta WHERE meta_key = $1)"
+	getTxMetaPgStr = "SELECT meta FROM ethdb.tx_meta WHERE meta_key = $1"
+	putTxMetaPgStr = "INSERT INTO ethdb.tx_meta (meta_key, meta) VALUES ($1, $2) ON CONFLICT (meta_key) DO NOTHING"
+	deleteTxMetaPgStr = "DELETE FROM ethdb.tx_meta WHERE meta_key = $1"
 )
 
 // Database is the type that satisfies the ethdb.Database and ethdb.KeyValueStore interfaces for PG-IPFS Ethereum data using a direct Postgres connection
@@ -120,7 +120,6 @@ func NewDatabase(db *sqlx.DB) ethdb.Database {
 
 // Has satisfies the ethdb.KeyValueReader interface
 // Has retrieves if a key is present in the key-value data store
-// Has uses the eth.key_preimages table
 func (d *Database) Has(key []byte) (bool, error) {
 	table, err := ResolveTable(key)
 	if err != nil {
@@ -163,7 +162,6 @@ func (d *Database) Has(key []byte) (bool, error) {
 
 // Get satisfies the ethdb.KeyValueReader interface
 // Get retrieves the given key if it's present in the key-value data store
-// Get uses the eth.key_preimages table
 func (d *Database) Get(key []byte) ([]byte, error) {
 	table, err := ResolveTable(key)
 	if err != nil {
@@ -207,7 +205,6 @@ func (d *Database) Get(key []byte) ([]byte, error) {
 // Put satisfies the ethdb.KeyValueWriter interface
 // Put inserts the given value into the key-value data store
 // Key is expected to be the keccak256 hash of value
-// Put inserts the keccak256 key into the eth.key_preimages table
 func (d *Database) Put(key []byte, value []byte) error {
 	prefix, table, num, fk, hash, err := ResolvePutKey(key, value)
 	if err != nil {
@@ -261,7 +258,6 @@ func (d *Database) Put(key []byte, value []byte) error {
 
 // Delete satisfies the ethdb.KeyValueWriter interface
 // Delete removes the key from the key-value data store
-// Delete uses the eth.key_preimages table
 func (d *Database) Delete(key []byte) error {
 	table, err := ResolveTable(key)
 	if err != nil {

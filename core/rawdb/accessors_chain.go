@@ -19,6 +19,7 @@ package rawdb
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/jmoiron/sqlx"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,6 +29,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+)
+
+const (
+	getAllHashesPgStr = "SELECT hash FROM ethdb.headers WHERE height = $1"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
@@ -65,17 +70,29 @@ func DeleteCanonicalHash(db ethdb.KeyValueWriter, number uint64) {
 
 // ReadAllHashes retrieves all the hashes assigned to blocks at a certain heights,
 // both canonical and reorged forks included.
-func ReadAllHashes(db ethdb.Iteratee, number uint64) []common.Hash {
+func ReadAllHashes(db ethdb.KeyValueStore, number uint64) []common.Hash {
 	prefix := headerKeyPrefix(number)
+	edb := db.ExposeDB()
+	pgdb, ok := edb.(*sqlx.DB)
+	if !ok { // revert to regular mechanism of collecting hashes if we cannot retrieve an sqlx.DB to work with
+		hashes := make([]common.Hash, 0, 1)
+		it := db.NewIteratorWithPrefix(prefix)
+		defer it.Release()
 
-	hashes := make([]common.Hash, 0, 1)
-	it := db.NewIteratorWithPrefix(prefix)
-	defer it.Release()
-
-	for it.Next() {
-		if key := it.Key(); len(key) == len(prefix)+32 {
-			hashes = append(hashes, common.BytesToHash(key[len(key)-32:]))
+		for it.Next() {
+			if key := it.Key(); len(key) == len(prefix)+32 {
+				hashes = append(hashes, common.BytesToHash(key[len(key)-32:]))
+			}
 		}
+		return hashes
+	}
+	hashBytes := make([][]byte, 0)
+	if err := pgdb.Select(&hashBytes, getAllHashesPgStr, number); err != nil {
+		return nil
+	}
+	hashes := make([]common.Hash, len(hashBytes))
+	for i, by := range hashBytes {
+		hashes[i] = common.BytesToHash(by)
 	}
 	return hashes
 }
