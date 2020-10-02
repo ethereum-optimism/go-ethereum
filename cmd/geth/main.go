@@ -156,6 +156,8 @@ var (
 		utils.TxIngestionDBUserFlag,
 		utils.TxIngestionDBPasswordFlag,
 		utils.TxIngestionPollIntervalFlag,
+		utils.TxIngestionSignerKeyHexFlag,
+		utils.TxIngestionSignerKeyFileFlag,
 	}
 
 	rpcFlags = []cli.Flag{

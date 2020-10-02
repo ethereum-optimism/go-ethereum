@@ -230,6 +230,7 @@ func (tx *Transaction) GasPrice() *big.Int                   { return new(big.In
 func (tx *Transaction) Value() *big.Int                      { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64                        { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool                     { return true }
+func (tx *Transaction) SetNonce(nonce uint64)                { tx.data.AccountNonce = nonce }
 func (tx *Transaction) SignatureHashType() SignatureHashType { return tx.meta.SignatureHashType }
 func (tx *Transaction) SetSignatureHashType(sighashType SignatureHashType) {
 	tx.meta.SignatureHashType = sighashType

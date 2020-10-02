@@ -8,6 +8,7 @@ PORT=${PORT:-8545}
 TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
 TX_INGESTION=${TX_INGESTION:-false}
 TX_INGESTION_DB_HOST=${TX_INGESTION_DB_HOST:-localhost}
+TX_INGESTION_POLL_INTERVAL=${TX_INGESTION_POLL_INTERVAL:-3s}
 
 if [ -n "$REBUILD" ]; then
     echo -e "\nRebuilding geth\n"
@@ -29,5 +30,6 @@ else
       --gcmode=archive \
       --verbosity "6" \
       --txingestion.enable="$TX_INGESTION" \
-      --txingestion.dbhost "$TX_INGESTION_DB_HOST"
+      --txingestion.dbhost "$TX_INGESTION_DB_HOST" \
+      --txingestion.pollinterval "$TX_INGESTION_POLL_INTERVAL"
 fi

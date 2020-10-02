@@ -1,6 +1,9 @@
 package rollup
 
-import "time"
+import (
+	"crypto/ecdsa"
+	"time"
+)
 
 type Config struct {
 	TxIngestionEnable       bool
@@ -10,6 +13,7 @@ type Config struct {
 	TxIngestionDBUser       string
 	TxIngestionDBPassword   string
 	TxIngestionPollInterval time.Duration
+	TxIngestionSignerKey    *ecdsa.PrivateKey
 }
 
 func (c *Config) IsTxIngestionEnabled() bool {

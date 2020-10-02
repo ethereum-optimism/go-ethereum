@@ -785,6 +785,14 @@ var (
 		Usage: "Time between polls for tranaction ingestion",
 		Value: eth.DefaultConfig.Rollup.TxIngestionPollInterval,
 	}
+	TxIngestionSignerKeyHexFlag = cli.StringFlag{
+		Name:  "txingestion.signerkey",
+		Usage: "Hex private key to authenticate L1 to L2 txs",
+	}
+	TxIngestionSignerKeyFileFlag = cli.StringFlag{
+		Name:  "txingestion.signerkeyfile",
+		Usage: "File holding key to authenticate L1 to L2 txs",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1030,6 +1038,27 @@ func setTxIngestion(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(TxIngestionPollIntervalFlag.Name) {
 		cfg.TxIngestionPollInterval = ctx.GlobalDuration(TxIngestionPollIntervalFlag.Name)
+	}
+
+	var (
+		hex  = ctx.GlobalString(TxIngestionSignerKeyHexFlag.Name)
+		file = ctx.GlobalString(TxIngestionSignerKeyFileFlag.Name)
+		key  *ecdsa.PrivateKey
+		err  error
+	)
+	switch {
+	case file != "" && hex != "":
+		Fatalf("Options %q and %q are mutually exclusive", TxIngestionSignerKeyFileFlag.Name, TxIngestionSignerKeyHexFlag.Name)
+	case file != "":
+		if key, err = crypto.LoadECDSA(file); err != nil {
+			Fatalf("Option %q: %v", NodeKeyFileFlag.Name, err)
+		}
+		cfg.TxIngestionSignerKey = key
+	case hex != "":
+		if key, err = crypto.HexToECDSA(hex); err != nil {
+			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
+		}
+		cfg.TxIngestionSignerKey = key
 	}
 }
 
