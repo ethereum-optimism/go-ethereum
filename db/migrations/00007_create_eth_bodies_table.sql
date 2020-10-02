@@ -5,5 +5,8 @@ CREATE TABLE IF NOT EXISTS eth.bodies (
   header_fk BYTEA NOT NULL REFERENCES eth.headers (header_key) ON DELETE CASCADE DEFERRABLE INITIALLY DEFERRED
 );
 
+CREATE INDEX bodies_header_fk ON eth.bodies USING btree (header_fk);
+
 -- +goose Down
 DROP TABLE eth.block_bodies;
+DROP INDEX eth.bodies_header_fk;
