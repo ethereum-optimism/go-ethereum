@@ -274,8 +274,8 @@ func TestBlockReceiptStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
 	// Create a live block since we need metadata to reconstruct the receipt
-	tx1 := types.NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil, nil, nil, types.SighashEIP155)
-	tx2 := types.NewTransaction(2, common.HexToAddress("0x2"), big.NewInt(2), 2, big.NewInt(2), nil, nil, nil, types.SighashEIP155)
+	tx1 := types.NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
+	tx2 := types.NewTransaction(2, common.HexToAddress("0x2"), big.NewInt(2), 2, big.NewInt(2), nil, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
 
 	body := &types.Body{Transactions: types.Transactions{tx1, tx2}}
 
@@ -429,7 +429,7 @@ func TestAncientStorage(t *testing.T) {
 func TestBlockMetaStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
-	tx1 := types.NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil, nil, nil, types.SighashEIP155)
+	tx1 := types.NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
 
 	WriteTransactionMeta(db, tx1.Hash(), tx1.GetMeta())
 	meta := ReadTransactionMeta(db, tx1.Hash())
@@ -455,7 +455,7 @@ func TestBlockMetaStorage(t *testing.T) {
 	addr := common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 	txid := hexutil.Uint64(777)
 
-	tx2 := types.NewTransaction(2, common.HexToAddress("0x02"), big.NewInt(2), 2, big.NewInt(2), nil, &addr, &txid, types.SighashEthSign)
+	tx2 := types.NewTransaction(2, common.HexToAddress("0x02"), big.NewInt(2), 2, big.NewInt(2), nil, &addr, &txid, types.QueueOriginSequencer, types.SighashEthSign)
 
 	WriteTransactionMeta(db, tx2.Hash(), tx2.GetMeta())
 	meta2 := ReadTransactionMeta(db, tx2.Hash())

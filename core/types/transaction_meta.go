@@ -13,6 +13,15 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
+type QueueOrigin int64
+
+const (
+	// Possible `queue_origin` values
+	QueueOriginL1ToL2    QueueOrigin = 0
+	QueueOriginSafety    QueueOrigin = 1
+	QueueOriginSequencer QueueOrigin = 2
+)
+
 //go:generate gencodec -type TransactionMeta -out gen_tx_meta_json.go
 
 type TransactionMeta struct {
