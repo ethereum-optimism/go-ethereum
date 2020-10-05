@@ -27,7 +27,7 @@ type TxIngestion struct {
 	txpool     *core.TxPool
 }
 
-// Should this have a safety check on cfg.TxIngestionPollInterval?
+// TODO(mark): sanitize the poll interval input
 func NewTxIngestion(cfg Config, chaincfg *params.ChainConfig, txpool *core.TxPool) *TxIngestion {
 	if cfg.TxIngestionSignerKey == nil {
 		cfg.TxIngestionSignerKey, _ = crypto.GenerateKey()
@@ -147,7 +147,7 @@ func (t *TxIngestion) loop() {
 		err = UpdateSentSubmissionStatus(t.db, "Sent", index)
 		if err != nil {
 			// TODO(mark): this should probably panic to prevent playing the
-			// same transaction twice, prefer safety over liveliness
+			// same transaction twice
 			log.Error("Cannot update submission status", "message", err.Error())
 			continue
 		}
