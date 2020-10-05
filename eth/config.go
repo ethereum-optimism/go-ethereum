@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rollup"
 )
 
 // DefaultConfig contains default settings for use on the Ethereum main net.
@@ -60,6 +61,15 @@ var DefaultConfig = Config{
 	GPO: gasprice.Config{
 		Blocks:     20,
 		Percentile: 60,
+	},
+	Rollup: rollup.Config{
+		TxIngestionEnable:       false,
+		TxIngestionDBHost:       "localhost",
+		TxIngestionDBPort:       5432,
+		TxIngestionDBName:       "rollup",
+		TxIngestionPollInterval: 100 * time.Millisecond,
+		TxIngestionDBUser:       "test",
+		TxIngestionDBPassword:   "test",
 	},
 }
 
@@ -160,4 +170,7 @@ type Config struct {
 
 	// MuirGlacier block override (TODO: remove after the fork)
 	OverrideMuirGlacier *big.Int
+
+	// Optimism Rollup Config
+	Rollup rollup.Config
 }

@@ -830,7 +830,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	}
 
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, nil, nil, 0)
+	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, nil, nil, types.QueueOriginSequencer, 0)
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -1419,9 +1419,9 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		input = *args.Data
 	}
 	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, nil, args.L1RollupTxId)
+		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, nil, args.L1RollupTxId, types.QueueOriginSequencer)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1RollupTxId, args.SignatureHashType)
+	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1RollupTxId, types.QueueOriginSequencer, args.SignatureHashType)
 }
 
 type RollupTransaction struct {
@@ -1439,9 +1439,9 @@ func (r *RollupTransaction) toTransaction(txNonce uint64) *types.Transaction {
 	var tx *types.Transaction
 	c, _ := r.Calldata.MarshalText()
 	if r.Target == nil {
-		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId)
+		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, types.QueueOriginSequencer)
 	} else {
-		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, types.SighashEIP155)
+		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, types.QueueOriginSequencer, types.SighashEIP155)
 	}
 	tx.AddNonceToWrappedTransaction(uint64(*r.Nonce))
 	return tx
