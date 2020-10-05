@@ -49,19 +49,17 @@ type QueuedTransaction struct {
 }
 
 func GetMostRecentQueuedTransactions(db *sqlx.DB) ([]*types.Transaction, uint32, error) {
-	log.Debug("Getting most recent queued transactions")
-
 	txs := []QueuedTransaction{}
 	err := db.Select(&txs, SQLGetNextQueuedGethSubmission)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	log.Debug("Got Transactions", "count", len(txs))
-
 	if len(txs) == 0 {
 		return []*types.Transaction{}, 0, nil
 	}
+
+	log.Debug("Ingesting L1 to L2 Transactions", "count", len(txs))
 
 	transactions := make([]*types.Transaction, len(txs))
 	submissionIndices := make([]uint32, len(txs))
