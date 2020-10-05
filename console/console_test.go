@@ -33,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/internal/jsre"
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/rollup"
 )
 
 const (
@@ -103,6 +104,9 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 		},
 		Ethash: ethash.Config{
 			PowMode: ethash.ModeTest,
+		},
+		Rollup: rollup.Config{
+			TxIngestionPollInterval: 1 * time.Millisecond,
 		},
 	}
 	if confOverride != nil {

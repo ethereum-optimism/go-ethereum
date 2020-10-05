@@ -80,15 +80,16 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, sighashType SignatureHashType) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, l1MessageSender, l1RollupTxId, sighashType)
+func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, queueOrigin QueueOrigin, sighashType SignatureHashType) *Transaction {
+	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, l1MessageSender, l1RollupTxId, queueOrigin, sighashType)
 }
 
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, l1MessageSender, l1RollupTxId, SighashEIP155)
+// TODO: verify SighashEIP155 being hard coded here
+func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, queueOrigin QueueOrigin) *Transaction {
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, l1MessageSender, l1RollupTxId, queueOrigin, SighashEIP155)
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, sighashType SignatureHashType) *Transaction {
+func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, queueOrigin QueueOrigin, sighashType SignatureHashType) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
@@ -97,6 +98,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		L1RollupTxId:      l1RollupTxId,
 		L1MessageSender:   l1MessageSender,
 		SignatureHashType: sighashType,
+		QueueOrigin:       big.NewInt(int64(queueOrigin)),
 	}
 
 	d := txdata{
@@ -129,7 +131,7 @@ func (t *Transaction) SetTransactionMeta(meta *TransactionMeta) {
 
 func (t *Transaction) GetMeta() *TransactionMeta {
 	if &t.meta == nil {
-		return &TransactionMeta{}
+		return nil
 	}
 	return &t.meta
 }
@@ -228,12 +230,11 @@ func (tx *Transaction) GasPrice() *big.Int                   { return new(big.In
 func (tx *Transaction) Value() *big.Int                      { return new(big.Int).Set(tx.data.Amount) }
 func (tx *Transaction) Nonce() uint64                        { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool                     { return true }
+func (tx *Transaction) SetNonce(nonce uint64)                { tx.data.AccountNonce = nonce }
 func (tx *Transaction) SignatureHashType() SignatureHashType { return tx.meta.SignatureHashType }
-
 func (tx *Transaction) SetSignatureHashType(sighashType SignatureHashType) {
 	tx.meta.SignatureHashType = sighashType
 }
-
 func (tx *Transaction) IsEthSignSighash() bool {
 	return tx.SignatureHashType() == SighashEthSign
 }
@@ -266,6 +267,15 @@ func (tx *Transaction) L1RollupTxId() *hexutil.Uint64 {
 	}
 	l1RolupTxId := *tx.meta.L1RollupTxId
 	return &l1RolupTxId
+}
+
+// QueueOrigin returns the Queue Origin of the transaction if it exists.
+func (tx *Transaction) QueueOrigin() *big.Int {
+	if tx.meta.QueueOrigin == nil {
+		return nil
+	}
+	queueOrigin := *tx.meta.QueueOrigin
+	return &queueOrigin
 }
 
 // Hash hashes the RLP encoding of tx.
@@ -306,6 +316,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 		l1MessageSender:   tx.meta.L1MessageSender,
 		l1RollupTxId:      tx.meta.L1RollupTxId,
 		signatureHashType: tx.meta.SignatureHashType,
+		queueOrigin:       tx.meta.QueueOrigin,
 		amount:            tx.data.Amount,
 		data:              tx.data.Payload,
 		checkNonce:        true,
@@ -476,6 +487,7 @@ type Message struct {
 	l1MessageSender   *common.Address
 	l1RollupTxId      *hexutil.Uint64
 	signatureHashType SignatureHashType
+	queueOrigin       *big.Int
 	from              common.Address
 	nonce             uint64
 	amount            *big.Int
@@ -485,7 +497,7 @@ type Message struct {
 	checkNonce        bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, signatureHashType SignatureHashType) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1RollupTxId *hexutil.Uint64, queueOrigin QueueOrigin, signatureHashType SignatureHashType) Message {
 	return Message{
 		from:              from,
 		to:                to,
@@ -498,6 +510,7 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 		l1RollupTxId:      l1RollupTxId,
 		l1MessageSender:   l1MessageSender,
 		signatureHashType: signatureHashType,
+		queueOrigin:       big.NewInt(int64(queueOrigin)),
 	}
 }
 
@@ -506,6 +519,7 @@ func (m Message) To() *common.Address                  { return m.to }
 func (m Message) L1MessageSender() *common.Address     { return m.l1MessageSender }
 func (m Message) L1RollupTxId() *hexutil.Uint64        { return m.l1RollupTxId }
 func (m Message) SignatureHashType() SignatureHashType { return m.signatureHashType }
+func (m Message) QueueOrigin() *big.Int                { return m.queueOrigin }
 func (m Message) GasPrice() *big.Int                   { return m.gasPrice }
 func (m Message) Value() *big.Int                      { return m.amount }
 func (m Message) Gas() uint64                          { return m.gasLimit }

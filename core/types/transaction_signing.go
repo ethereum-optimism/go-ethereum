@@ -119,7 +119,7 @@ func (s OVMSigner) Hash(tx *Transaction) common.Hash {
 		msg := s.OVMSignerTemplateSighashPreimage(tx)
 
 		hasher := sha3.NewLegacyKeccak256()
-		hasher.Write(msg)
+		hasher.Write(msg[:])
 		digest := hasher.Sum(nil)
 
 		return common.BytesToHash(digest)

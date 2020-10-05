@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
@@ -592,14 +593,17 @@ type callmsg struct {
 	ethereum.CallMsg
 }
 
-func (m callmsg) From() common.Address { return m.CallMsg.From }
-func (m callmsg) Nonce() uint64        { return 0 }
-func (m callmsg) CheckNonce() bool     { return false }
-func (m callmsg) To() *common.Address  { return m.CallMsg.To }
-func (m callmsg) GasPrice() *big.Int   { return m.CallMsg.GasPrice }
-func (m callmsg) Gas() uint64          { return m.CallMsg.Gas }
-func (m callmsg) Value() *big.Int      { return m.CallMsg.Value }
-func (m callmsg) Data() []byte         { return m.CallMsg.Data }
+func (m callmsg) From() common.Address             { return m.CallMsg.From }
+func (m callmsg) Nonce() uint64                    { return 0 }
+func (m callmsg) CheckNonce() bool                 { return false }
+func (m callmsg) To() *common.Address              { return m.CallMsg.To }
+func (m callmsg) GasPrice() *big.Int               { return m.CallMsg.GasPrice }
+func (m callmsg) Gas() uint64                      { return m.CallMsg.Gas }
+func (m callmsg) Value() *big.Int                  { return m.CallMsg.Value }
+func (m callmsg) Data() []byte                     { return m.CallMsg.Data }
+func (m callmsg) L1MessageSender() *common.Address { return m.CallMsg.L1MessageSender }
+func (m callmsg) L1RollupTxId() *hexutil.Uint64    { return m.CallMsg.L1RollupTxId }
+func (m callmsg) QueueOrigin() *big.Int            { return m.CallMsg.QueueOrigin }
 
 // filterBackend implements filters.Backend to support filtering for logs without
 // taking bloom-bits acceleration structures into account.

@@ -148,6 +148,18 @@ var (
 		configFileFlag,
 	}
 
+	optimismFlags = []cli.Flag{
+		utils.TxIngestionEnableFlag,
+		utils.TxIngestionDBHostFlag,
+		utils.TxIngestionDBPortFlag,
+		utils.TxIngestionDBNameFlag,
+		utils.TxIngestionDBUserFlag,
+		utils.TxIngestionDBPasswordFlag,
+		utils.TxIngestionPollIntervalFlag,
+		utils.TxIngestionSignerKeyHexFlag,
+		utils.TxIngestionSignerKeyFileFlag,
+	}
+
 	rpcFlags = []cli.Flag{
 		utils.RPCEnabledFlag,
 		utils.RPCListenAddrFlag,
@@ -226,6 +238,7 @@ func init() {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	app.Flags = append(app.Flags, nodeFlags...)
+	app.Flags = append(app.Flags, optimismFlags...)
 	app.Flags = append(app.Flags, rpcFlags...)
 	app.Flags = append(app.Flags, consoleFlags...)
 	app.Flags = append(app.Flags, debug.Flags...)

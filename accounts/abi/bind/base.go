@@ -227,9 +227,9 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 	// Create the transaction, sign it and schedule it for execution
 	var rawTx *types.Transaction
 	if contract == nil {
-		rawTx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, input, nil, nil)
+		rawTx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, input, nil, nil, types.QueueOriginSequencer)
 	} else {
-		rawTx = types.NewTransaction(nonce, c.address, value, gasLimit, gasPrice, input, nil, nil, types.SighashEIP155)
+		rawTx = types.NewTransaction(nonce, c.address, value, gasLimit, gasPrice, input, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
 	}
 	if opts.Signer == nil {
 		return nil, errors.New("no signer to authorize the transaction with")
