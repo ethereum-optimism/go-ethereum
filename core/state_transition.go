@@ -17,6 +17,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -34,6 +35,7 @@ import (
 var (
 	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
 	executionManagerAbi          abi.ABI
+	ZeroAddress                  = common.HexToAddress("0000000000000000000000000000000000000000")
 )
 
 func init() {
@@ -227,13 +229,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		vmerr error
 	)
 
-	to := "<nil>"
-	if msg.To() != nil {
-		to = msg.To().Hex()
-	}
-
-	log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "data", hexutil.Encode(msg.Data()))
-
 	executionMgrTime := st.evm.Time
 	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
 		executionMgrTime = big.NewInt(1)
@@ -243,10 +238,18 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	queueOrigin := big.NewInt(0)
 
 	l1MessageSender := msg.L1MessageSender()
-	if l1MessageSender == nil {
-		addr := common.HexToAddress("")
+	if l1MessageSender == nil || bytes.Equal(l1MessageSender.Bytes(), ZeroAddress.Bytes()) {
+		addr := common.HexToAddress("0000000000000000000000000000000000000000")
 		l1MessageSender = &addr
+	} else {
+		sender = vm.AccountRef(common.HexToAddress("0000000000000000000000000000000000000000"))
 	}
+
+	to := "<nil>"
+	if msg.To() != nil {
+		to = msg.To().Hex()
+	}
+	log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "l1MessageSender", l1MessageSender.Hex(), "data", hexutil.Encode(msg.Data()))
 
 	if contractCreation {
 		// Here we are going to call the EM directly
