@@ -39,8 +39,8 @@ geth --dev \
   --nousb \
   --gcmode=archive \
   --verbosity "6" \
-  --txingestion.enable="$TX_INGESTION" \
-  --txingestion.dbhost "$TX_INGESTION_DB_HOST" \
-  --txingestion.pollinterval "$TX_INGESTION_POLL_INTERVAL" \
-  --txingestion.dbuser "$TX_INGESTION_DB_USER" \
-  --txingestion.dbpassword "$TX_INGESTION_DB_PASSWORD"
+  --txingestion.enable=$TX_INGESTION \
+  --txingestion.dbhost=$TX_INGESTION_DB_HOST \
+  --txingestion.pollinterval=$TX_INGESTION_POLL_INTERVAL \
+  --txingestion.dbuser=$TX_INGESTION_DB_USER \
+  --txingestion.dbpassword=$TX_INGESTION_DB_PASSWORD
