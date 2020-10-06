@@ -17,6 +17,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -34,6 +35,7 @@ import (
 var (
 	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
 	executionManagerAbi          abi.ABI
+	ZeroAddress                  = common.HexToAddress("0000000000000000000000000000000000000000")
 )
 
 func init() {
@@ -236,7 +238,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	queueOrigin := big.NewInt(0)
 
 	l1MessageSender := msg.L1MessageSender()
-	if l1MessageSender == nil {
+	if l1MessageSender == nil || bytes.Equal(l1MessageSender.Bytes(), ZeroAddress.Bytes()) {
 		addr := common.HexToAddress("0000000000000000000000000000000000000000")
 		l1MessageSender = &addr
 	} else {
