@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"net/url"
 	"time"
 
 	"errors"
@@ -162,11 +163,11 @@ func (t *TxIngestion) Stop() {
 func DbConnectionString(cfg *Config) string {
 	if len(cfg.TxIngestionDBUser) > 0 && len(cfg.TxIngestionDBPassword) > 0 {
 		return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=disable",
-			cfg.TxIngestionDBUser, cfg.TxIngestionDBPassword, cfg.TxIngestionDBHost, cfg.TxIngestionDBPort, cfg.TxIngestionDBName)
+			url.QueryEscape(cfg.TxIngestionDBUser), url.QueryEscape(cfg.TxIngestionDBPassword), cfg.TxIngestionDBHost, cfg.TxIngestionDBPort, url.QueryEscape(cfg.TxIngestionDBName))
 	}
 	if len(cfg.TxIngestionDBUser) > 0 && len(cfg.TxIngestionDBPassword) == 0 {
 		return fmt.Sprintf("postgresql://%s@%s:%d/%s?sslmode=disable",
-			cfg.TxIngestionDBUser, cfg.TxIngestionDBHost, cfg.TxIngestionDBPort, cfg.TxIngestionDBName)
+			url.QueryEscape(cfg.TxIngestionDBUser), cfg.TxIngestionDBHost, cfg.TxIngestionDBPort, cfg.TxIngestionDBName)
 	}
 	return fmt.Sprintf("postgresql://%s:%d/%s?sslmode=disable", cfg.TxIngestionDBHost, cfg.TxIngestionDBPort, cfg.TxIngestionDBName)
 }
