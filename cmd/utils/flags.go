@@ -752,38 +752,45 @@ var (
 	}
 	// Flags associated with Layer 1 Transaction Ingestion
 	TxIngestionEnableFlag = cli.BoolFlag{
-		Name:  "txingestion.enable",
-		Usage: "Enable L1 Transaction Ingestion",
+		Name:   "txingestion.enable",
+		Usage:  "Enable L1 Transaction Ingestion",
+		EnvVar: "TX_INGESTION",
 	}
 	TxIngestionDBHostFlag = cli.StringFlag{
-		Name:  "txingestion.dbhost",
-		Usage: "HTTP host of SQL database to ingest transactions from",
-		Value: eth.DefaultConfig.Rollup.TxIngestionDBHost,
+		Name:   "txingestion.dbhost",
+		Usage:  "HTTP host of SQL database to ingest transactions from",
+		Value:  eth.DefaultConfig.Rollup.TxIngestionDBHost,
+		EnvVar: "TX_INGESTION_DB_HOST",
 	}
 	TxIngestionDBPortFlag = cli.IntFlag{
-		Name:  "txingestion.dbport",
-		Usage: "HTTP port of SQL database to ingest transactions from",
-		Value: int(eth.DefaultConfig.Rollup.TxIngestionDBPort),
+		Name:   "txingestion.dbport",
+		Usage:  "HTTP port of SQL database to ingest transactions from",
+		Value:  int(eth.DefaultConfig.Rollup.TxIngestionDBPort),
+		EnvVar: "TX_INGESTION_DB_PORT",
 	}
 	TxIngestionDBNameFlag = cli.StringFlag{
-		Name:  "txingestion.dbname",
-		Usage: "Database name to ingest transactions from",
-		Value: eth.DefaultConfig.Rollup.TxIngestionDBName,
+		Name:   "txingestion.dbname",
+		Usage:  "Database name to ingest transactions from",
+		Value:  eth.DefaultConfig.Rollup.TxIngestionDBName,
+		EnvVar: "TX_INGESTION_DB_NAME",
 	}
 	TxIngestionDBUserFlag = cli.StringFlag{
-		Name:  "txingestion.dbuser",
-		Usage: "Database username",
-		Value: eth.DefaultConfig.Rollup.TxIngestionDBUser,
+		Name:   "txingestion.dbuser",
+		Usage:  "Database username",
+		Value:  eth.DefaultConfig.Rollup.TxIngestionDBUser,
+		EnvVar: "TX_INGESTION_DB_USER",
 	}
 	TxIngestionDBPasswordFlag = cli.StringFlag{
-		Name:  "txingestion.dbpassword",
-		Usage: "Database password",
-		Value: eth.DefaultConfig.Rollup.TxIngestionDBPassword,
+		Name:   "txingestion.dbpassword",
+		Usage:  "Database password",
+		Value:  eth.DefaultConfig.Rollup.TxIngestionDBPassword,
+		EnvVar: "TX_INGESTION_DB_PASSWORD",
 	}
 	TxIngestionPollIntervalFlag = cli.DurationFlag{
-		Name:  "txingestion.pollinterval",
-		Usage: "Time between polls for tranaction ingestion",
-		Value: eth.DefaultConfig.Rollup.TxIngestionPollInterval,
+		Name:   "txingestion.pollinterval",
+		Usage:  "Time between polls for tranaction ingestion",
+		Value:  eth.DefaultConfig.Rollup.TxIngestionPollInterval,
+		EnvVar: "TX_INGESTION_POLL_INTERVAL",
 	}
 	TxIngestionSignerKeyHexFlag = cli.StringFlag{
 		Name:  "txingestion.signerkey",
