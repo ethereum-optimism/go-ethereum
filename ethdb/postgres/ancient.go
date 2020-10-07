@@ -40,38 +40,38 @@ const (
 	FreezerDifficultyTable = "diffs"
 
 	// ancient append Postgres statements
-	appendAncientHeaderPgStr   = "INSERT INTO eth.ancient_headers (block_number, header) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET header = $2"
-	appendAncientHashPgStr     = "INSERT INTO eth.ancient_hashes (block_number, hash) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET hash = $2"
-	appendAncientBodyPgStr     = "INSERT INTO eth.ancient_bodies (block_number, body) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET body = $2"
-	appendAncientReceiptsPgStr = "INSERT INTO eth.ancient_receipts (block_number, receipts) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET receipts = $2"
-	appendAncientTDPgStr       = "INSERT INTO eth.ancient_tds (block_number, td) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET td = $2"
+	appendAncientHeaderPgStr   = "INSERT INTO ancient_headers (block_number, header) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET header = $2"
+	appendAncientHashPgStr     = "INSERT INTO ancient_hashes (block_number, hash) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET hash = $2"
+	appendAncientBodyPgStr     = "INSERT INTO ancient_bodies (block_number, body) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET body = $2"
+	appendAncientReceiptsPgStr = "INSERT INTO ancient_receipts (block_number, receipts) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET receipts = $2"
+	appendAncientTDPgStr       = "INSERT INTO ancient_tds (block_number, td) VALUES ($1, $2) ON CONFLICT (block_number) DO UPDATE SET td = $2"
 
 	// ancient truncate Postgres statements
-	truncateAncientHeaderPgStr   = "DELETE FROM eth.ancient_headers WHERE block_number > $1"
-	truncateAncientHashPgStr     = "DELETE FROM eth.ancient_hashes WHERE block_number > $1"
-	truncateAncientBodiesPgStr   = "DELETE FROM eth.ancient_bodies WHERE block_number > $1"
-	truncateAncientReceiptsPgStr = "DELETE FROM eth.ancient_receipts WHERE block_number > $1"
-	truncateAncientTDPgStr       = "DELETE FROM eth.ancient_tds WHERE block_number > $1"
+	truncateAncientHeaderPgStr   = "DELETE FROM ancient_headers WHERE block_number > $1"
+	truncateAncientHashPgStr     = "DELETE FROM ancient_hashes WHERE block_number > $1"
+	truncateAncientBodiesPgStr   = "DELETE FROM ancient_bodies WHERE block_number > $1"
+	truncateAncientReceiptsPgStr = "DELETE FROM ancient_receipts WHERE block_number > $1"
+	truncateAncientTDPgStr       = "DELETE FROM ancient_tds WHERE block_number > $1"
 
 	// ancient size Postgres statement
 	ancientSizePgStr = "SELECT pg_total_relation_size($1)"
 
 	// ancients Postgres statement
-	ancientsPgStr = "SELECT block_number FROM eth.ancient_headers ORDER BY block_number DESC LIMIT 1"
+	ancientsPgStr = "SELECT block_number FROM ancient_headers ORDER BY block_number DESC LIMIT 1"
 
 	// ancient has Postgres statements
-	hasAncientHeaderPgStr   = "SELECT exists(SELECT 1 FROM eth.ancient_headers WHERE block_number = $1)"
-	hasAncientHashPgStr     = "SELECT exists(SELECT 1 FROM eth.ancient_hashes WHERE block_number = $1)"
-	hasAncientBodyPgStr     = "SELECT exists(SELECT 1 FROM eth.ancient_bodies WHERE block_number = $1)"
-	hasAncientReceiptsPgStr = "SELECT exists(SELECT 1 FROM eth.ancient_receipts WHERE block_number = $1)"
-	hasAncientTDPgStr       = "SELECT exists(SELECT 1 FROM eth.ancient_tds WHERE block_number = $1)"
+	hasAncientHeaderPgStr   = "SELECT exists(SELECT 1 FROM ancient_headers WHERE block_number = $1)"
+	hasAncientHashPgStr     = "SELECT exists(SELECT 1 FROM ancient_hashes WHERE block_number = $1)"
+	hasAncientBodyPgStr     = "SELECT exists(SELECT 1 FROM ancient_bodies WHERE block_number = $1)"
+	hasAncientReceiptsPgStr = "SELECT exists(SELECT 1 FROM ancient_receipts WHERE block_number = $1)"
+	hasAncientTDPgStr       = "SELECT exists(SELECT 1 FROM ancient_tds WHERE block_number = $1)"
 
 	// ancient get Postgres statements
-	getAncientHeaderPgStr   = "SELECT header FROM eth.ancient_headers WHERE block_number = $1"
-	getAncientHashPgStr     = "SELECT hash FROM eth.ancient_hashes WHERE block_number = $1"
-	getAncientBodyPgStr     = "SELECT body FROM eth.ancient_bodies WHERE block_number = $1"
-	getAncientReceiptsPgStr = "SELECT receipts FROM eth.ancient_receipts WHERE block_number = $1"
-	getAncientTDPgStr       = "SELECT td FROM eth.ancient_tds WHERE block_number = $1"
+	getAncientHeaderPgStr   = "SELECT header FROM ancient_headers WHERE block_number = $1"
+	getAncientHashPgStr     = "SELECT hash FROM ancient_hashes WHERE block_number = $1"
+	getAncientBodyPgStr     = "SELECT body FROM ancient_bodies WHERE block_number = $1"
+	getAncientReceiptsPgStr = "SELECT receipts FROM ancient_receipts WHERE block_number = $1"
+	getAncientTDPgStr       = "SELECT td FROM ancient_tds WHERE block_number = $1"
 )
 
 // HasAncient satisfies the ethdb.AncientReader interface

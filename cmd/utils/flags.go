@@ -774,46 +774,46 @@ var (
 
 	// Postgres flags
 	PostgresDatastoreFlag = cli.BoolFlag{
-		Name:  "postgres",
-		Usage: "Turn on Postgres as the backing datastore",
+		Name:  "postgres.ethdb",
+		Usage: "Turn on Postgres as the ethdb backing datastore",
 	}
 	PostgresHostnameFlag = cli.StringFlag{
-		Name:  "postgres.hostname",
-		Usage: "Hostname for the Postgres database",
+		Name:  "postgres.ethdb.hostname",
+		Usage: "Hostname for the Postgres ethdb database",
 		Value: "postgres",
 	}
 	PostgresPortFlag = cli.IntFlag{
-		Name:  "postgres.port",
-		Usage: "Port for the Postgres database",
+		Name:  "postgres.ethdb.port",
+		Usage: "Port for the Postgres ethdb database",
 		Value: 5432,
 	}
 	PostgresUserFlag = cli.StringFlag{
-		Name:  "postgres.user",
-		Usage: "User for the Postgres database",
+		Name:  "postgres.ethdb.user",
+		Usage: "User for the Postgres ethdb database",
 		Value: "postgres",
 	}
 	PostgresPasswordFlag = cli.StringFlag{
-		Name:  "postgres.password",
-		Usage: "Password for the Postgres database",
+		Name:  "postgres.ethdb.password",
+		Usage: "Password for the Postgres ethdb database",
 		Value: "",
 	}
 	PostgresDatabaseNameFlag = cli.StringFlag{
-		Name:  "postgres.database",
-		Usage: "Name for the Postgres database",
+		Name:  "postgres.ethdb.database",
+		Usage: "Name for the Postgres ethdb database",
 		Value: "rollup",
 	}
 	PostgresMaxOpenConnectionsFlag = cli.IntFlag{
-		Name:  "postgres.maxopen",
-		Usage: "Max number of open Postgres connections",
+		Name:  "postgres.ethdb.maxopen",
+		Usage: "Max number of open Postgres connections to allow",
 		Value: 1024,
 	}
 	PostgresMaxIdleConnectionsFlag = cli.IntFlag{
-		Name:  "postgres.maxidle",
-		Usage: "Max number of idle Postgres connections",
+		Name:  "postgres.ethdb.maxidle",
+		Usage: "Max number of idle Postgres connections to allow",
 		Value: 32,
 	}
 	PostgresMaxConnLifetimeFlag = cli.DurationFlag{
-		Name:  "postgres.maxlifetime",
+		Name:  "postgres.ethdb.maxlifetime",
 		Usage: "Max lifetime for Postgres connections",
 		Value: 0,
 	}

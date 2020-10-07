@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	getAllHashesPgStr = "SELECT hash FROM ethdb.headers WHERE height = $1"
+	getAllHashesPgStr = "SELECT hash FROM headers WHERE height = $1"
 )
 
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.

@@ -23,14 +23,14 @@ import (
 
 const (
 	initPgStr = `SELECT eth_key, eth_data
-				FROM ethdb.kvstore 
+				FROM kvstore 
 				WHERE eth_key = $1`
 	nextPgStr = `SELECT eth_key, eth_data
-				FROM ethdb.kvstore
+				FROM kvstore
 				WHERE eth_key > $1
 				ORDER BY eth_key LIMIT 1`
 	nextPgStrWithPrefix = `SELECT eth_key, eth_data
-				FROM ethdb.kvstore
+				FROM kvstore
 				WHERE eth_key > $1
 				AND prefix = $2 
 				ORDER BY eth_key LIMIT 1`
