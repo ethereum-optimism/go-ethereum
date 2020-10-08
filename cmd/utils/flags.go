@@ -786,8 +786,9 @@ var (
 		Value: eth.DefaultConfig.Rollup.TxIngestionPollInterval,
 	}
 	TxIngestionSignerKeyHexFlag = cli.StringFlag{
-		Name:  "txingestion.signerkey",
-		Usage: "Hex private key to authenticate L1 to L2 txs",
+		Name:   "txingestion.signerkey",
+		Usage:  "Hex private key to authenticate L1 to L2 txs",
+		EnvVar: "TX_INGESTION_SIGNER_KEY",
 	}
 	TxIngestionSignerKeyFileFlag = cli.StringFlag{
 		Name:  "txingestion.signerkeyfile",
