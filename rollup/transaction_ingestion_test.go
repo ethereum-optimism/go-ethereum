@@ -35,7 +35,7 @@ func TestApplyTransaction(t *testing.T) {
 	chaincfg := params.ChainConfig{ChainID: chainId}
 
 	txPool := core.NewTxPool(core.TxPoolConfig{}, &chaincfg, chain)
-	txIngestion := NewTxIngestion(cfg, &chaincfg, txPool)
+	txIngestion := NewTxIngestion(cfg, &chaincfg, txPool, chain)
 
 	signer := types.NewOVMSigner(chainId)
 	tx, err := types.SignTx(types.NewTransaction(0, addr, new(big.Int), 21000, new(big.Int), []byte{}, &addr, nil, types.QueueOriginL1ToL2, types.SighashEIP155), signer, key)

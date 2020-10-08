@@ -48,26 +48,27 @@ type QueuedTransaction struct {
 	Signature                sql.NullString `db:"signature"`
 }
 
-func GetMostRecentQueuedTransactions(db *sqlx.DB) ([]*types.Transaction, uint32, error) {
+func GetMostRecentQueuedTransactions(db *sqlx.DB) ([]*types.Transaction, uint32, []uint32, error) {
 	txs := []QueuedTransaction{}
 	err := db.Select(&txs, SQLGetNextQueuedGethSubmission)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, nil, err
 	}
 
 	if len(txs) == 0 {
-		return []*types.Transaction{}, 0, nil
+		return []*types.Transaction{}, 0, nil, nil
 	}
 
 	log.Debug("Ingesting L1 to L2 Transactions", "count", len(txs))
 
 	transactions := make([]*types.Transaction, len(txs))
 	submissionIndices := make([]uint32, len(txs))
+	timestamps := make([]uint32, len(txs))
 
 	for i, tx := range txs {
 		submissionIndices[i] = tx.GethSubmissionQueueIndex
+		timestamps[i] = tx.BlockTimestamp
 
-		// TODO(mark): in what cases are the nonce null/not null?
 		nonce := tx.Nonce.Int64
 		if !tx.Nonce.Valid {
 			nonce = 0
@@ -77,7 +78,7 @@ func GetMostRecentQueuedTransactions(db *sqlx.DB) ([]*types.Transaction, uint32,
 		gasLimit := tx.GasLimit
 		data, err := hexutil.Decode(tx.Calldata)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, nil, err
 		}
 
 		to := common.HexToAddress(tx.Target)
@@ -98,11 +99,11 @@ func GetMostRecentQueuedTransactions(db *sqlx.DB) ([]*types.Transaction, uint32,
 	submissionIndex := submissionIndices[0]
 	for i := 1; i < len(submissionIndices); i++ {
 		if submissionIndices[i] != submissionIndex {
-			return nil, 0, fmt.Errorf("Submission index mismatch %d and %d", submissionIndex, submissionIndices[i])
+			return nil, 0, nil, fmt.Errorf("Submission index mismatch %d and %d", submissionIndex, submissionIndices[i])
 		}
 	}
 
-	return transactions, submissionIndex, nil
+	return transactions, submissionIndex, timestamps, nil
 }
 
 func UpdateSentSubmissionStatus(db *sqlx.DB, status string, index uint32) error {

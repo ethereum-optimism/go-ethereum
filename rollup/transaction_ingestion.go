@@ -26,10 +26,11 @@ type TxIngestion struct {
 	signer     types.Signer
 	key        *ecdsa.PrivateKey
 	txpool     *core.TxPool
+	bc         *core.BlockChain
 }
 
 // TODO(mark): sanitize the poll interval input
-func NewTxIngestion(cfg Config, chaincfg *params.ChainConfig, txpool *core.TxPool) *TxIngestion {
+func NewTxIngestion(cfg Config, chaincfg *params.ChainConfig, txpool *core.TxPool, bc *core.BlockChain) *TxIngestion {
 	if cfg.TxIngestionSignerKey == nil {
 		cfg.TxIngestionSignerKey, _ = crypto.GenerateKey()
 	}
@@ -39,6 +40,7 @@ func NewTxIngestion(cfg Config, chaincfg *params.ChainConfig, txpool *core.TxPoo
 		txpool:     txpool,
 		loopTicker: time.NewTicker(cfg.TxIngestionPollInterval),
 		key:        cfg.TxIngestionSignerKey,
+		bc:         bc,
 	}
 
 	if cfg.IsTxIngestionEnabled() {
@@ -120,7 +122,7 @@ func (t *TxIngestion) loop() {
 	log.Info("Starting transaction ingestion", "key", hex, "address", address.Hex())
 
 	for range t.loopTicker.C {
-		txs, index, err := GetMostRecentQueuedTransactions(t.db)
+		txs, index, timestamps, err := GetMostRecentQueuedTransactions(t.db)
 		if err != nil {
 			log.Error("Error getting most recently queued transactions: " + err.Error())
 			continue
@@ -128,6 +130,11 @@ func (t *TxIngestion) loop() {
 
 		for i, tx := range txs {
 			log.Debug("Transaction Ingestion", "hash", tx.Hash().Hex(), "submission index", index, "element", i)
+
+			// Set the timestamp of the chain equal to the timestamp from the
+			// L1 to L2 transaction
+			timestamp := timestamps[i]
+			t.bc.SetCurrentTimestamp(int64(timestamp))
 
 			nonce := t.txpool.Nonce(address)
 			tx.SetNonce(nonce)
