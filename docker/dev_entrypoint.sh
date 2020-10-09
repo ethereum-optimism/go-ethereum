@@ -3,9 +3,13 @@
 # Exits if any command fails
 set -e
 
-NETWORK_ID=${NETWORK_ID:-420}
+HOSTNAME=${HOSTNAME:-0.0.0.0}
 PORT=${PORT:-8545}
+NETWORK_ID=${NETWORK_ID:-420}
+VOLUME_PATH=${VOLUME_PATH:-/mnt/l2geth}
+
 TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
+
 TX_INGESTION=${TX_INGESTION:-false}
 TX_INGESTION_DB_HOST=${TX_INGESTION_DB_HOST:-localhost}
 TX_INGESTION_POLL_INTERVAL=${TX_INGESTION_POLL_INTERVAL:-3s}
@@ -24,6 +28,7 @@ else
       --rpcvhosts='*' \
       --rpccorsdomain='*' \
       --rpcport $PORT \
+      --ipcdisable \
       --networkid $NETWORK_ID \
       --rpcapi 'eth,net' \
       --gasprice '0' \
