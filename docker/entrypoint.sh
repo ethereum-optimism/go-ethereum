@@ -1,11 +1,11 @@
 #!/bin/sh
 
 ## Passed in from environment variables:
-# HOSTNAME=
-# PORT=8545
-# NETWORK_ID=420
-NETWORK_ID=${NETWORK_ID:-420}
+HOSTNAME=${HOSTNAME:-0.0.0.0}
 PORT=${PORT:-8545}
+NETWORK_ID=${NETWORK_ID:-420}
+VOLUME_PATH=${VOLUME_PATH:-/mnt/l2geth}
+
 CLEAR_DATA_FILE_PATH="${VOLUME_PATH}/.clear_data_key_${CLEAR_DATA_KEY}"
 TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
 TX_INGESTION=${TX_INGESTION:-false}
@@ -33,6 +33,7 @@ geth --dev \
   --rpccorsdomain='*' \
   --rpcport $PORT \
   --networkid $NETWORK_ID \
+  --ipcdisable \
   --rpcapi 'eth,net' \
   --gasprice '0' \
   --targetgaslimit $TARGET_GAS_LIMIT \
