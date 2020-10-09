@@ -20,7 +20,7 @@ if [ -n "$REBUILD" ]; then
     echo -e "\nRebuilding geth\n"
     make geth
 else
-    echo "Starting Geth..."
+    echo "Starting geth"
     ./build/bin/geth --dev \
       --datadir $VOLUME_PATH \
       --rpc \

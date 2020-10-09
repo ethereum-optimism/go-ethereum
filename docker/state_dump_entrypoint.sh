@@ -7,8 +7,8 @@ VOLUME_PATH=${VOLUME_PATH:-/mnt/l2geth}
 
 TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
 
-echo "Starting Geth in debug mode"
-## Command to kick off geth
+echo "Starting geth in state dump mode"
+
 geth --dev \
   --datadir $VOLUME_PATH \
   --rpc \
