@@ -11,16 +11,17 @@ TEMP_DIR=/tmp/geth-bindings
 mkdir -p $TEMP_DIR
 
 IMAGE=ethereumoptimism/go-ethereum-devtools
-REPO=https://github.com/ethereum-optimism/optimism-monorepo
-CONTRACT_PATH="packages/contracts/artifacts"
+
+REPO=contracts-v2
+REPO_URL=https://github.com/ethereum-optimism/$REPO
+CONTRACT_PATH="artifacts"
 
 GIT_HASH=$(git rev-parse)
 HAS_IMAGE=$(docker images "$IMAGE" --format='{{.ID}}')
 
 # Builds bindings for each of the targets
-TARGETS="CanonicalTransactionChain
-L1ToL2TransactionQueue
-StateCommitmentChain"
+TARGETS="OVM_CanonicalTransactionChain
+OVM_StateCommitmentChain"
 
 if [ ! command -v docker &>/dev/null ]; then
     echo "Please install docker"
@@ -35,33 +36,39 @@ if [ -z "$HAS_IMAGE" ]; then
         $BASE_DIR
 fi
 
-if [ ! -d $TEMP_DIR/optimism-monorepo ]; then
-    git clone --depth 1 $REPO $TEMP_DIR/optimism-monorepo
+if [ ! -d $TEMP_DIR/$REPO ]; then
+    git clone --depth 1 $REPO_URL $TEMP_DIR/$REPO
 fi
 
 (
-    cd $TEMP_DIR/optimism-monorepo
-    if [ ! -d $TEMP_DIR/optimism-monorepo/$CONTRACT_PATH ]; then
+    cd $TEMP_DIR/$REPO
+    if [ ! -d $TEMP_DIR/$REPO/$CONTRACT_PATH ]; then
         yarn --frozen-lockfile --ignore-engines
         yarn build
     fi
 )
 
 while read FILE; do
-    FILE_PATH="$TEMP_DIR/optimism-monorepo/$CONTRACT_PATH/$FILE.json"
+    FILE_PATH="$TEMP_DIR/$REPO/$CONTRACT_PATH/$FILE.json"
     if [ -f "$FILE_PATH" ]; then
         cat "$FILE_PATH" \
             | docker run -i --rm stedolan/jq '.bytecode' \
             | tr -d '"' > $TEMP_DIR/$FILE-bytecode.bin
+
+        PACKAGE=$(echo $FILE \
+            | cut -d '_' -f2 \
+            | tr '[:upper:]' '[:lower:]')
+
+        mkdir -p $BASE_DIR/contracts/$PACKAGE
 
         cat "$FILE_PATH" \
             | docker run -i --rm stedolan/jq '.abi' \
             | docker run -i --rm \
                 -v $TEMP_DIR/$FILE-bytecode.bin:/mnt/$FILE-bytecode.bin \
                 --entrypoint abigen $IMAGE \
-                --pkg 'rollup' \
+                --pkg $PACKAGE \
                 --abi - --type $FILE \
-                --bin /mnt/$FILE-bytecode.bin > $BASE_DIR/contracts/rollup/$FILE.go
+                --bin /mnt/$FILE-bytecode.bin > $BASE_DIR/contracts/$PACKAGE/$FILE.go
 
         rm $TEMP_DIR/$FILE-bytecode.bin
     fi
