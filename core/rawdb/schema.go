@@ -53,8 +53,13 @@ var (
 	txLookupPrefix  = []byte("l") // txLookupPrefix + hash -> transaction/receipt lookup metadata
 	bloomBitsPrefix = []byte("B") // bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash -> bloom bits
 
-	// Optmism specific
+	// Optimism specific
 	txMetaPrefix = []byte("x") // txMetaPrefix + hash -> transaction metadata
+
+	// headEth1HeaderKey tracks the latest processed Eth1 Block
+	headEth1HeaderKey = []byte("LastEth1Header")
+	// headEth1HeightKey tracks the latest processed Eth1 Height
+	headEth1HeightKey = []byte("LastEth1Height")
 
 	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
 	configPrefix   = []byte("ethereum-config-") // config prefix for the db
