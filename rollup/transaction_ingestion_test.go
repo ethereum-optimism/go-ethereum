@@ -21,7 +21,7 @@ var (
 
 func TestApplyTransaction(t *testing.T) {
 	cfg := Config{TxIngestionPollInterval: 100}
-	chainCfg := params.AllEthashProtocolChanges // wtf is this
+	chainCfg := params.AllEthashProtocolChanges
 	chainCfg.ChainID = chainId
 
 	engine := ethash.NewFaker()
