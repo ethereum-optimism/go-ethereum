@@ -34,8 +34,8 @@ func TestReadWriteEth1HeaderHeight(t *testing.T) {
 
 	db := NewMemoryDatabase()
 	for _, height := range eth1HeaderHeights {
-		WriteHeadEth1HeightKey(db, height)
-		got := ReadHeadEth1HeightKey(db)
+		WriteHeadEth1HeaderHeight(db, height)
+		got := ReadHeadEth1HeaderHeight(db)
 		if height != got {
 			t.Fatal("Header height mismatch")
 		}

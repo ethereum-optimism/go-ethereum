@@ -3,22 +3,287 @@ package rollup
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
+	ctc "github.com/ethereum/go-ethereum/contracts/canonicaltransactionchain"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
-// Replace implementations with interfaces so that they can be mocked here
-// need to figure out how to test this
+// Mock deployed address of canonical transaction chain
+var ctcAddress = common.HexToAddress("0xE894780e35530557B152281e8828339303aE33e5")
 
-func TestRollupService(t *testing.T) {
+func TestSyncServiceDatabase(t *testing.T) {
+	service, err := newTestSyncService()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mockEthClient(service)
+	mockLogClient(service, [][]types.Log{})
+
+	go service.Loop()
+
+	headers := []types.Header{
+		{Number: big.NewInt(1)},
+		{Number: big.NewInt(2)},
+	}
+
+	for _, header := range headers {
+		service.heads <- &header
+
+		height := <-service.doneProcessing
+		if height != header.Number.Uint64() {
+			t.Fatal("Wrong height received")
+		}
+
+		// The lastestEth1Data should be kept up to data
+		if service.Eth1Data.BlockHeight != header.Number.Uint64() {
+			t.Fatalf("Mismatched eth1 data blockheight: got %d, expect %d", service.Eth1Data.BlockHeight, header.Number.Uint64())
+		}
+		if !bytes.Equal(service.Eth1Data.BlockHash.Bytes(), header.Hash().Bytes()) {
+			t.Fatalf("Mismatched eth1 blockhash")
+		}
+
+		// The database should be kept up to date
+		eth1data := service.GetLastProcessedEth1Data()
+		if eth1data.BlockHeight != height {
+			t.Fatal("Wrong height in database")
+		}
+		if !bytes.Equal(eth1data.BlockHash.Bytes(), header.Hash().Bytes()) {
+			t.Fatal("Wrong hash in database")
+		}
+	}
+}
+
+func mustABINewType(s string) abi.Type {
+	typ, err := abi.NewType(s, s, []abi.ArgumentMarshaling{})
+	if err != nil {
+		fmt.Println(err)
+	}
+	return typ
+}
+
+func abiEncodeCTCEnqueued(origin, target *common.Address, gasLimit, queueIndex, timestamp *big.Int, data []byte) []byte {
+	args := abi.Arguments{
+		{Name: "l1TxOrigin", Type: mustABINewType("address")},
+		{Name: "target", Type: mustABINewType("address")},
+		{Name: "gasLimit", Type: mustABINewType("uint256")},
+		{Name: "data", Type: mustABINewType("bytes")},
+		{Name: "queueIndex", Type: mustABINewType("uint256")},
+		{Name: "timestamp", Type: mustABINewType("uint256")},
+	}
+	raw, err := args.PackValues([]interface{}{
+		origin,
+		target,
+		gasLimit,
+		data,
+		queueIndex,
+		timestamp,
+	})
+	if err != nil {
+		fmt.Printf("Cannot abi encode: %s", err)
+		return []byte{}
+	}
+	return raw
+}
+
+func abiEncodeQueueBatchAppended(startingQueueIndex, numQueueElements, totalElements *big.Int) []byte {
+	args := abi.Arguments{
+		{Name: "startingQueueIndex", Type: mustABINewType("uint256")},
+		{Name: "numQueueElements", Type: mustABINewType("uint256")},
+		{Name: "totalElements", Type: mustABINewType("uint256")},
+	}
+	raw, err := args.PackValues([]interface{}{
+		startingQueueIndex,
+		numQueueElements,
+		totalElements,
+	})
+	if err != nil {
+		fmt.Printf("Cannot abi encode: %s", err)
+		return []byte{}
+	}
+	return raw
+}
+
+// Test that the `RollupTransaction` ends up in the transaction cache
+// after the transaction enqueued event is emitted.
+func TestSyncServiceTransactionEnqueued(t *testing.T) {
+	service, err := newTestSyncService()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The queue index is used as the key in the transaction cache
+	queueIndex := big.NewInt(0)
+	// The timestamp is in the rollup transaction
+	timestamp := big.NewInt(24)
+	// The target is the `to` field on the transaction
+	target := common.HexToAddress("0x04668ec2f57cc15c381b461b9fedab5d451c8f7f")
+	// The layer one transaction origin is in the txmeta on the transaction
+	l1TxOrigin := common.HexToAddress("0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8")
+	// The gasLimit is the `gasLimit` on the transaction
+	gasLimit := big.NewInt(66)
+	// The data is the `data` on the transaction
+	data := []byte{0x02, 0x92}
+
+	mockEthClient(service)
+	mockLogClient(service, [][]types.Log{
+		{
+			{
+				Address:     ctcAddress,
+				BlockNumber: 1,
+				Topics: []common.Hash{
+					common.BytesToHash(transactionEnqueuedEventSignature),
+				},
+				Data: abiEncodeCTCEnqueued(&l1TxOrigin, &target, gasLimit, queueIndex, timestamp, data),
+			},
+		},
+	})
+
+	// Start up the main loop
+	go service.Loop()
+
+	service.heads <- &types.Header{Number: big.NewInt(1)}
+	_ = <-service.doneProcessing
+
+	rtx, ok := service.txCache.Load(queueIndex.Uint64())
+	if !ok {
+		t.Fatal("Transaction not found in cache")
+	}
+
+	// The timestamps should be equal
+	if big.NewInt(rtx.timestamp.Unix()).Cmp(timestamp) != 0 {
+		t.Fatal("Incorrect time recovered")
+	}
+
+	// The target from the calldata should be the `to` in the transaction
+	if !bytes.Equal(rtx.tx.To().Bytes(), target.Bytes()) {
+		t.Fatal("Incorrect target")
+	}
+
+	if !bytes.Equal(rtx.tx.L1MessageSender().Bytes(), l1TxOrigin.Bytes()) {
+		t.Fatal("L1TxOrigin not set correctly")
+	}
+
+	if rtx.tx.Gas() != gasLimit.Uint64() {
+		t.Fatal("Incorrect gas limit")
+	}
+
+	if !bytes.Equal(rtx.tx.Data(), data) {
+		t.Fatal("Incorrect data")
+	}
+}
+
+// Tests that a queue batch append results in the transaction
+// from the cache is played against the state.
+func TestSyncServiceQueueBatchAppend(t *testing.T) {
+	service, err := newTestSyncService()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	queueIndex, timestamp, gasLimit := big.NewInt(0), big.NewInt(97538), big.NewInt(210000)
+	target := common.HexToAddress("0x04668ec2f57cc15c381b461b9fedab5d451c8f7f")
+	l1TxOrigin := common.HexToAddress("0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8")
+	data := []byte{0x02, 0x92}
+
+	startingQueueIndex := big.NewInt(0)
+	numQueueElements := big.NewInt(1)
+	totalElements := big.NewInt(0)
+
+	mockEthClient(service)
+	mockLogClient(service, [][]types.Log{
+		{
+			// This transaction will end up in the tx cache
+			{
+				Address:     ctcAddress,
+				BlockNumber: 1,
+				Topics: []common.Hash{
+					common.BytesToHash(transactionEnqueuedEventSignature),
+				},
+				Data: abiEncodeCTCEnqueued(&l1TxOrigin, &target, gasLimit, queueIndex, timestamp, data),
+			},
+			// This should pull the tx out of the tx cache and then play it evaluate it
+			{
+				Address:     ctcAddress,
+				BlockNumber: 1,
+				Topics: []common.Hash{
+					common.BytesToHash(queueBatchAppendedEventSignature),
+				},
+				Data: abiEncodeQueueBatchAppended(startingQueueIndex, numQueueElements, totalElements),
+			},
+		},
+	})
+
+	go service.Loop()
+
+	service.heads <- &types.Header{Number: big.NewInt(1)}
+	_ = <-service.doneProcessing
+	rtx, _ := service.txCache.Load(queueIndex.Uint64())
+
+	// Due to the current architecture of the system, the transaction should end
+	// up in the mempool. Downstream services are responsible for applying
+	// transactions to the state from the mempool.
+	pending, _ := service.txpool.Pending()
+	count := 0
+	for from, txs := range pending {
+		// The from should be the god key
+		if bytes.Equal(from.Bytes(), service.address.Bytes()) {
+			if len(txs) != 1 {
+				t.Fatal("More transactions in mempool than expected")
+			}
+			tx := txs[0]
+			//fmt.Println(tx.Hash().Hex())
+
+			if rtx.tx.Nonce() != tx.Nonce() {
+				t.Fatal("Nonce mismatch")
+			}
+			if !bytes.Equal(rtx.tx.To().Bytes(), tx.To().Bytes()) {
+				t.Fatal("To mismatch")
+			}
+			if rtx.tx.Gas() != tx.Gas() {
+				t.Fatal("Gas mismatch")
+			}
+			if !bytes.Equal(rtx.tx.GasPrice().Bytes(), tx.GasPrice().Bytes()) {
+				t.Fatal("GasPrice mismatch")
+			}
+			if !bytes.Equal(rtx.tx.Value().Bytes(), tx.Value().Bytes()) {
+				t.Fatal("Value mismatch")
+			}
+			if !bytes.Equal(rtx.tx.Data(), tx.Data()) {
+				t.Fatal("Data mismatch")
+			}
+			// remove the signature from the tx by creating a new tx with all
+			// of the information and then compare hashes.
+			fresh := types.NewTransaction(tx.Nonce(), *tx.To(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data(), nil, nil, types.QueueOriginL1ToL2, types.SighashEIP155)
+
+			if !bytes.Equal(fresh.Hash().Bytes(), rtx.tx.Hash().Bytes()) {
+				t.Fatal("Hash mismatch")
+			}
+		}
+		// Keep track of all pending tranasctions
+		count++
+	}
+
+	// There should only be one transaction in the mempool
+	if count != 1 {
+		t.Fatal("More transactions in mempool than expected")
+	}
+}
+
+func newTestSyncService() (*SyncService, error) {
 	chainCfg := params.AllEthashProtocolChanges
 	chainID := big.NewInt(420)
 	chainCfg.ChainID = chainID
@@ -28,349 +293,103 @@ func TestRollupService(t *testing.T) {
 	_ = new(core.Genesis).MustCommit(db)
 	chain, err := core.NewBlockChain(db, nil, chainCfg, engine, vm.Config{}, nil)
 	if err != nil {
-		t.Fatal(err)
+		return nil, fmt.Errorf("Cannot initialize blockchain: %w", err)
 	}
 	chaincfg := params.ChainConfig{ChainID: chainID}
 
 	txPool := core.NewTxPool(core.TxPoolConfig{}, &chaincfg, chain)
 
+	// Hardcoded god key for determinism
+	d := "0xcb27a3fd66eeb29699d37c860f4b3545dad264aa70d2afdd92a454f30e3ae560"
+	key, err = crypto.ToECDSA(hexutil.MustDecode(d))
+
 	cfg := Config{
-		StateCommitmentChainAddress: common.Address{},
+		CanonicalTransactionChainDeployHeight: big.NewInt(0),
+		CanonicalTransactionChainAddress:      ctcAddress,
+		TxIngestionSignerKey:                  key,
 	}
 
-	_, err = NewSyncService(context.Background(), cfg, txPool, chain, db)
+	service, err := NewSyncService(context.Background(), cfg, txPool, chain, db)
 	if err != nil {
-		t.Fatal(err)
+		return nil, fmt.Errorf("Cannot initialize syncservice: %w", err)
+	}
+
+	return service, nil
+}
+
+// Mock setup functions
+func mockLogClient(service *SyncService, logs [][]types.Log) {
+	service.logClient = newMockBoundCTCContract(logs)
+	ctcFilterer, _ := ctc.NewOVMCanonicalTransactionChainFilterer(ctcAddress, service.logClient)
+	service.ctcFilterer = ctcFilterer
+}
+
+func mockEthClient(service *SyncService) {
+	service.ethclient = newMockEthereumClient()
+}
+
+// Test utilities
+type mockEthereumClient struct{}
+
+func (m *mockEthereumClient) ChainID(context.Context) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+func (m *mockEthereumClient) NetworkID(context.Context) (*big.Int, error) {
+	return big.NewInt(0), nil
+}
+func (m *mockEthereumClient) SyncProgress(context.Context) (*ethereum.SyncProgress, error) {
+	sp := ethereum.SyncProgress{}
+	return &sp, nil
+}
+func (m *mockEthereumClient) HeaderByNumber(context.Context, *big.Int) (*types.Header, error) {
+	h := types.Header{}
+	return &h, nil
+}
+func (m *mockEthereumClient) TransactionByHash(context.Context, common.Hash) (*types.Transaction, bool, error) {
+	t := types.Transaction{}
+	return &t, false, nil
+}
+
+// going to have to give this a list of things to return
+// method name: []int
+// where the slice indices correspond to the call count
+func newMockEthereumClient() *mockEthereumClient {
+	return &mockEthereumClient{}
+}
+
+type mockBoundCTCContract struct {
+	filterLogsResponses [][]types.Log
+	filterLogsCallCount int
+}
+
+func (m *mockBoundCTCContract) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	if m.filterLogsCallCount < len(m.filterLogsResponses) {
+		res := m.filterLogsResponses[m.filterLogsCallCount]
+		m.filterLogsCallCount++
+		return res, nil
+	}
+	return []types.Log{}, nil
+}
+func (m *mockBoundCTCContract) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	return newMockSubscription(), nil
+}
+func newMockBoundCTCContract(responses [][]types.Log) *mockBoundCTCContract {
+	return &mockBoundCTCContract{
+		filterLogsResponses: responses,
 	}
 }
 
-// TODO
-// get some good test data
-func TestCanonicalChainBatchContext(t *testing.T) {
-	tests := []struct {
-		input  ctcBatchContext
-		expect []byte
-	}{
-		{
-			input: ctcBatchContext{
-				NumSequencedTransactions:       big.NewInt(0),
-				NumSubsequentQueueTransactions: big.NewInt(0),
-				Timestamp:                      big.NewInt(0),
-				BlockNumber:                    big.NewInt(0),
-			},
-			expect: hexutil.MustDecode("0x00"),
-		},
-		{
-			input: ctcBatchContext{
-				NumSequencedTransactions:       big.NewInt(10),
-				NumSubsequentQueueTransactions: big.NewInt(11),
-				Timestamp:                      big.NewInt(12),
-				BlockNumber:                    big.NewInt(13),
-			},
-			expect: hexutil.MustDecode("0x00"),
-		},
-	}
-
-	for _, test := range tests {
-		buf := new(bytes.Buffer)
-		err := test.input.Encode(buf)
-		if err != nil {
-			t.Fatal(err)
-		}
-		reader := bytes.NewReader(buf.Bytes())
-		ctcCtx := ctcBatchContext{}
-		err = ctcCtx.Decode(reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !isCtcBatchContextEqual(&test.input, &ctcCtx) {
-			t.Fatal(err)
-		}
-	}
+type mockSubscription struct {
+	e <-chan error
 }
 
-func isCtcBatchContextEqual(one *ctcBatchContext, two *ctcBatchContext) bool {
-	if one == nil && two == nil {
-		return true
-	}
-	if !bytes.Equal(one.NumSequencedTransactions.Bytes(), two.NumSequencedTransactions.Bytes()) {
-		return false
-	}
-	if !bytes.Equal(one.NumSubsequentQueueTransactions.Bytes(), two.NumSubsequentQueueTransactions.Bytes()) {
-		return false
-	}
-	if !bytes.Equal(one.Timestamp.Bytes(), two.Timestamp.Bytes()) {
-		return false
-	}
-	if !bytes.Equal(one.BlockNumber.Bytes(), two.BlockNumber.Bytes()) {
-		return false
-	}
-	return true
+func (m *mockSubscription) Unsubscribe() {}
+func (m *mockSubscription) Err() <-chan error {
+	return m.e
 }
-
-func TestSequencerBatchCalldata(t *testing.T) {
-	tests := []struct {
-		input  appendSequencerBatchCallData
-		expect []byte
-	}{
-		{
-			input: appendSequencerBatchCallData{
-				ChainElements: []chainElement{
-					{
-						IsSequenced: true,
-						Timestamp:   big.NewInt(0),
-						BlockNumber: big.NewInt(0),
-						TxData:      hexutil.MustDecode("0x1234"),
-					},
-				},
-				Contexts: []ctcBatchContext{
-					{
-						NumSequencedTransactions:       big.NewInt(1),
-						NumSubsequentQueueTransactions: big.NewInt(0),
-						Timestamp:                      big.NewInt(0),
-						BlockNumber:                    big.NewInt(0),
-					},
-				},
-				ShouldStartAtBatch:    big.NewInt(1234),
-				TotalElementsToAppend: big.NewInt(1),
-			},
-			expect: hexutil.MustDecode("0x00000004d2000001000001000001000000000000000000000000000000021234"),
-		},
-		{
-			input: appendSequencerBatchCallData{
-				ChainElements: []chainElement{
-					{
-						IsSequenced: true,
-						Timestamp:   big.NewInt(1602820447),
-						BlockNumber: big.NewInt(0),
-						TxData:      hexutil.MustDecode("0x12"),
-					},
-					{
-						IsSequenced: true,
-						Timestamp:   big.NewInt(1602820447),
-						BlockNumber: big.NewInt(0),
-						TxData:      hexutil.MustDecode("0x1234"),
-					},
-					{
-						IsSequenced: false,
-						Timestamp:   nil,
-						BlockNumber: nil,
-						TxData:      []byte{},
-					},
-				},
-				Contexts: []ctcBatchContext{
-					{
-						NumSequencedTransactions:       big.NewInt(2),
-						NumSubsequentQueueTransactions: big.NewInt(1),
-						Timestamp:                      big.NewInt(1602820447),
-						BlockNumber:                    big.NewInt(0),
-					},
-				},
-				ShouldStartAtBatch:    big.NewInt(0),
-				TotalElementsToAppend: big.NewInt(3),
-			},
-			expect: hexutil.MustDecode("0x0000000000000003000001000002000001005f89195f0000000000000001120000021234"),
-		},
-		/*
-			{ transactions: [ '0x12', '0x1234', '0x123434', '0x12343434' ],
-			  contexts:
-			   [ { numSequencedTransactions: 1,
-			       numSubsequentQueueTransactions: 1,
-			       timestamp: 1602821663,
-			       blockNumber: 12 },
-			     { numSequencedTransactions: 1,
-			       numSubsequentQueueTransactions: 1,
-			       timestamp: 1602821663,
-			       blockNumber: 12 },
-			     { numSequencedTransactions: 1,
-			       numSubsequentQueueTransactions: 1,
-			       timestamp: 1602821663,
-			       blockNumber: 12 },
-			     { numSequencedTransactions: 1,
-			       numSubsequentQueueTransactions: 1,
-			       timestamp: 1602821663,
-			       blockNumber: 12 } ],
-
-			  shouldStartAtBatch: 0,
-			  totalElementsToAppend: 8 }
-			0000000000000008000004000001000001005f891e1f000000000c000001000001005f891e1f000000000c000001000001005f891e1f000000000c000001000001005f891e1f000000000c00000112000002123400000312343400000412343434
-		*/
-		{
-			input: appendSequencerBatchCallData{
-				ChainElements: []chainElement{
-					{
-						IsSequenced: true,
-						Timestamp:   big.NewInt(1602821663),
-						BlockNumber: big.NewInt(12),
-						TxData:      hexutil.MustDecode("0x12"),
-					},
-					{
-						IsSequenced: false,
-						Timestamp:   nil,
-						BlockNumber: nil,
-						TxData:      []byte{},
-					},
-					{
-						IsSequenced: true,
-						Timestamp:   big.NewInt(1602821663),
-						BlockNumber: big.NewInt(12),
-						TxData:      hexutil.MustDecode("0x1234"),
-					},
-					{
-						IsSequenced: false,
-						Timestamp:   nil,
-						BlockNumber: nil,
-						TxData:      []byte{},
-					},
-					{
-						IsSequenced: true,
-						Timestamp:   big.NewInt(1602821663),
-						BlockNumber: big.NewInt(12),
-						TxData:      hexutil.MustDecode("0x123434"),
-					},
-					{
-						IsSequenced: false,
-						Timestamp:   nil,
-						BlockNumber: nil,
-						TxData:      []byte{},
-					},
-					{
-						IsSequenced: true,
-						Timestamp:   big.NewInt(1602821663),
-						BlockNumber: big.NewInt(12),
-						TxData:      hexutil.MustDecode("0x12343434"),
-					},
-					{
-						IsSequenced: false,
-						Timestamp:   nil,
-						BlockNumber: nil,
-						TxData:      []byte{},
-					},
-				},
-				Contexts: []ctcBatchContext{
-					{
-						NumSequencedTransactions:       big.NewInt(1),
-						NumSubsequentQueueTransactions: big.NewInt(1),
-						Timestamp:                      big.NewInt(1602821663),
-						BlockNumber:                    big.NewInt(12),
-					},
-					{
-						NumSequencedTransactions:       big.NewInt(1),
-						NumSubsequentQueueTransactions: big.NewInt(1),
-						Timestamp:                      big.NewInt(1602821663),
-						BlockNumber:                    big.NewInt(12),
-					},
-					{NumSequencedTransactions: big.NewInt(1),
-						NumSubsequentQueueTransactions: big.NewInt(1),
-						Timestamp:                      big.NewInt(1602821663),
-						BlockNumber:                    big.NewInt(12),
-					},
-					{
-						NumSequencedTransactions:       big.NewInt(1),
-						NumSubsequentQueueTransactions: big.NewInt(1),
-						Timestamp:                      big.NewInt(1602821663),
-						BlockNumber:                    big.NewInt(12),
-					},
-				},
-				ShouldStartAtBatch:    big.NewInt(0),
-				TotalElementsToAppend: big.NewInt(8),
-			},
-			expect: hexutil.MustDecode("0x0000000000000008000004000001000001005f891e1f000000000c000001000001005f891e1f000000000c000001000001005f891e1f000000000c000001000001005f891e1f000000000c00000112000002123400000312343400000412343434"),
-		},
+func newMockSubscription() *mockSubscription {
+	e := make(chan error)
+	return &mockSubscription{
+		e: e,
 	}
-
-	for _, test := range tests {
-		buf := new(bytes.Buffer)
-		err := test.input.Encode(buf)
-		if err != nil {
-			t.Fatalf("Cannot encode appendSequencerBatchCallData: %s\n", err.Error())
-		}
-
-		if !bytes.Equal(test.expect, buf.Bytes()) {
-			t.Fatalf("Serialization mismatch: expect\nexpect:\n%x\ngot:\n%x", test.expect, buf.Bytes())
-		}
-
-		reader := bytes.NewReader(buf.Bytes())
-		cd := appendSequencerBatchCallData{}
-		err = cd.Decode(reader)
-		if err != nil {
-			t.Fatalf("Error decoding: %s", err.Error())
-		}
-
-		if !isSequencerBatchCalldataEqual(&test.input, &cd) {
-			t.Fatalf("Deserialization result mismatch:\nexpect:\n%#v\ngot:\n%#v", test.input, cd)
-		}
-	}
-}
-
-func isSequencerBatchCalldataEqual(one, two *appendSequencerBatchCallData) bool {
-	if one == nil && two == nil {
-		return true
-	}
-	if xornil(one.ShouldStartAtBatch, two.ShouldStartAtBatch) {
-		return false
-	}
-	if one.ShouldStartAtBatch != nil && two.ShouldStartAtBatch != nil {
-		if !bytes.Equal(one.ShouldStartAtBatch.Bytes(), two.ShouldStartAtBatch.Bytes()) {
-			return false
-		}
-	}
-	if xornil(one.TotalElementsToAppend, two.TotalElementsToAppend) {
-		return false
-	}
-	if one.TotalElementsToAppend != nil && two.TotalElementsToAppend != nil {
-		if !bytes.Equal(one.TotalElementsToAppend.Bytes(), two.TotalElementsToAppend.Bytes()) {
-			return false
-		}
-	}
-	if len(one.Contexts) != len(two.Contexts) {
-		return false
-	}
-	for i, oneCtx := range one.Contexts {
-		twoCtx := two.Contexts[i]
-		if !isCtcBatchContextEqual(&oneCtx, &twoCtx) {
-			return false
-		}
-	}
-	if len(one.ChainElements) != len(two.ChainElements) {
-		return false
-	}
-	for i, oneEl := range one.ChainElements {
-		twoEl := two.ChainElements[i]
-		if oneEl.IsSequenced != twoEl.IsSequenced {
-			return false
-		}
-		if xornil(oneEl.Timestamp, twoEl.Timestamp) {
-			return false
-		}
-		if oneEl.Timestamp != nil && twoEl.Timestamp != nil {
-			if !bytes.Equal(oneEl.Timestamp.Bytes(), twoEl.Timestamp.Bytes()) {
-				return false
-			}
-		}
-		if xornil(oneEl.BlockNumber, twoEl.BlockNumber) {
-			return false
-		}
-		if oneEl.BlockNumber != nil && twoEl.BlockNumber != nil {
-			if !bytes.Equal(oneEl.BlockNumber.Bytes(), twoEl.BlockNumber.Bytes()) {
-				return false
-			}
-		}
-		if !bytes.Equal(oneEl.TxData, twoEl.TxData) {
-			return false
-		}
-	}
-	return true
-}
-
-func xornil(one, two interface{}) bool {
-	if one == nil && two != nil {
-		return true
-	}
-	if two == nil && one != nil {
-		return true
-	}
-
-	return false
 }

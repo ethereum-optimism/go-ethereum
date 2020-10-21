@@ -25,7 +25,7 @@ func WriteHeadEth1HeaderHash(db ethdb.KeyValueWriter, hash common.Hash) {
 }
 
 // ReadHeadEth1HeightKey reads the last processed Eth1 header height
-func ReadHeadEth1HeightKey(db ethdb.KeyValueReader) uint64 {
+func ReadHeadEth1HeaderHeight(db ethdb.KeyValueReader) uint64 {
 	data, _ := db.Get(headEth1HeightKey)
 	if len(data) == 0 {
 		return 0
@@ -34,7 +34,7 @@ func ReadHeadEth1HeightKey(db ethdb.KeyValueReader) uint64 {
 }
 
 // WriteHeadEth1HeightKey writes the last processed Eth1 header height
-func WriteHeadEth1HeightKey(db ethdb.KeyValueWriter, height uint64) {
+func WriteHeadEth1HeaderHeight(db ethdb.KeyValueWriter, height uint64) {
 	if err := db.Put(headEth1HeightKey, new(big.Int).SetUint64(height).Bytes()); err != nil {
 		log.Crit("Failed to store eth1 header height", "err", err)
 	}

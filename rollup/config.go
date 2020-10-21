@@ -26,11 +26,11 @@ type Config struct {
 	// HTTP endpoint of Layer 1 Ethereum node
 	httpEndpoint string
 	// Addresses of Layer 1 contracts
-	StateCommitmentChainAddress   common.Address
-	L1ToL2TransactionQueueAddress common.Address
+	CanonicalTransactionChainAddress common.Address
+	L1ToL2TransactionQueueAddress    common.Address
 
 	// Deployment Height of the canonical transaction chain
-	CanonicalTransactionChainDeployHeight big.Int
+	CanonicalTransactionChainDeployHeight *big.Int
 }
 
 func (c *Config) IsTxIngestionEnabled() bool {
