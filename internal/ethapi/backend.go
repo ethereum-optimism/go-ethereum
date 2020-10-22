@@ -85,6 +85,7 @@ type Backend interface {
 	// Optimism-specific API
 	SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error
 	SetTimestamp(timestamp int64)
+	IsVerifier() bool
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
@@ -107,9 +108,8 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			// TODO: Instantiate Private Key from env var here when we know it
-			Service: NewPublicTransactionPoolAPI(apiBackend, nonceLock, nil),
-			Public:  true,
+			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock, nil),
+			Public:    true,
 		}, {
 			Namespace: "txpool",
 			Version:   "1.0",

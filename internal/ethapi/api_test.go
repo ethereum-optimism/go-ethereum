@@ -212,6 +212,10 @@ func newMockBackend(rollupTransactionSender *common.Address, backendContext back
 	}
 }
 
+func (m mockBackend) IsVerifier() bool {
+	panic("not implemented")
+}
+
 func (m mockBackend) Downloader() *downloader.Downloader {
 	panic("not implemented")
 }
