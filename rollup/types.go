@@ -403,7 +403,7 @@ func (c *CTCTxEIP155) Decode(b []byte) error {
 	}
 	copy(c.Signature[:], b[:65])
 	c.gasLimit = binary.BigEndian.Uint16(b[65 : 65+2])
-	c.gasPrice = uint8(b[67])
+	c.gasPrice = b[67]
 	hi := uint32(b[68])
 	lo := uint32(binary.BigEndian.Uint16(b[69 : 69+2]))
 	c.nonce = (hi << 16) | lo

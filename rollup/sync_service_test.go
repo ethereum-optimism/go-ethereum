@@ -157,7 +157,7 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	go service.Loop()
 
 	service.heads <- &types.Header{Number: big.NewInt(1)}
-	_ = <-service.doneProcessing
+	<-service.doneProcessing
 
 	rtx, ok := service.txCache.Load(queueIndex.Uint64())
 	if !ok {
@@ -233,7 +233,7 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 	go service.Loop()
 
 	service.heads <- &types.Header{Number: big.NewInt(1)}
-	_ = <-service.doneProcessing
+	<-service.doneProcessing
 	rtx, _ := service.txCache.Load(queueIndex.Uint64())
 
 	ok, err := txProcessed(t, rtx, service)
@@ -373,7 +373,7 @@ func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	go service.Loop()
 
 	service.heads <- &types.Header{Number: big.NewInt(1)}
-	_ = <-service.doneProcessing
+	<-service.doneProcessing
 
 	// The god key should be a key containing the transaction in queued
 	_, queued := service.txpool.Content()
@@ -407,7 +407,7 @@ func newTestSyncService() (*SyncService, error) {
 
 	// Hardcoded god key for determinism
 	d := "0xcb27a3fd66eeb29699d37c860f4b3545dad264aa70d2afdd92a454f30e3ae560"
-	key, err = crypto.ToECDSA(hexutil.MustDecode(d))
+	key, _ := crypto.ToECDSA(hexutil.MustDecode(d))
 
 	cfg := Config{
 		CanonicalTransactionChainDeployHeight: big.NewInt(0),

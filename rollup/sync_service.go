@@ -243,7 +243,7 @@ func (s *SyncService) Start() error {
 
 	ctcFilterer, err := ctc.NewOVMCanonicalTransactionChainFilterer(s.CanonicalTransactionChainAddress, client)
 	if err != nil {
-		return err
+		return fmt.Errorf("Cannot initialized ctc filterer: %w", err)
 	}
 	s.ctcFilterer = ctcFilterer
 
@@ -257,6 +257,9 @@ func (s *SyncService) Start() error {
 	}
 
 	sub, err := client.SubscribeNewHead(s.ctx, s.heads)
+	if err != nil {
+		return fmt.Errorf("Cannot subscribe to new heads: %w", err)
+	}
 	s.headSubscription = sub
 
 	go s.LogDoneProcessing()
@@ -271,7 +274,7 @@ func (s *SyncService) Start() error {
 // is used for testing, but we could log here too.
 func (s *SyncService) LogDoneProcessing() {
 	for {
-		_ = <-s.doneProcessing
+		<-s.doneProcessing
 	}
 }
 
@@ -714,7 +717,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 
 		err = s.maybeReorgAndApplyTx(index, tx, godKeyShouldSign)
 		if err != nil {
-			fmt.Errorf("Sequencer batch appended error with index %d: %w", index, err)
+			return fmt.Errorf("Sequencer batch appended error with index %d: %w", index, err)
 		}
 	}
 	return nil
