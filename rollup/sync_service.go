@@ -230,12 +230,15 @@ func (s *SyncService) Start() error {
 	s.Eth1Data = eth1Data
 
 	_, client, err := s.dialEth1Node()
+	if err != nil {
+		return fmt.Errorf("Cannot dial eth1 nodes: %w", err)
+	}
 	s.ethclient = client
 	s.logClient = client
 
 	err = s.verifyNetwork()
 	if err != nil {
-		return err
+		return fmt.Errorf("Wrong network: %w", err)
 	}
 
 	// TODO(mark): if the address resolver address is passed, resolve the
