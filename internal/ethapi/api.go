@@ -1059,7 +1059,8 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
-	QueueOrigin      string          `json:"queueOrigin"`
+	QueueOriginText  string          `json:"queueOriginText"`
+	QueueOrigin      uint64          `json:"queueOrigin"`
 	Type             string          `json:"type"`
 	L1MessageSender  *common.Address `json:"l1MessageSender"`
 }
@@ -1098,16 +1099,21 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		result.L1MessageSender = meta.L1MessageSender
 		if meta.QueueOrigin != nil {
 			switch meta.QueueOrigin.Uint64() {
-			case uint64(2):
-				result.QueueOrigin = "sequencer"
-			}
-		}
+			case uint64(types.QueueOriginSequencer):
+				result.QueueOriginText = "sequencer"
+				result.QueueOrigin = uint64(types.QueueOriginSequencer)
 
-		switch meta.SignatureHashType {
-		case types.SighashEthSign:
-			result.Type = "EthSign"
-		case types.SighashEIP155:
-			result.Type = "EIP155"
+				switch meta.SignatureHashType {
+				case types.SighashEthSign:
+					result.Type = "EthSign"
+				case types.SighashEIP155:
+					result.Type = "EIP155"
+				}
+			case uint64(types.QueueOriginL1ToL2):
+				result.QueueOriginText = "l1"
+				result.QueueOrigin = uint64(types.QueueOriginL1ToL2)
+				result.Type = "None"
+			}
 		}
 	}
 	return result
