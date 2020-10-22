@@ -634,16 +634,12 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 
 			switch ctcTx.typ {
 			case CTCTransactionTypeEOA:
-				createEOATx := ctcTx.tx.(*CTCTxCreateEOA)
-
 				nonce := uint64(0)
 				to := common.Address{} // sequencerDecompressionAddress
 				gasLimit := uint64(0)  // max gas limit
-				l1TxOrigin := common.Address{}
 
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, big.NewInt(0), element.TxData, &l1TxOrigin, nil, types.QueueOriginSequencer, types.SighashEIP155)
-
-				tx, err = tx.WithSignature(s.signer, createEOATx.Signature[:])
+				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, big.NewInt(0), element.TxData, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
+				tx, err = s.signTransaction(tx)
 				if err != nil {
 					return fmt.Errorf("Cannot add signature to create eoa tx: %w", err)
 				}
@@ -678,7 +674,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				continue
 			}
 
-			tx, err := s.signTransaction(rtx.tx)
+			tx, err = s.signTransaction(rtx.tx)
 			if err != nil {
 				log.Error("Sequencer Batch Append sign queue transaction failed", "message", err.Error())
 				continue
@@ -686,16 +682,15 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 			s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 		}
 
-		err = s.maybeReorg(index, tx)
+		err = s.maybeReorgAndApplyTx(index, tx)
 		if err != nil {
 			return fmt.Errorf("Cannot reorganize in sequencer batch append queue tx: %w", err)
 		}
-		s.applyTransaction(tx)
 	}
 	return nil
 }
 
-func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
+func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction) error {
 	// Check if there is already a transaction at the index
 	if block := s.bc.GetBlockByNumber(index); block != nil {
 		// Check if the transaction is different
@@ -708,8 +703,16 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 			if err != nil {
 				return fmt.Errorf("Cannot reorganize to %d: %w", index-1, err)
 			}
+			return s.applyTransaction(tx)
 		}
 	}
+
+	block := s.bc.CurrentBlock()
+	if block.Number().Uint64()+1 == index {
+		return s.applyTransaction(tx)
+	}
+
+	return fmt.Errorf("Attempting to evaluate tx at index %d with tip %d", index, block.Number().Uint64())
 }
 
 func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction, error) {
@@ -744,13 +747,8 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 		}
 		s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 
-		err = s.maybeReorg(i, tx)
+		err = s.maybeReorgAndApplyTx(i, tx)
 		if err != nil {
-			return fmt.Errorf("Cannot reorganize in process queue batch appended: %w", err)
-		}
-		err = s.applyTransaction(tx)
-		if err != nil {
-			fmt.Println(err)
 			log.Error("Error applying transaction", "message", err.Error())
 			continue
 		}
