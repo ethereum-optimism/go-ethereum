@@ -18,6 +18,7 @@
 package eth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -77,6 +78,9 @@ type Ethereum struct {
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
+	// Transaction Ingestion Service
+	txIngestion *rollup.TxIngestion // will be deprecated
+	syncService *rollup.SyncService
 
 	// DB interfaces
 	chainDb ethdb.Database // Block chain database
@@ -89,9 +93,6 @@ type Ethereum struct {
 	bloomIndexer  *core.ChainIndexer             // Bloom indexer operating during block imports
 
 	APIBackend *EthAPIBackend
-
-	// Transaction Ingestion Service
-	txIngestion *rollup.TxIngestion
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
@@ -208,6 +209,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
 	eth.txIngestion = rollup.NewTxIngestion(config.Rollup, chainConfig, eth.txPool)
 
+	eth.syncService, err = rollup.NewSyncService(context.Background(), config.Rollup, eth.txPool, eth.blockchain, eth.chainDb)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot initialize syncservice: %w", err)
+	}
+
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit
 	checkpoint := config.Checkpoint
@@ -226,7 +232,9 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
-	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil}
+	// TODO: parse --rollup.verifier flag into isVerifier
+	isVerifier := false
+	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil, isVerifier}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.Miner.GasPrice
@@ -554,6 +562,12 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	if s.lesServer != nil {
 		s.lesServer.Start(srvr)
 	}
+
+	err := s.syncService.Start()
+	if err != nil {
+		return fmt.Errorf("unable to start syncservice: %w", err)
+	}
+
 	return nil
 }
 
@@ -570,6 +584,7 @@ func (s *Ethereum) Stop() error {
 	s.txPool.Stop()
 	s.miner.Stop()
 	s.eventMux.Stop()
+	s.syncService.Stop()
 
 	s.chainDb.Close()
 	close(s.shutdownChan)
