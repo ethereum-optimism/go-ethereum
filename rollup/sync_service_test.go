@@ -30,7 +30,7 @@ func TestSyncServiceDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mockEthClient(service)
+	mockEthClient(service, map[string]interface{}{})
 	mockLogClient(service, [][]types.Log{})
 
 	go service.Loop()
@@ -99,7 +99,8 @@ func abiEncodeCTCEnqueued(origin, target *common.Address, gasLimit, queueIndex, 
 	return raw
 }
 
-func abiEncodeQueueBatchAppended(startingQueueIndex, numQueueElements, totalElements *big.Int) []byte {
+// Can be used for both queue batch appended and sequencer batch appended
+func abiEncodeBatchAppended(startingQueueIndex, numQueueElements, totalElements *big.Int) []byte {
 	args := abi.Arguments{
 		{Name: "startingQueueIndex", Type: mustABINewType("uint256")},
 		{Name: "numQueueElements", Type: mustABINewType("uint256")},
@@ -138,7 +139,7 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	// The data is the `data` on the transaction
 	data := []byte{0x02, 0x92}
 
-	mockEthClient(service)
+	mockEthClient(service, map[string]interface{}{})
 	mockLogClient(service, [][]types.Log{
 		{
 			{
@@ -194,6 +195,8 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The queue index is 0 as well as the starting queue index below.
+	// These must match for this to work.
 	queueIndex, timestamp, gasLimit := big.NewInt(0), big.NewInt(97538), big.NewInt(210000)
 	target := common.HexToAddress("0x04668ec2f57cc15c381b461b9fedab5d451c8f7f")
 	l1TxOrigin := common.HexToAddress("0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8")
@@ -203,7 +206,7 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 	numQueueElements := big.NewInt(1)
 	totalElements := big.NewInt(0)
 
-	mockEthClient(service)
+	mockEthClient(service, map[string]interface{}{})
 	mockLogClient(service, [][]types.Log{
 		{
 			// This transaction will end up in the tx cache
@@ -222,7 +225,7 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 				Topics: []common.Hash{
 					common.BytesToHash(queueBatchAppendedEventSignature),
 				},
-				Data: abiEncodeQueueBatchAppended(startingQueueIndex, numQueueElements, totalElements),
+				Data: abiEncodeBatchAppended(startingQueueIndex, numQueueElements, totalElements),
 			},
 		},
 	})
@@ -233,6 +236,13 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 	_ = <-service.doneProcessing
 	rtx, _ := service.txCache.Load(queueIndex.Uint64())
 
+	ok, err := txProcessed(t, rtx, service)
+	if !ok {
+		t.Fatal(err)
+	}
+}
+
+func txProcessed(t *testing.T, rtx *RollupTransaction, service *SyncService) (bool, error) {
 	// Due to the current architecture of the system, the transaction should end
 	// up in the mempool. Downstream services are responsible for applying
 	// transactions to the state from the mempool.
@@ -281,6 +291,102 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 	if count != 1 {
 		t.Fatal("More transactions in mempool than expected")
 	}
+
+	return true, nil
+}
+
+func TestSyncServiceSequencerBatchAppend(t *testing.T) {
+	service, err := newTestSyncService()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	raw := hexutil.MustDecode("0x789a80053e4927d0a898db8e065e948f5cf086e32f9ccaa54c1908e22ac430c62621578113ddbb62d509bf6049b8fb544ab06d36f916685a2eb8e57ffadde02301")
+	var sig [65]byte
+	copy(sig[:], raw)
+
+	ctcTx := CTCTransaction{
+		typ: CTCTransactionTypeEIP155,
+		tx: &CTCTxEIP155{
+			Signature: sig,
+			gasLimit:  50000,
+			gasPrice:  0,
+			nonce:     (1 << 21) + 14,
+			target:    common.HexToAddress("0x5769785087b1b64e4cbd9a38d48a1ca35a2fd75cf5cd941d75b2e2fbc6018e8a"),
+			data:      raw,
+		},
+	}
+
+	length, _ := ctcTx.Len()
+	txdata := make([]byte, length)
+	err = ctcTx.Encode(txdata)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cd := appendSequencerBatchCallData{
+		ChainElements: []chainElement{
+			{
+				IsSequenced: true,
+				Timestamp:   big.NewInt(1602820447),
+				BlockNumber: big.NewInt(0),
+				TxData:      txdata,
+			},
+		},
+		Contexts: []ctcBatchContext{
+			{
+				NumSequencedTransactions:       big.NewInt(1),
+				NumSubsequentQueueTransactions: big.NewInt(0),
+				Timestamp:                      big.NewInt(1602820447),
+				BlockNumber:                    big.NewInt(0),
+			},
+		},
+		ShouldStartAtBatch:    big.NewInt(0),
+		TotalElementsToAppend: big.NewInt(1),
+	}
+
+	rawCd := new(bytes.Buffer)
+	err = cd.Encode(rawCd)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// get transaction by hash
+	mockEthClient(service, map[string]interface{}{
+		"TransactionByHash": []*types.Transaction{
+			types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), rawCd.Bytes(), nil, nil, types.QueueOriginSequencer, types.SighashEIP155),
+		},
+	})
+	mockLogClient(service, [][]types.Log{
+		{
+			{
+				Address:     ctcAddress,
+				BlockNumber: 1,
+				Topics: []common.Hash{
+					common.BytesToHash(sequencerBatchAppendedEventSignature),
+				},
+				Data: abiEncodeBatchAppended(big.NewInt(0), big.NewInt(1), big.NewInt(1)),
+			},
+		},
+	})
+
+	go service.Loop()
+
+	service.heads <- &types.Header{Number: big.NewInt(1)}
+	_ = <-service.doneProcessing
+
+	// The god key should be a key containing the transaction in queued
+	_, queued := service.txpool.Content()
+
+	// queued should only have 1 key/value pair
+	for _, transactions := range queued {
+		// This stuff should match ctcTx.tx
+		tx := transactions[0]
+		data := tx.Data()
+		to := tx.To().Hex()
+		fmt.Printf("%#v\n", data)
+		fmt.Printf("%#v\n", to)
+	}
 }
 
 func newTestSyncService() (*SyncService, error) {
@@ -297,7 +403,7 @@ func newTestSyncService() (*SyncService, error) {
 	}
 	chaincfg := params.ChainConfig{ChainID: chainID}
 
-	txPool := core.NewTxPool(core.TxPoolConfig{}, &chaincfg, chain)
+	txPool := core.NewTxPool(core.TxPoolConfig{PriceLimit: 0}, &chaincfg, chain)
 
 	// Hardcoded god key for determinism
 	d := "0xcb27a3fd66eeb29699d37c860f4b3545dad264aa70d2afdd92a454f30e3ae560"
@@ -324,12 +430,15 @@ func mockLogClient(service *SyncService, logs [][]types.Log) {
 	service.ctcFilterer = ctcFilterer
 }
 
-func mockEthClient(service *SyncService) {
-	service.ethclient = newMockEthereumClient()
+func mockEthClient(service *SyncService, responses map[string]interface{}) {
+	service.ethclient = newMockEthereumClient(responses)
 }
 
 // Test utilities
-type mockEthereumClient struct{}
+type mockEthereumClient struct {
+	transactionByHashCallCount int
+	transactionByHashResponses []*types.Transaction
+}
 
 func (m *mockEthereumClient) ChainID(context.Context) (*big.Int, error) {
 	return big.NewInt(0), nil
@@ -346,15 +455,24 @@ func (m *mockEthereumClient) HeaderByNumber(context.Context, *big.Int) (*types.H
 	return &h, nil
 }
 func (m *mockEthereumClient) TransactionByHash(context.Context, common.Hash) (*types.Transaction, bool, error) {
+	if m.transactionByHashCallCount < len(m.transactionByHashResponses) {
+		res := m.transactionByHashResponses[m.transactionByHashCallCount]
+		return res, false, nil
+	}
 	t := types.Transaction{}
 	return &t, false, nil
 }
 
-// going to have to give this a list of things to return
-// method name: []int
-// where the slice indices correspond to the call count
-func newMockEthereumClient() *mockEthereumClient {
-	return &mockEthereumClient{}
+func newMockEthereumClient(responses map[string]interface{}) *mockEthereumClient {
+	transactionByHashResponses := []*types.Transaction{}
+
+	txByHash, ok := responses["TransactionByHash"]
+	if ok {
+		transactionByHashResponses = txByHash.([]*types.Transaction)
+	}
+	return &mockEthereumClient{
+		transactionByHashResponses: transactionByHashResponses,
+	}
 }
 
 type mockBoundCTCContract struct {

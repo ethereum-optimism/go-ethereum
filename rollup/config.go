@@ -18,17 +18,21 @@ type Config struct {
 	TxIngestionDBPassword   string
 	TxIngestionPollInterval time.Duration
 
+	// Enable the sync service
+	Eth1SyncServiceEnable bool
 	// Ensure that the correct layer 1 chain is being connected to
-	Eth1ChainID   big.Int
-	Eth1NetworkID big.Int
+	Eth1ChainId   uint64
+	Eth1NetworkId uint64
+	// Gas Limit
+	GasLimit uint64
 	// The God Key, used to sign L1 to L2 transactions
 	TxIngestionSignerKey *ecdsa.PrivateKey
 	// HTTP endpoint of Layer 1 Ethereum node
-	httpEndpoint string
+	Eth1HTTPEndpoint string
 	// Addresses of Layer 1 contracts
 	CanonicalTransactionChainAddress common.Address
 	L1ToL2TransactionQueueAddress    common.Address
-
+	SequencerDecompressionAddress    common.Address
 	// Deployment Height of the canonical transaction chain
 	CanonicalTransactionChainDeployHeight *big.Int
 }

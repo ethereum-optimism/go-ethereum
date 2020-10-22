@@ -411,3 +411,31 @@ func (c *CTCTxEIP155) Decode(b []byte) error {
 	c.data = b[91:]
 	return nil
 }
+
+func isCtcTxEqual(a, b *types.Transaction) bool {
+	if a.To() == nil && b.To() != nil {
+		return false
+	}
+	if b.To() != nil && a.To() == nil {
+		return false
+	}
+	if !bytes.Equal(a.To().Bytes(), b.To().Bytes()) {
+		return false
+	}
+	if !bytes.Equal(a.Data(), b.Data()) {
+		return false
+	}
+	if a.L1MessageSender() == nil && b.L1MessageSender() != nil {
+		return false
+	}
+	if a.L1MessageSender() != nil && b.L1MessageSender() == nil {
+		return false
+	}
+	if !bytes.Equal(a.L1MessageSender().Bytes(), b.L1MessageSender().Bytes()) {
+		return false
+	}
+	if a.Gas() != b.Gas() {
+		return false
+	}
+	return true
+}
