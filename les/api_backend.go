@@ -49,6 +49,10 @@ func (b *LesApiBackend) RollupTransactionSender() *common.Address {
 	return nil
 }
 
+func (b *LesApiBackend) IsVerifier() bool {
+	return false
+}
+
 func (b *LesApiBackend) ChainConfig() *params.ChainConfig {
 	return b.eth.chainConfig
 }
