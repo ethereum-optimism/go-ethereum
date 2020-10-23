@@ -115,7 +115,7 @@ func (t *TxIngestion) loop() {
 		panic("Transaction ingestion requires a private key")
 	}
 
-	hex := hexutil.Encode(crypto.FromECDSAPub(&t.key.PublicKey))
+	hex := hexutil.Encode(crypto.CompressPubkey(&t.key.PublicKey))
 	address := crypto.PubkeyToAddress(t.key.PublicKey)
 	log.Info("Starting transaction ingestion", "key", hex, "address", address.Hex())
 
