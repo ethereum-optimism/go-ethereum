@@ -784,7 +784,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 			ctcTx := CTCTransaction{}
 			err = ctcTx.Decode(element.TxData)
 			if err != nil {
-				return fmt.Errorf("Cannot deserialize txdata: %w", err)
+				return fmt.Errorf("Cannot deserialize txdata at index %d: %w", index, err)
 			}
 
 			switch ctcTx.typ {

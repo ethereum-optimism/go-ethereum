@@ -321,14 +321,14 @@ func (c *CTCTransaction) Decode(b []byte) error {
 		tx := CTCTxCreateEOA{}
 		err := tx.Decode(b[1:])
 		if err != nil {
-			return fmt.Errorf("Cannot decode EOA CTC tx: %w", err)
+			return fmt.Errorf("Cannot decode EOA ctc tx %x: %w", b, err)
 		}
 		c.tx = &tx
 	case CTCTransactionTypeEIP155:
 		tx := CTCTxEIP155{}
 		err := tx.Decode(b[1:])
 		if err != nil {
-			return fmt.Errorf("Cannot decode EIP155 CTC tx: %w", err)
+			return fmt.Errorf("Cannot decode EIP155 ctc tx %x: %w", b, err)
 		}
 		c.tx = &tx
 	}
