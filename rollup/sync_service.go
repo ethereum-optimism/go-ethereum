@@ -310,7 +310,7 @@ func (s *SyncService) Start() error {
 // `eth_sendRawTransaction`. `syncing` should never be set directly
 // outside of this function.
 func (s *SyncService) setSyncStatus(status bool) {
-	if status == true {
+	if status {
 		s.txpool.LockAddRemote()
 	} else {
 		s.txpool.UnlockAddRemote()
