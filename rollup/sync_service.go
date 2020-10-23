@@ -45,11 +45,24 @@ type CTCEventFilterer interface {
 	ParseSequencerBatchAppended(types.Log) (*ctc.OVMCanonicalTransactionChainSequencerBatchAppended, error)
 }
 
+type CTCCaller interface {
+	GetNextQueueIndex(*bind.CallOpts) (*big.Int, error)
+	GetQueueElement(*bind.CallOpts, *big.Int) (ctc.Lib_OVMCodecQueueElement, error)
+}
+
+type RollupTxsByIndex []*RollupTransaction
+
+func (l RollupTxsByIndex) Len() int           { return len(l) }
+func (l RollupTxsByIndex) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l RollupTxsByIndex) Less(i, j int) bool { return l[i].index < l[i].index }
+
 // Consider adding a processed bool for sanity check
 type RollupTransaction struct {
 	tx          *types.Transaction
 	timestamp   time.Time
 	blockHeight uint64
+	index       uint64
+	executed    bool
 }
 
 // Move this to its own file
@@ -84,7 +97,7 @@ func (t *TransactionCache) Load(index uint64) (*RollupTransaction, bool) {
 	return &rtx, true
 }
 
-func (t *TransactionCache) Range(f func(uint64, RollupTransaction) bool) {
+func (t *TransactionCache) Range(f func(uint64, *RollupTransaction)) {
 	t.m.Range(func(key interface{}, value interface{}) bool {
 		rtx, ok := value.(RollupTransaction)
 		if !ok {
@@ -97,7 +110,8 @@ func (t *TransactionCache) Range(f func(uint64, RollupTransaction) bool) {
 			return true
 
 		}
-		return f(index, rtx)
+		f(index, &rtx)
+		return true
 	})
 }
 
@@ -118,11 +132,13 @@ type Eth1Data struct {
 type SyncService struct {
 	ctx                              context.Context
 	cancel                           context.CancelFunc
+	verifier                         bool
 	processingLock                   sync.RWMutex
 	db                               ethdb.Database
 	enable                           bool
 	ctcABI                           abi.ABI
 	ctcFilterer                      CTCEventFilterer
+	ctcCaller                        CTCCaller
 	txCache                          *TransactionCache
 	ethclient                        EthereumClient
 	logClient                        bind.ContractFilterer
@@ -140,6 +156,7 @@ type SyncService struct {
 	key                              ecdsa.PrivateKey
 	address                          common.Address
 	gasLimit                         uint64
+	syncing                          bool
 	Eth1Data                         Eth1Data
 	ctcDeployHeight                  *big.Int
 	CanonicalTransactionChainAddress common.Address
@@ -170,10 +187,14 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 
 	// Layer 2 chainid to use for signing
 	chainID := bc.Config().ChainID
+	// Always initialize syncing to true to start, the sequencer can toggle off
+	// syncing while the verifier is always syncing
+	syncing := true
 
 	service := SyncService{
 		ctx:                              ctx,
 		cancel:                           cancel,
+		verifier:                         cfg.IsVerifier,
 		enable:                           cfg.Eth1SyncServiceEnable,
 		heads:                            make(chan *types.Header, 256),
 		doneProcessing:                   make(chan uint64, 16),
@@ -195,6 +216,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		clearTransactionsAfter:           (5760 * 15), // 15 days worth of blocks
 		clearTransactionsTicker:          time.NewTicker(time.Hour),
 		txCache:                          NewTransactionCache(),
+		syncing:                          syncing,
 	}
 
 	return &service, nil
@@ -202,6 +224,8 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 
 // Start initializes the service, connecting to Ethereum1 and starting the
 // subservices required for the operation of the SyncService.
+// txs through syncservice go to mempool.locals
+// txs through rpc go to mempool.remote
 func (s *SyncService) Start() error {
 	if !s.enable {
 		return nil
@@ -244,11 +268,15 @@ func (s *SyncService) Start() error {
 	// TODO(mark): if the address resolver address is passed, resolve the
 	// addresses instead of using the hardcoded ones.
 
-	ctcFilterer, err := ctc.NewOVMCanonicalTransactionChainFilterer(s.CanonicalTransactionChainAddress, client)
+	s.ctcFilterer, err = ctc.NewOVMCanonicalTransactionChainFilterer(s.CanonicalTransactionChainAddress, client)
 	if err != nil {
-		return fmt.Errorf("Cannot initialized ctc filterer: %w", err)
+		return fmt.Errorf("Cannot initialize ctc filterer: %w", err)
 	}
-	s.ctcFilterer = ctcFilterer
+
+	s.ctcCaller, err = ctc.NewOVMCanonicalTransactionChainCaller(s.CanonicalTransactionChainAddress, client)
+	if err != nil {
+		return fmt.Errorf("Cannot initialize ctc caller: %w", err)
+	}
 
 	err = s.checkSyncStatus()
 	if err != nil {
@@ -269,7 +297,93 @@ func (s *SyncService) Start() error {
 	go s.Loop()
 	go s.ClearTransactionLoop()
 
+	if !s.verifier {
+		go s.sequencerIngestQueue()
+	}
+
 	return nil
+}
+
+// setSyncStatus sets the `syncing` field as well as manages the
+// lock around adding "remote" transactions to the mempool. The
+// remote transactions correspond to transactions from RPC, like
+// `eth_sendRawTransaction`. `syncing` should never be set directly
+// outside of this function.
+func (s *SyncService) setSyncStatus(status bool) {
+	if status == true {
+		s.txpool.LockAddRemote()
+	} else {
+		s.txpool.UnlockAddRemote()
+	}
+	s.syncing = status
+}
+
+// sequencerIngestQueue will ingest transactions from the queue. This
+// is only for sequencer mode and will panic if called in verifier mode.
+func (s *SyncService) sequencerIngestQueue() {
+	if s.verifier {
+		panic("Cannot run sequencer ingestion in verifier mode")
+	}
+
+	ticker := time.NewTicker(time.Second * 30)
+
+	for {
+		select {
+		case <-ticker.C:
+			switch s.syncing {
+			case false:
+				// Get the tip
+				tip, err := s.ethclient.HeaderByNumber(s.ctx, nil)
+				if err != nil {
+					log.Error("Sequencer ingest queue cannot get tip", "message", err.Error())
+					continue
+				}
+				tipHeight := tip.Number.Uint64()
+				// The transactions need to be played in order and there is no
+				// guarantee of order when it comes to the txcache iteration, so
+				// collect an array of pointers and then sort them by index.
+				txs := []*RollupTransaction{}
+				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
+					// The transaction has not been executed and is sufficiently old
+					if !rtx.executed && rtx.blockHeight+10 < tipHeight {
+						txs = append(txs, rtx)
+					}
+				})
+
+				sort.Sort(RollupTxsByIndex(txs))
+				for _, rtx := range txs {
+					// set the timestamp
+					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
+					// The god key needs to sign L1ToL2 transactions
+					err := s.maybeReorgAndApplyTx(rtx.index, rtx.tx, true)
+					if err != nil {
+						log.Error("Sequencer ingest queue transaction failed: %w", err)
+					}
+					rtx.executed = true
+				}
+			case true:
+				opts := bind.CallOpts{Pending: false, Context: s.ctx}
+				index, err := s.ctcCaller.GetNextQueueIndex(&opts)
+				if err != nil {
+					log.Error("Cannot get next queue index", "message", err.Error())
+					continue
+				}
+				el, err := s.ctcCaller.GetQueueElement(&opts, index)
+				if err != nil {
+					log.Error("Cannot get queue element", "index", index.Uint64(), "message", err.Error())
+					continue
+				}
+				// When the latest queue element is sufficiently old, set the
+				// sync status to false.
+				ts := time.Unix(int64(el.Timestamp.Uint64()), 0).Add(5 * time.Minute)
+				if ts.Unix() > time.Now().Unix() {
+					s.setSyncStatus(false)
+				}
+			}
+		case <-s.ctx.Done():
+			return
+		}
+	}
 }
 
 // LogDoneProcessing reads from the doneProcessing channel
@@ -301,13 +415,12 @@ func (s *SyncService) ClearTransactionLoop() {
 			currentHeight := tip.Number.Uint64()
 
 			count := 0
-			s.txCache.Range(func(index uint64, rtx RollupTransaction) bool {
+			s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
 				if rtx.blockHeight+s.clearTransactionsAfter > currentHeight {
 					log.Debug("Clearing transaction from transaction cache", "hash", rtx.tx.Hash(), "index", index)
 					s.txCache.Delete(index)
 					count++
 				}
-				return true
 			})
 			log.Info("SyncService: cleared transactions from cache", "count", count)
 		case <-s.ctx.Done():
@@ -388,8 +501,6 @@ func (s *SyncService) Loop() {
 			blockHeight := header.Number.Uint64()
 			eth1data, err := s.ProcessETHBlock(s.ctx, header)
 			if err != nil {
-				// TODO: temp
-				fmt.Println(err)
 				log.Error("Error processing eth block", "message", err.Error(), "height", blockHeight)
 				s.doneProcessing <- blockHeight
 				// TODO(mark): consider checking the error type here and calling
@@ -508,13 +619,12 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	if blockHeight <= s.Eth1Data.BlockHeight {
 		log.Info("Reorganize on eth1 detected, removing transactions from cache", "new height", blockHeight, "old height", s.Eth1Data.BlockHeight, "new hash", header.Hash().Hex())
 		count := 0
-		s.txCache.Range(func(index uint64, rtx RollupTransaction) bool {
+		s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
 			if blockHeight < rtx.blockHeight {
 				log.Debug("Clearing transaction from transaction cache", "hash", rtx.tx.Hash(), "index", index)
 				s.txCache.Delete(index)
 				count++
 			}
-			return true
 		})
 		log.Info("Reorganize cleared transactions from cache", "count", count)
 	}
@@ -540,7 +650,7 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 
 	// sort the logs by Index
 	// TODO: test ByIndex, must be ascending
-	sort.Sort(ByIndex(logs))
+	sort.Sort(LogsByIndex(logs))
 	for _, ethlog := range logs {
 		if ethlog.BlockNumber != blockHeight {
 			log.Warn("Unexpected block height from log", "got", ethlog.BlockNumber, "expected", blockHeight)
@@ -623,7 +733,7 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 
 	// Timestamp is used to update the blockchains clocktime
 	timestamp := time.Unix(event.Timestamp.Int64(), 0)
-	rtx := RollupTransaction{tx: tx, timestamp: timestamp, blockHeight: ethlog.BlockNumber}
+	rtx := RollupTransaction{tx: tx, timestamp: timestamp, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
 	// In the case of a reorg, the rtx at a certain index can be overwritten
 	s.txCache.Store(event.QueueIndex.Uint64(), rtx)
 
@@ -716,6 +826,11 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				continue
 			}
 			s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
+			// TODO: Make sure that this change will persist in the cache
+			// and that txCache.Store doesn't need to be called
+			// There is also the case that maybeReorgAndApplyTx returns
+			// an error and the tx is not executed.
+			rtx.executed = true
 		}
 
 		err = s.maybeReorgAndApplyTx(index, tx, godKeyShouldSign)
@@ -747,6 +862,15 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 		if !isCtcTxEqual(tx, prev) {
 			log.Info("Different transaction detected, reorganizing", "new", tx.Hash().Hex(), "previous", prev.Hash().Hex())
 			err := s.bc.SetHead(index - 1)
+			// Set the sync status to true. This will grab a lock around
+			// the mempool such that transactions will no longer be able to come
+			// via RPC.
+			s.setSyncStatus(true)
+
+			// TODO: need to iterate through the transactions in the txcache and
+			// set `rtx.executed = false` for ones that have a blockheight where:
+			// blockheight > index -1
+
 			if err != nil {
 				return fmt.Errorf("Cannot reorganize to %d: %w", index-1, err)
 			}
@@ -827,6 +951,9 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 			log.Error("Error applying transaction", "message", err.Error())
 			continue
 		}
+		// TODO: make sure that this mutates the item in the cache and not
+		// a copy of the item here.
+		rtx.executed = true
 	}
 	return nil
 }

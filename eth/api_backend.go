@@ -235,12 +235,14 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 	return b.eth.BlockChain().SubscribeLogsEvent(ch)
 }
 
+// Transactions originating from the RPC endpoints are added to remotes so that
+// a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-	return b.eth.txPool.AddLocal(signedTx)
+	return b.eth.txPool.AddRemote(signedTx)
 }
 
 func (b *EthAPIBackend) SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error {
-	return b.eth.txPool.AddLocals(signedTxs)
+	return b.eth.txPool.AddRemotes(signedTxs)
 }
 
 func (b *EthAPIBackend) SetTimestamp(timestamp int64) {

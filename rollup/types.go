@@ -49,11 +49,11 @@ func (r *TransitionBatch) addBlock(block *types.Block) {
 }
 
 // Implement the Sort interface for []types.Log by Index
-type ByIndex []types.Log
+type LogsByIndex []types.Log
 
-func (l ByIndex) Len() int           { return len(l) }
-func (l ByIndex) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
-func (l ByIndex) Less(i, j int) bool { return l[i].Index < l[i].Index }
+func (l LogsByIndex) Len() int           { return len(l) }
+func (l LogsByIndex) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l LogsByIndex) Less(i, j int) bool { return l[i].Index < l[i].Index }
 
 type ctcBatchContext struct {
 	NumSequencedTransactions       *big.Int

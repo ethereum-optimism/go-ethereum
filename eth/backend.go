@@ -232,9 +232,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
-	// TODO: parse --rollup.verifier flag into isVerifier
-	isVerifier := false
-	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil, isVerifier}
+	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil, config.Rollup.IsVerifier}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.Miner.GasPrice

@@ -1139,6 +1139,9 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
 		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
 	}
+	if ctx.GlobalIsSet(RollupEnableVerifierFlag.Name) {
+		cfg.IsVerifier = true
+	}
 }
 
 // setLes configures the les server and ultra light client settings from the command line flags.

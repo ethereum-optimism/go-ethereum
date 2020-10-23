@@ -18,6 +18,8 @@ type Config struct {
 	TxIngestionDBPassword   string
 	TxIngestionPollInterval time.Duration
 
+	// Verifier mode
+	IsVerifier bool
 	// Enable the sync service
 	Eth1SyncServiceEnable bool
 	// Ensure that the correct layer 1 chain is being connected to
