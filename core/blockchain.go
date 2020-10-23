@@ -771,6 +771,11 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	if block == nil {
 		return nil
 	}
+	// Get the transaction meta and attach it to each transaction
+	for _, tx := range block.Transactions() {
+		meta := rawdb.ReadTransactionMeta(bc.db, tx.Hash())
+		tx.SetTransactionMeta(meta)
+	}
 	// Cache the found block for next time and return
 	bc.blockCache.Add(block.Hash(), block)
 	return block
