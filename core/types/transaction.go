@@ -36,11 +36,13 @@ var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
 )
 
+// TODO(mark): migrate from sighash type to type
 type SignatureHashType uint8
 
 const (
 	SighashEIP155  SignatureHashType = 0
 	SighashEthSign SignatureHashType = 1
+	CreateEOA      SignatureHashType = 2
 )
 
 type Transaction struct {

@@ -1060,8 +1060,9 @@ type RPCTransaction struct {
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
 	QueueOrigin      string          `json:"queueOrigin"`
-	Type             string          `json:"type"`
-	L1MessageSender  *common.Address `json:"l1MessageSender"`
+	TxType           string          `json:"txType"`
+	L1TxOrigin       *common.Address `json:"l1TxOrigin"`
+	L1BlockNumber    *hexutil.Big    `json:"l1BlockNumber"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1095,19 +1096,26 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	}
 
 	if meta := tx.GetMeta(); meta != nil {
-		result.L1MessageSender = meta.L1MessageSender
+		result.L1TxOrigin = meta.L1MessageSender
+		if meta.L1RollupTxId != nil {
+			result.L1BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(uint64(*meta.L1RollupTxId)))
+		}
 		if meta.QueueOrigin != nil {
 			switch meta.QueueOrigin.Uint64() {
-			case uint64(2):
+			case uint64(types.QueueOriginSequencer):
 				result.QueueOrigin = "sequencer"
+			case uint64(types.QueueOriginL1ToL2):
+				result.QueueOrigin = "l1"
 			}
 		}
 
 		switch meta.SignatureHashType {
 		case types.SighashEthSign:
-			result.Type = "EthSign"
+			result.TxType = "EthSign"
 		case types.SighashEIP155:
-			result.Type = "EIP155"
+			result.TxType = "EIP155"
+		case types.CreateEOA:
+			result.TxType = "CreateEOA"
 		}
 	}
 	return result
