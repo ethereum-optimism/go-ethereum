@@ -82,10 +82,48 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
-	if err != nil {
-		return nil, err
+	var err error
+	if vm.UsingOVM {
+		// OVM_ENABLED
+
+		// Check to see if we need to preempt this transaction with an EOACreate transaction.
+		needseoa, err := NeedsEOACreate(tx, types.MakeSigner(config, header.Number), statedb)
+		if err != nil {
+			return nil, err
+		}
+
+		if needseoa {
+			msg, err := ToOvmMessage(tx, types.MakeSigner(config, header.Number), true)
+			if err != nil {
+				return nil, err
+			}
+
+			// Create a new context to be used in the EVM environment
+			context := NewEVMContext(msg, header, bc, author)
+			// Create a new environment which holds all relevant information
+			// about the transaction and calling mechanisms.
+			vmenv := vm.NewEVM(context, statedb, config, cfg)
+
+			// Apply the transaction to the current state (included in the env)
+			ApplyMessage(vmenv, msg, gp)
+		}
 	}
+
+	var msg Message
+	if !vm.UsingOVM {
+		// OVM_DISABLED
+		msg, err = tx.AsMessage(types.MakeSigner(config, header.Number))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// OVM_ENABLED
+		msg, err = ToOvmMessage(tx, types.MakeSigner(config, header.Number), false)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
 	// Create a new environment which holds all relevant information

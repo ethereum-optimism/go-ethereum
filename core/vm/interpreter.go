@@ -124,6 +124,8 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	}
 }
 
+var lastOpcode OpCode
+
 // Run loops and evaluates the contract's code with the given input data and returns
 // the return byte-slice and an error if one occurred.
 //
@@ -265,6 +267,13 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			in.cfg.Tracer.CaptureState(in.evm, pc, op, gasCopy, cost, mem, stack, contract, in.evm.depth, err)
 			logged = true
 		}
+
+		fmt.Printf("Running opcode: %s\n", op.String())
+		if (lastOpcode.String() == "MSTORE" || lastOpcode.String() == "CALLDATACOPY" || lastOpcode.String() == "RETURNDATACOPY") {
+			mem.Print()
+		}
+
+		lastOpcode = op
 
 		// execute the operation
 		res, err = operation.execute(&pc, in, contract, mem, stack)

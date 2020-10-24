@@ -39,8 +39,9 @@ var (
 type SignatureHashType uint8
 
 const (
-	SighashEIP155  SignatureHashType = 0
-	SighashEthSign SignatureHashType = 1
+	SighashEIP155  		SignatureHashType = 0
+	SighashEthSign 		SignatureHashType = 1
+	SighashEOACreate	SignatureHashType = 2
 )
 
 type Transaction struct {

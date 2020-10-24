@@ -18,31 +18,20 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
 var (
 	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
-	executionManagerAbi          abi.ABI
 )
-
-func init() {
-	var err error
-	executionManagerAbi, err = abi.JSON(strings.NewReader(vm.RawExecutionManagerAbi))
-	if err != nil {
-		panic(fmt.Sprintf("Error reading ExecutionManagerAbi! Error: %s", err))
-	}
-}
 
 /*
 The State Transitioning Model
@@ -75,20 +64,21 @@ type StateTransition struct {
 
 // Message represents a message sent to a contract.
 type Message interface {
-	From() common.Address
+	From() 				common.Address
 	//FromFrontier() (common.Address, error)
-	To() *common.Address
+	To() 				*common.Address
 
-	GasPrice() *big.Int
-	Gas() uint64
-	Value() *big.Int
+	GasPrice() 			*big.Int
+	Gas() 				uint64
+	Value() 			*big.Int
 
-	Nonce() uint64
-	CheckNonce() bool
-	Data() []byte
-	L1MessageSender() *common.Address
-	L1RollupTxId() *hexutil.Uint64
-	QueueOrigin() *big.Int
+	Nonce() 			uint64
+	CheckNonce() 		bool
+	Data() 				[]byte
+	L1MessageSender() 	*common.Address
+	L1RollupTxId() 		*hexutil.Uint64
+	QueueOrigin() 		*big.Int
+	SignatureHashType() types.SignatureHashType
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -220,62 +210,20 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 
 	var (
-		evm = st.evm
-		// vm errors do not effect consensus and are therefore
-		// not assigned to err, except for insufficient balance
-		// error.
-		vmerr error
+		vmerr error  // vm errors do not effect consensus and are therefore not assigned to err
 	)
 
-	to := "<nil>"
-	if msg.To() != nil {
-		to = msg.To().Hex()
-	}
-
-	executionMgrTime := st.evm.Time
-	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
-		executionMgrTime = big.NewInt(1)
-	}
-
-	// TODO: queue origin is always 0 with current version of em
-	queueOrigin := big.NewInt(0)
-
-	l1MessageSender := msg.L1MessageSender()
-	if l1MessageSender == nil {
-		addr := common.HexToAddress("")
-		l1MessageSender = &addr
-	}
-
-	log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "l1MessageSender", l1MessageSender.Hex(), "data", hexutil.Encode(msg.Data()))
-
 	if contractCreation {
-		// Here we are going to call the EM directly
-		deployContractCalldata, _ := executionManagerAbi.Pack(
-			"executeTransaction",
-			executionMgrTime,        // lastL1Timestamp
-			queueOrigin,             // queueOrigin
-			common.HexToAddress(""), // ovmEntrypoint
-			st.data,                 // callBytes
-			sender,                  // fromAddress
-			l1MessageSender,         // l1MsgSenderAddress
-			true,                    // allowRevert
-		)
-
-		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, deployContractCalldata, st.gas, st.value)
+		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
 	} else {
-		callContractCalldata, _ := executionManagerAbi.Pack(
-			"executeTransaction",
-			executionMgrTime, // lastL1Timestamp
-			queueOrigin,      // queueOrigin
-			st.to(),          // ovmEntrypoint
-			st.data,          // callBytes
-			sender,           // fromAddress
-			l1MessageSender,  // l1MsgSenderAddress
-			true,             // allowRevert
-		)
-
-		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, callContractCalldata, st.gas, st.value)
+		// Increment the nonce for the next transaction
+		if !vm.UsingOVM {
+			// OVM_DISABLED
+			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+		}
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
+
 	if vmerr != nil {
 		log.Debug("VM returned with error", "err", vmerr)
 
@@ -290,8 +238,12 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			return nil, 0, false, vmerr
 		}
 	}
+
 	st.refundGas()
-	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	if !vm.UsingOVM {
+		// OVM_DISABLED
+		st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	}
 
 	log.Debug("return data", "data", hexutil.Encode(ret))
 	return ret, st.gasUsed(), vmerr != nil, err
