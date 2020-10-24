@@ -42,7 +42,7 @@ type SignatureHashType uint8
 const (
 	SighashEIP155  SignatureHashType = 0
 	SighashEthSign SignatureHashType = 1
-	CreateEOA      SignatureHashType = 3
+	CreateEOA      SignatureHashType = 2
 )
 
 type Transaction struct {
