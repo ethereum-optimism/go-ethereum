@@ -17,8 +17,8 @@ type QueueOrigin int64
 
 const (
 	// Possible `queue_origin` values
-	QueueOriginL1ToL2    QueueOrigin = 0
-	QueueOriginSequencer QueueOrigin = 1
+	QueueOriginSequencer QueueOrigin = 0
+	QueueOriginL1ToL2    QueueOrigin = 1
 )
 
 //go:generate gencodec -type TransactionMeta -out gen_tx_meta_json.go
