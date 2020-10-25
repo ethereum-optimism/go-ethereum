@@ -115,13 +115,14 @@ func (t *TransactionCache) Range(f func(uint64, *RollupTransaction)) {
 	})
 }
 
+// These variables represent the event signatures
 var (
 	transactionEnqueuedEventSignature    = crypto.Keccak256([]byte("TransactionEnqueued(address,address,uint256,bytes,uint256,uint256)"))
 	queueBatchAppendedEventSignature     = crypto.Keccak256([]byte("QueueBatchAppended(uint256,uint256,uint256)"))
 	sequencerBatchAppendedEventSignature = crypto.Keccak256([]byte("SequencerBatchAppended(uint256,uint256,uint256)"))
 )
 
-// This needs to be indexed
+// Eth1Data represents the last processed ethereum 1 data.
 type Eth1Data struct {
 	BlockHeight uint64
 	BlockHash   common.Hash
