@@ -422,7 +422,7 @@ func (s *SyncService) sequencerIngestQueue() {
 				// collect an array of pointers and then sort them by index.
 				txs := []*RollupTransaction{}
 				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-					// The transaction has not been executed and is sufficiently old
+					// The transaction has not been executed and is sufficiently young
 					if !rtx.executed && rtx.blockHeight+10 < tipHeight {
 						txs = append(txs, rtx)
 					}
