@@ -1732,6 +1732,75 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	return common.Hash{}, fmt.Errorf("transaction %#x not found", matchTx.Hash())
 }
 
+// PublicRollupAPI is the collection of Ethereum APIs specific to the rollup
+// functionality.
+type PublicRollupAPI struct {
+	b Backend
+}
+
+// NewPublicRollupAPI creates a new API definition for the rollup methods of the
+// Ethereum service.
+func NewPublicRollupAPI(b Backend) *PublicRollupAPI {
+	return &PublicRollupAPI{b: b}
+}
+
+// rollupAddressses holds the addresses of the layer one contracts
+// that the layer two is configured to use.
+type rollupAddresses struct {
+	CanonicalTransactionChain string `json:"canonicalTransactionChain"`
+	AddressResolver           string `json:"addressResolver"`
+	L1ToL2TransactionQueue    string `json:"l1ToL2TransactionQueue "`
+	SequencerDecompression    string `json:"sequencerDecompression "`
+}
+
+type rollupInfo struct {
+	Signer        *common.Address `json:"signer"`
+	Mode          string          `json:"mode"`
+	Syncing       bool            `json:"syncing"`
+	L1BlockHash   common.Hash     `json:"l1blockHash"`
+	L1BlockHeight uint64          `json:"l1blockHeight"`
+	Addresses     rollupAddresses `json:"addresses"`
+}
+
+func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
+	addr := api.b.RollupTransactionSender()
+	mode := "sequencer"
+	if v := api.b.IsVerifier(); v {
+		mode = "verifier"
+	}
+	syncing := api.b.IsSyncing()
+	blockHash, blockHeight := api.b.GetLatestEth1Data()
+
+	addrs := api.b.GetRollupContractAddresses()
+	rollupAddrs := rollupAddresses{}
+
+	resolver := addrs["addressResolver"]
+	if resolver != nil {
+		rollupAddrs.AddressResolver = resolver.Hex()
+	}
+	ctc := addrs["canonicalTransactionChain"]
+	if ctc != nil {
+		rollupAddrs.CanonicalTransactionChain = ctc.Hex()
+	}
+	sdc := addrs["sequencerDecompression"]
+	if sdc != nil {
+		rollupAddrs.SequencerDecompression = sdc.Hex()
+	}
+	l1Tol2 := addrs["l1ToL2TransactionQueue"]
+	if l1Tol2 != nil {
+		rollupAddrs.L1ToL2TransactionQueue = l1Tol2.Hex()
+	}
+
+	return rollupInfo{
+		Signer:        addr,
+		Mode:          mode,
+		Syncing:       syncing,
+		L1BlockHash:   blockHash,
+		L1BlockHeight: blockHeight,
+		Addresses:     rollupAddrs,
+	}
+}
+
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public
 // debugging endpoint.
 type PublicDebugAPI struct {

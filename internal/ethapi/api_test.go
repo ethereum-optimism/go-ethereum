@@ -220,6 +220,18 @@ func (m mockBackend) Downloader() *downloader.Downloader {
 	panic("not implemented")
 }
 
+func (m mockBackend) IsSyncing() bool {
+	panic("not implemented")
+}
+
+func (m mockBackend) GetLatestEth1Data() (common.Hash, uint64) {
+	panic("not implemented")
+}
+
+func (m mockBackend) GetRollupContractAddresses() map[string]*common.Address {
+	panic("not implemented")
+}
+
 func (m mockBackend) ProtocolVersion() int {
 	panic("not implemented")
 }

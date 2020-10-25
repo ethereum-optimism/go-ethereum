@@ -18,7 +18,6 @@ package eth
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"math/big"
 
@@ -31,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -47,15 +47,32 @@ type EthAPIBackend struct {
 	verifier      bool
 }
 
-// TODO(mark): delete this dead code, the god key is being handled differently
 func (b *EthAPIBackend) RollupTransactionSender() *common.Address {
-	bites, _ := hex.DecodeString("6a399F0A626A505e2F6C2b5Da181d98D722dC86D")
-	addr := common.BytesToAddress(bites)
+	key := b.eth.syncService.GetSigningKey()
+	addr := crypto.PubkeyToAddress(key)
 	return &addr
 }
 
 func (b *EthAPIBackend) IsVerifier() bool {
 	return b.verifier
+}
+
+func (b *EthAPIBackend) IsSyncing() bool {
+	return b.eth.syncService.IsSyncing()
+}
+
+func (b *EthAPIBackend) GetLatestEth1Data() (common.Hash, uint64) {
+	eth1data := b.eth.syncService.Eth1Data
+	return eth1data.BlockHash, eth1data.BlockHeight
+}
+
+func (b *EthAPIBackend) GetRollupContractAddresses() map[string]*common.Address {
+	return map[string]*common.Address{
+		"addressResolver":           nil,
+		"canonicalTransactionChain": &b.eth.syncService.CanonicalTransactionChainAddress,
+		"sequencerDecompression":    &b.eth.syncService.SequencerDecompressionAddress,
+		"l1ToL2TransactionQueue":    &b.eth.syncService.L1ToL2TransactionQueueAddress,
+	}
 }
 
 // ChainConfig returns the active chain configuration.

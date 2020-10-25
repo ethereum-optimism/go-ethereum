@@ -86,10 +86,13 @@ type Backend interface {
 	SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error
 	SetTimestamp(timestamp int64)
 	IsVerifier() bool
+	RollupTransactionSender() *common.Address
+	IsSyncing() bool
+	GetLatestEth1Data() (common.Hash, uint64)
+	GetRollupContractAddresses() map[string]*common.Address
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
-	RollupTransactionSender() *common.Address
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
@@ -109,6 +112,11 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Namespace: "eth",
 			Version:   "1.0",
 			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock, nil),
+			Public:    true,
+		}, {
+			Namespace: "rollup",
+			Version:   "1.0",
+			Service:   NewPublicRollupAPI(apiBackend),
 			Public:    true,
 		}, {
 			Namespace: "txpool",

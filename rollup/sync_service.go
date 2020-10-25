@@ -318,6 +318,17 @@ func (s *SyncService) setSyncStatus(status bool) {
 	s.syncing = status
 }
 
+// GetSigningKey returns the public key that is used for signing by the
+// syncservice.
+func (s *SyncService) GetSigningKey() ecdsa.PublicKey {
+	return s.key.PublicKey
+}
+
+// IsSyncing returns the syncing status of the syncservice.
+func (s *SyncService) IsSyncing() bool {
+	return s.syncing
+}
+
 // sequencerIngestQueue will ingest transactions from the queue. This
 // is only for sequencer mode and will panic if called in verifier mode.
 func (s *SyncService) sequencerIngestQueue() {
