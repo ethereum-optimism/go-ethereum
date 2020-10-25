@@ -379,13 +379,15 @@ func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	_, queued := service.txpool.Content()
 
 	// queued should only have 1 key/value pair
+	count := 0
 	for _, transactions := range queued {
 		// This stuff should match ctcTx.tx
-		tx := transactions[0]
-		data := tx.Data()
-		to := tx.To().Hex()
-		fmt.Printf("%#v\n", data)
-		fmt.Printf("%#v\n", to)
+		for _, _ = range transactions {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatal("")
 	}
 }
 

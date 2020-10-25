@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/contracts/addressresolver"
 	ctc "github.com/ethereum/go-ethereum/contracts/canonicaltransactionchain"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -142,6 +143,7 @@ type SyncService struct {
 	ctcCaller                        CTCCaller
 	txCache                          *TransactionCache
 	ethclient                        EthereumClient
+	ethrpcclient                     *ethclient.Client
 	logClient                        bind.ContractFilterer
 	eth1HTTPEndpoint                 string
 	eth1ChainId                      uint64
@@ -160,9 +162,11 @@ type SyncService struct {
 	syncing                          bool
 	Eth1Data                         Eth1Data
 	ctcDeployHeight                  *big.Int
+	AddressResolverAddress           common.Address
 	CanonicalTransactionChainAddress common.Address
 	L1ToL2TransactionQueueAddress    common.Address
 	SequencerDecompressionAddress    common.Address
+	StateCommitmentChainAddress      common.Address
 }
 
 // NewSyncService returns an initialized sync service
@@ -200,6 +204,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		heads:                            make(chan *types.Header, 256),
 		doneProcessing:                   make(chan uint64, 16),
 		eth1HTTPEndpoint:                 cfg.Eth1HTTPEndpoint,
+		AddressResolverAddress:           cfg.AddressResolverAddress,
 		CanonicalTransactionChainAddress: cfg.CanonicalTransactionChainAddress,
 		L1ToL2TransactionQueueAddress:    cfg.L1ToL2TransactionQueueAddress,
 		SequencerDecompressionAddress:    cfg.SequencerDecompressionAddress,
@@ -209,7 +214,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		gasLimit:                         cfg.GasLimit,
 		txpool:                           txpool,
 		bc:                               bc,
-		ctcABI:                           parsed,
+		ctcABI:                           parsed, // TODO: is this dead code?
 		eth1ChainId:                      cfg.Eth1ChainId,
 		eth1NetworkId:                    cfg.Eth1NetworkId,
 		ctcDeployHeight:                  cfg.CanonicalTransactionChainDeployHeight,
@@ -258,6 +263,7 @@ func (s *SyncService) Start() error {
 	if err != nil {
 		return fmt.Errorf("Cannot dial eth1 nodes: %w", err)
 	}
+	s.ethrpcclient = client
 	s.ethclient = client
 	s.logClient = client
 
@@ -265,29 +271,27 @@ func (s *SyncService) Start() error {
 	if err != nil {
 		return fmt.Errorf("Wrong network: %w", err)
 	}
-
-	// TODO(mark): if the address resolver address is passed, resolve the
-	// addresses instead of using the hardcoded ones.
-
-	s.ctcFilterer, err = ctc.NewOVMCanonicalTransactionChainFilterer(s.CanonicalTransactionChainAddress, client)
+	// Resolve addresses and set them globally
+	err = s.resolveAddresses()
 	if err != nil {
-		return fmt.Errorf("Cannot initialize ctc filterer: %w", err)
+		return fmt.Errorf("Error resolving addresses: %w", err)
 	}
-
-	s.ctcCaller, err = ctc.NewOVMCanonicalTransactionChainCaller(s.CanonicalTransactionChainAddress, client)
+	// Bind to the contracts
+	err = s.bindContracts()
 	if err != nil {
-		return fmt.Errorf("Cannot initialize ctc caller: %w", err)
+		return fmt.Errorf("Error binding to contracts: %w", err)
 	}
-
+	// Check the sync status of the eth1 node
 	err = s.checkSyncStatus()
 	if err != nil {
 		return fmt.Errorf("Bad sync status: %w", err)
 	}
+	// Catch up to the tip of the eth1 chain
 	err = s.processHistoricalLogs()
 	if err != nil {
 		return fmt.Errorf("Cannot process historical logs: %w", err)
 	}
-
+	// Create a new block subscription
 	sub, err := client.SubscribeNewHead(s.ctx, s.heads)
 	if err != nil {
 		return fmt.Errorf("Cannot subscribe to new heads: %w", err)
@@ -302,6 +306,52 @@ func (s *SyncService) Start() error {
 		go s.sequencerIngestQueue()
 	}
 
+	return nil
+}
+
+// resolveAddresses will resolve the addresses from the address resolver on
+// layer one.
+func (s *SyncService) resolveAddresses() error {
+	if s.ethrpcclient == nil {
+		return errors.New("Must initialize eth rpc client first")
+	}
+	resolver, err := addressresolver.NewLibAddressResolver(s.AddressResolverAddress, s.ethrpcclient)
+	opts := bind.CallOpts{Context: s.ctx, BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight)}
+
+	s.CanonicalTransactionChainAddress, err = resolver.Resolve(&opts, "CanonicalTransactionChain")
+	if err != nil {
+		return fmt.Errorf("Cannot resolve canonical transaction chain: %w", err)
+	}
+	s.L1ToL2TransactionQueueAddress, err = resolver.Resolve(&opts, "L1ToL2TransactionQueue")
+	if err != nil {
+		return fmt.Errorf("Cannot resolve l1 to l2 transaction queue: %w", err)
+	}
+	s.SequencerDecompressionAddress, err = resolver.Resolve(&opts, "SequencerDecompression")
+	if err != nil {
+		return fmt.Errorf("Cannot resolve sequencer decompression: %w", err)
+	}
+	s.StateCommitmentChainAddress, err = resolver.Resolve(&opts, "StateCommitmentChain")
+	if err != nil {
+		return fmt.Errorf("Cannot resolve state commitment chain: %w", err)
+	}
+	return nil
+}
+
+// bindContracts will create bindings for the contracts on layer one
+func (s *SyncService) bindContracts() error {
+	if s.ethrpcclient == nil {
+		return errors.New("Must initialize eth rpc client first")
+	}
+
+	var err error
+	s.ctcFilterer, err = ctc.NewOVMCanonicalTransactionChainFilterer(s.CanonicalTransactionChainAddress, s.ethrpcclient)
+	if err != nil {
+		return fmt.Errorf("Cannot initialize ctc filterer: %w", err)
+	}
+	s.ctcCaller, err = ctc.NewOVMCanonicalTransactionChainCaller(s.CanonicalTransactionChainAddress, s.ethrpcclient)
+	if err != nil {
+		return fmt.Errorf("Cannot initialize ctc caller: %w", err)
+	}
 	return nil
 }
 

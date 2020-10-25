@@ -1747,18 +1747,19 @@ func NewPublicRollupAPI(b Backend) *PublicRollupAPI {
 // rollupAddressses holds the addresses of the layer one contracts
 // that the layer two is configured to use.
 type rollupAddresses struct {
-	CanonicalTransactionChain string `json:"canonicalTransactionChain"`
 	AddressResolver           string `json:"addressResolver"`
-	L1ToL2TransactionQueue    string `json:"l1ToL2TransactionQueue "`
-	SequencerDecompression    string `json:"sequencerDecompression "`
+	CanonicalTransactionChain string `json:"canonicalTransactionChain"`
+	L1ToL2TransactionQueue    string `json:"l1ToL2TransactionQueue"`
+	SequencerDecompression    string `json:"sequencerDecompression"`
+	StateCommitmentChain      string `json:"stateCommitmentChain"`
 }
 
 type rollupInfo struct {
 	Signer        *common.Address `json:"signer"`
 	Mode          string          `json:"mode"`
 	Syncing       bool            `json:"syncing"`
-	L1BlockHash   common.Hash     `json:"l1blockHash"`
-	L1BlockHeight uint64          `json:"l1blockHeight"`
+	L1BlockHash   common.Hash     `json:"l1BlockHash"`
+	L1BlockHeight uint64          `json:"l1BlockHeight"`
 	Addresses     rollupAddresses `json:"addresses"`
 }
 
@@ -1789,6 +1790,10 @@ func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
 	l1Tol2 := addrs["l1ToL2TransactionQueue"]
 	if l1Tol2 != nil {
 		rollupAddrs.L1ToL2TransactionQueue = l1Tol2.Hex()
+	}
+	scc := addrs["stateCommitmentChain"]
+	if scc != nil {
+		rollupAddrs.StateCommitmentChain = scc.Hex()
 	}
 
 	return rollupInfo{

@@ -32,6 +32,7 @@ type Config struct {
 	// HTTP endpoint of Layer 1 Ethereum node
 	Eth1HTTPEndpoint string
 	// Addresses of Layer 1 contracts
+	AddressResolverAddress           common.Address
 	CanonicalTransactionChainAddress common.Address
 	L1ToL2TransactionQueueAddress    common.Address
 	SequencerDecompressionAddress    common.Address

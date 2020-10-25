@@ -21,7 +21,7 @@ HAS_IMAGE=$(docker images "$IMAGE" --format='{{.ID}}')
 
 # Builds bindings for each of the targets
 TARGETS="OVM_CanonicalTransactionChain
-OVM_StateCommitmentChain"
+Lib_AddressResolver"
 
 if [ ! command -v docker &>/dev/null ]; then
     echo "Please install docker"
