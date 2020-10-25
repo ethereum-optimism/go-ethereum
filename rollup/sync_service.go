@@ -8,12 +8,10 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -138,7 +136,6 @@ type SyncService struct {
 	processingLock                   sync.RWMutex
 	db                               ethdb.Database
 	enable                           bool
-	ctcABI                           abi.ABI
 	ctcFilterer                      CTCEventFilterer
 	ctcCaller                        CTCCaller
 	txCache                          *TransactionCache
@@ -185,10 +182,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		cfg.TxIngestionSignerKey, _ = crypto.GenerateKey()
 	}
 	address := crypto.PubkeyToAddress(cfg.TxIngestionSignerKey.PublicKey)
-	parsed, err := abi.JSON(strings.NewReader(ctc.OVMCanonicalTransactionChainABI))
-	if err != nil {
-		return nil, err
-	}
 
 	// Layer 2 chainid to use for signing
 	chainID := bc.Config().ChainID
@@ -214,7 +207,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		gasLimit:                         cfg.GasLimit,
 		txpool:                           txpool,
 		bc:                               bc,
-		ctcABI:                           parsed, // TODO: is this dead code?
 		eth1ChainId:                      cfg.Eth1ChainId,
 		eth1NetworkId:                    cfg.Eth1NetworkId,
 		ctcDeployHeight:                  cfg.CanonicalTransactionChainDeployHeight,
@@ -1026,7 +1018,6 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 	err := s.txpool.AddLocal(tx)
 	if err != nil {
-		fmt.Println(err)
 		return fmt.Errorf("Cannot add tx to mempool: %w", err)
 	}
 	return nil
