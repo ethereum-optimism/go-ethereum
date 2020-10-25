@@ -935,3 +935,4 @@ func (_OVMCanonicalTransactionChain *OVMCanonicalTransactionChainFilterer) Parse
 	}
 	return event, nil
 }
+
