@@ -28,6 +28,11 @@ if [ ! command -v docker &>/dev/null ]; then
     exit 1
 fi
 
+if [ ! command -v yarn &>/dev/null ]; then
+    echo "Please install yarn"
+    exit 1
+fi
+
 if [ -z "$HAS_IMAGE" ]; then
     docker build \
         -t $IMAGE:latest \
