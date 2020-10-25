@@ -48,6 +48,7 @@ type CTCEventFilterer interface {
 type CTCCaller interface {
 	GetNextQueueIndex(*bind.CallOpts) (*big.Int, error)
 	GetQueueElement(*bind.CallOpts, *big.Int) (ctc.Lib_OVMCodecQueueElement, error)
+	GetTotalElements(*bind.CallOpts) (*big.Int, error)
 }
 
 type ExecutionManagerCaller interface {
@@ -429,6 +430,7 @@ func (s *SyncService) sequencerIngestQueue() {
 				})
 
 				sort.Sort(RollupTxsByIndex(txs))
+				log.Info("Ingesting transactions from L1", "count", len(txs))
 				for _, rtx := range txs {
 					// set the timestamp
 					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
@@ -454,9 +456,16 @@ func (s *SyncService) sequencerIngestQueue() {
 				// When the latest queue element is sufficiently old, set the
 				// sync status to false.
 				ts := time.Unix(int64(el.Timestamp.Uint64()), 0).Add(5 * time.Minute)
-				if ts.Unix() > time.Now().Unix() {
+				// Also check that the chain is synced to the tip
+				totalElements, err := s.ctcCaller.GetTotalElements(&opts)
+				tip := s.bc.CurrentBlock()
+
+				isAtTip := tip.Number().Uint64() == totalElements.Uint64()
+				isSufficientlyOld := ts.Unix() > time.Now().Unix()
+				if isSufficientlyOld && isAtTip {
 					s.setSyncStatus(false)
 				}
+				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "is sufficiently old", isSufficientlyOld, "at tip", isAtTip)
 			}
 		case <-s.ctx.Done():
 			return
