@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/contracts/addressresolver"
 	ctc "github.com/ethereum/go-ethereum/contracts/canonicaltransactionchain"
+	mgr "github.com/ethereum/go-ethereum/contracts/executionmanager"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -47,6 +48,10 @@ type CTCEventFilterer interface {
 type CTCCaller interface {
 	GetNextQueueIndex(*bind.CallOpts) (*big.Int, error)
 	GetQueueElement(*bind.CallOpts, *big.Int) (ctc.Lib_OVMCodecQueueElement, error)
+}
+
+type ExecutionManagerCaller interface {
+	GetMaxTransactionGasLimit(opts *bind.CallOpts) (*big.Int, error)
 }
 
 type RollupTxsByIndex []*RollupTransaction
@@ -138,6 +143,7 @@ type SyncService struct {
 	enable                           bool
 	ctcFilterer                      CTCEventFilterer
 	ctcCaller                        CTCCaller
+	mgrCaller                        ExecutionManagerCaller
 	txCache                          *TransactionCache
 	ethclient                        EthereumClient
 	ethrpcclient                     *ethclient.Client
@@ -164,6 +170,7 @@ type SyncService struct {
 	L1ToL2TransactionQueueAddress    common.Address
 	SequencerDecompressionAddress    common.Address
 	StateCommitmentChainAddress      common.Address
+	ExecutionManagerAddress          common.Address
 }
 
 // NewSyncService returns an initialized sync service
@@ -290,6 +297,15 @@ func (s *SyncService) Start() error {
 	}
 	s.headSubscription = sub
 
+	gasLimit, err := s.mgrCaller.GetMaxTransactionGasLimit(&bind.CallOpts{
+		BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight),
+		Context:     s.ctx,
+	})
+	if err != nil {
+		return fmt.Errorf("Cannot fetch gas limit: %w", err)
+	}
+	s.gasLimit = gasLimit.Uint64()
+
 	go s.LogDoneProcessing()
 	go s.Loop()
 	go s.ClearTransactionLoop()
@@ -326,6 +342,10 @@ func (s *SyncService) resolveAddresses() error {
 	if err != nil {
 		return fmt.Errorf("Cannot resolve state commitment chain: %w", err)
 	}
+	s.ExecutionManagerAddress, err = resolver.Resolve(&opts, "ExecutionManager")
+	if err != nil {
+		return fmt.Errorf("Cannot resolve execution manager: %w", err)
+	}
 	return nil
 }
 
@@ -343,6 +363,10 @@ func (s *SyncService) bindContracts() error {
 	s.ctcCaller, err = ctc.NewOVMCanonicalTransactionChainCaller(s.CanonicalTransactionChainAddress, s.ethrpcclient)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize ctc caller: %w", err)
+	}
+	s.mgrCaller, err = mgr.NewOVMExecutionManagerCaller(s.ExecutionManagerAddress, s.ethrpcclient)
+	if err != nil {
+		return fmt.Errorf("Cannot initialize execution manager caller: %w", err)
 	}
 	return nil
 }

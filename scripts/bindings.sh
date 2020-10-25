@@ -20,8 +20,11 @@ GIT_HASH=$(git rev-parse)
 HAS_IMAGE=$(docker images "$IMAGE" --format='{{.ID}}')
 
 # Builds bindings for each of the targets
+# The execution manager fails for some reason, removed all
+# things in the ABI field besides `getMaxTransactionGasLimit`
 TARGETS="OVM_CanonicalTransactionChain
-Lib_AddressResolver"
+Lib_AddressResolver
+OVM_ExecutionManager"
 
 if [ ! command -v docker &>/dev/null ]; then
     echo "Please install docker"
