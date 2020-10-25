@@ -939,16 +939,15 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 		// `to`, `data`, `l1TxOrigin` and `gasLimit`
 		if !isCtcTxEqual(tx, prev) {
 			log.Info("Different transaction detected, reorganizing", "new", tx.Hash().Hex(), "previous", prev.Hash().Hex())
-			err := s.bc.SetHead(index - 1)
 			// Set the sync status to true. This will grab a lock around
 			// the mempool such that transactions will no longer be able to come
 			// via RPC.
 			s.setSyncStatus(true)
-
+			// Reorganize the chain
+			err := s.bc.SetHead(index - 1)
 			// TODO: need to iterate through the transactions in the txcache and
 			// set `rtx.executed = false` for ones that have a blockheight where:
 			// blockheight > index -1
-
 			if err != nil {
 				return fmt.Errorf("Cannot reorganize to %d: %w", index-1, err)
 			}
