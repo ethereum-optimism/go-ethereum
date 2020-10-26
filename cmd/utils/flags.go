@@ -751,6 +751,7 @@ var (
 		Value: "",
 	}
 	// Flags associated with Layer 1 Transaction Ingestion
+	// TODO(mark): deprecate these flags
 	TxIngestionEnableFlag = cli.BoolFlag{
 		Name:  "txingestion.enable",
 		Usage: "Enable L1 Transaction Ingestion",
@@ -793,6 +794,44 @@ var (
 	TxIngestionSignerKeyFileFlag = cli.StringFlag{
 		Name:  "txingestion.signerkeyfile",
 		Usage: "File holding key to authenticate L1 to L2 txs",
+	}
+	// New Transaction Ingestion Flags
+	Eth1SyncServiceEnable = cli.BoolFlag{
+		Name:  "eth1.syncservice",
+		Usage: "Enable the sync service",
+	}
+	Eth1CanonicalTransactionChainDeployHeightFlag = cli.StringFlag{
+		Name:  "eth1.ctcdeploymentheight",
+		Usage: "Deployment of the canonical transaction chain",
+	}
+	Eth1CanonicalTransactionChainAddressFlag = cli.StringFlag{
+		Name:  "eth1.ctcaddress",
+		Usage: "Deployment address of the canonical transaction chain",
+	}
+	Eth1L1toL2TransactionQueueAddressFlag = cli.StringFlag{
+		Name:  "eth1.queueaddress",
+		Usage: "Deployment address of the L1 to L2 transaction queue",
+	}
+	Eth1SequencerDecompressionAddressFlag = cli.StringFlag{
+		Name:  "et1.sequencerdecompressionaddress",
+		Usage: "Deployment address of the sequencer decompression contract",
+	}
+	Eth1ChainIdFlag = cli.Uint64Flag{
+		Name:  "eth1.chainid",
+		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+	}
+	Eth1NetworkIdFlag = cli.Uint64Flag{
+		Name:  "eth1.networkid",
+		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+	}
+	Eth1HTTPFlag = cli.StringFlag{
+		Name:  "eth1.http",
+		Usage: "HTTP endpoint of an eth 1 node",
+	}
+	// Flag to enable verifier mode
+	RollupEnableVerifierFlag = cli.BoolFlag{
+		Name:  "rollup.verifier",
+		Usage: "Enable the verifier",
 	}
 )
 
@@ -1060,6 +1099,48 @@ func setTxIngestion(ctx *cli.Context, cfg *rollup.Config) {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
 		}
 		cfg.TxIngestionSignerKey = key
+	}
+}
+
+func setEth1(ctx *cli.Context, cfg *rollup.Config) {
+	if ctx.GlobalIsSet(Eth1CanonicalTransactionChainDeployHeightFlag.Name) {
+		height := ctx.GlobalUint64(Eth1CanonicalTransactionChainDeployHeightFlag.Name)
+		cfg.CanonicalTransactionChainDeployHeight = new(big.Int).SetUint64(height)
+	}
+	if ctx.GlobalIsSet(Eth1CanonicalTransactionChainAddressFlag.Name) {
+		addr := ctx.GlobalString(Eth1CanonicalTransactionChainAddressFlag.Name)
+		cfg.CanonicalTransactionChainAddress = common.HexToAddress(addr)
+	}
+	if ctx.GlobalIsSet(Eth1L1toL2TransactionQueueAddressFlag.Name) {
+		addr := ctx.GlobalString(Eth1L1toL2TransactionQueueAddressFlag.Name)
+		cfg.L1ToL2TransactionQueueAddress = common.HexToAddress(addr)
+	}
+	if ctx.GlobalIsSet(Eth1SequencerDecompressionAddressFlag.Name) {
+		addr := ctx.GlobalString(Eth1SequencerDecompressionAddressFlag.Name)
+		cfg.SequencerDecompressionAddress = common.HexToAddress(addr)
+	}
+	if ctx.GlobalIsSet(Eth1ChainIdFlag.Name) {
+		cfg.Eth1ChainId = ctx.GlobalUint64(Eth1ChainIdFlag.Name)
+	}
+	if ctx.GlobalIsSet(Eth1NetworkIdFlag.Name) {
+		cfg.Eth1NetworkId = ctx.GlobalUint64(Eth1NetworkIdFlag.Name)
+	}
+	if ctx.GlobalIsSet(Eth1HTTPFlag.Name) {
+		cfg.Eth1HTTPEndpoint = ctx.GlobalString(Eth1HTTPFlag.Name)
+	}
+	if ctx.GlobalIsSet(Eth1SyncServiceEnable.Name) {
+		cfg.Eth1SyncServiceEnable = ctx.GlobalBool(Eth1SyncServiceEnable.Name)
+	}
+	// Check for both the legacy and standard gas target flags, if both are
+	// set then use the standard flag.
+	if ctx.GlobalIsSet(MinerLegacyGasTargetFlag.Name) {
+		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
+	}
+	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
+		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
+	}
+	if ctx.GlobalIsSet(RollupEnableVerifierFlag.Name) {
+		cfg.IsVerifier = true
 	}
 }
 
@@ -1521,6 +1602,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setWhitelist(ctx, cfg)
 	setLes(ctx, cfg)
 	setTxIngestion(ctx, &cfg.Rollup)
+	setEth1(ctx, &cfg.Rollup)
 
 	if ctx.GlobalIsSet(SyncModeFlag.Name) {
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
