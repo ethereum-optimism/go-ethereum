@@ -268,11 +268,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			logged = true
 		}
 
-		fmt.Printf("Running opcode: %s\n", op.String())
-		if (lastOpcode.String() == "MSTORE" || lastOpcode.String() == "CALLDATACOPY" || lastOpcode.String() == "RETURNDATACOPY") {
-			mem.Print()
-		}
-
 		lastOpcode = op
 
 		// execute the operation

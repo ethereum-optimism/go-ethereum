@@ -50,7 +50,6 @@ func init() {
 
 func TestContextFunctions(t *testing.T) {
 	var ovmContextFunctionTests = []ovmSimpleContractTest{
-		/*
 		{
 			fn: "ovmCALLER",
 			in: []interface{}{},
@@ -93,14 +92,18 @@ func TestContextFunctions(t *testing.T) {
 			out: []interface{}{hashes[1]},
 			success: true,
 		},
-		*/
+		{
+			fn: "doReturn",
+			in: []interface{}{},
+			out: []interface{}{common.FromHex("0x420adfadf1234789098484848069")},
+			success: true,
+		},
 		{
 			fn: "doCallToReturn",
 			in: []interface{}{},
 			out: []interface{}{common.FromHex("0x420adfadf1234789098484848069")},
 			success: true,
 		},
-		/*
 		{
 			fn: "doCREATE",
 			in: []interface{}{big.NewInt(1234)},
@@ -113,7 +116,6 @@ func TestContextFunctions(t *testing.T) {
 			out: []interface{}{[]byte("this is a revert message")},
 			success: false,
 		},
-		*/
 	}
 
 	runSimpleContractTest(t, ovmContextFunctionTests)
