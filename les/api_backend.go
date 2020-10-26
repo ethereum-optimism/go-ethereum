@@ -49,6 +49,22 @@ func (b *LesApiBackend) RollupTransactionSender() *common.Address {
 	return nil
 }
 
+func (b *LesApiBackend) IsVerifier() bool {
+	return false
+}
+
+func (b *LesApiBackend) IsSyncing() bool {
+	return false
+}
+
+func (b *LesApiBackend) GetLatestEth1Data() (common.Hash, uint64) {
+	return common.Hash{}, 0
+}
+
+func (b *LesApiBackend) GetRollupContractAddresses() map[string]*common.Address {
+	return map[string]*common.Address{}
+}
+
 func (b *LesApiBackend) ChainConfig() *params.ChainConfig {
 	return b.eth.chainConfig
 }

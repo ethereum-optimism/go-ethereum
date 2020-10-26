@@ -16,6 +16,10 @@
 
 package ethclient
 
+/*
+// There is an import cycle
+// eth -> rollup -> ethclient
+
 import (
 	"context"
 	"errors"
@@ -35,7 +39,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rollup"
 )
 
 // Verify that Client implements the ethereum interfaces.
@@ -177,8 +180,7 @@ func newTestBackend(t *testing.T) (*node.Node, []*types.Block) {
 	var ethservice *eth.Ethereum
 	n, err := node.New(&node.Config{})
 	n.Register(func(ctx *node.ServiceContext) (node.Service, error) {
-		rollupCfg := rollup.Config{TxIngestionPollInterval: 1000 * time.Millisecond}
-		config := &eth.Config{Genesis: genesis, Rollup: rollupCfg}
+		config := &eth.Config{Genesis: genesis}
 		config.Ethash.PowMode = ethash.ModeFake
 		ethservice, err = eth.New(ctx, config)
 		return ethservice, err
@@ -337,3 +339,4 @@ func TestChainID(t *testing.T) {
 		t.Fatalf("ChainID returned wrong number: %+v", id)
 	}
 }
+*/

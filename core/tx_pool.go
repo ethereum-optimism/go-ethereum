@@ -230,6 +230,7 @@ type TxPool struct {
 	scope       event.SubscriptionScope
 	signer      types.Signer
 	mu          sync.RWMutex
+	rmu         sync.Mutex // Used for locking addRemotes for sequencer reorgs
 
 	istanbul bool // Fork indicator whether we are in the istanbul stage.
 
@@ -404,6 +405,16 @@ func (pool *TxPool) Stop() {
 		pool.journal.close()
 	}
 	log.Info("Transaction pool stopped")
+}
+
+// LockAddRemote
+func (pool *TxPool) LockAddRemote() {
+	pool.rmu.Lock()
+}
+
+// UnlockAddRemote
+func (pool *TxPool) UnlockAddRemote() {
+	pool.rmu.Unlock()
 }
 
 // SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
@@ -753,6 +764,8 @@ func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 // This method is used to add transactions from the p2p network and does not wait for pool
 // reorganization and internal event propagation.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
+	pool.LockAddRemote()
+	defer pool.UnlockAddRemote()
 	return pool.addTxs(txs, false, false)
 }
 

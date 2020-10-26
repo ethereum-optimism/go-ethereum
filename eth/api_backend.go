@@ -18,9 +18,7 @@ package eth
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -32,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -45,14 +44,36 @@ type EthAPIBackend struct {
 	extRPCEnabled bool
 	eth           *Ethereum
 	gpo           *gasprice.Oracle
+	verifier      bool
 }
 
 func (b *EthAPIBackend) RollupTransactionSender() *common.Address {
-	// TODO: Fill out RollupTransactionsSender Address when we know it / get from env var
-	bites, _ := hex.DecodeString("6a399F0A626A505e2F6C2b5Da181d98D722dC86D")
-	addr := common.BytesToAddress(bites)
-	fmt.Printf("\n\n\nRollup Sender Address bytes: %x\nsender address: %x\n\n", string(bites), string(addr.Bytes()))
+	key := b.eth.syncService.GetSigningKey()
+	addr := crypto.PubkeyToAddress(key)
 	return &addr
+}
+
+func (b *EthAPIBackend) IsVerifier() bool {
+	return b.verifier
+}
+
+func (b *EthAPIBackend) IsSyncing() bool {
+	return b.eth.syncService.IsSyncing()
+}
+
+func (b *EthAPIBackend) GetLatestEth1Data() (common.Hash, uint64) {
+	eth1data := b.eth.syncService.Eth1Data
+	return eth1data.BlockHash, eth1data.BlockHeight
+}
+
+func (b *EthAPIBackend) GetRollupContractAddresses() map[string]*common.Address {
+	return map[string]*common.Address{
+		"addressResolver":           &b.eth.syncService.AddressResolverAddress,
+		"canonicalTransactionChain": &b.eth.syncService.CanonicalTransactionChainAddress,
+		"sequencerDecompression":    &b.eth.syncService.SequencerDecompressionAddress,
+		"l1ToL2TransactionQueue":    &b.eth.syncService.L1ToL2TransactionQueueAddress,
+		"stateCommitmentChain":      &b.eth.syncService.StateCommitmentChainAddress,
+	}
 }
 
 // ChainConfig returns the active chain configuration.
@@ -232,12 +253,14 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 	return b.eth.BlockChain().SubscribeLogsEvent(ch)
 }
 
+// Transactions originating from the RPC endpoints are added to remotes so that
+// a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-	return b.eth.txPool.AddLocal(signedTx)
+	return b.eth.txPool.AddRemote(signedTx)
 }
 
 func (b *EthAPIBackend) SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error {
-	return b.eth.txPool.AddLocals(signedTxs)
+	return b.eth.txPool.AddRemotes(signedTxs)
 }
 
 func (b *EthAPIBackend) SetTimestamp(timestamp int64) {

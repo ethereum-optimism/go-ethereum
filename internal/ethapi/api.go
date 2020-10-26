@@ -1484,6 +1484,10 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 // SendTransaction creates a transaction for the given argument, sign it and submit it to the
 // transaction pool.
 func (s *PublicTransactionPoolAPI) SendTransaction(ctx context.Context, args SendTxArgs) (common.Hash, error) {
+	if s.b.IsVerifier() {
+		return common.Hash{}, errors.New("Cannot send transaction in verifier mode")
+	}
+
 	// Look up the wallet containing the requested signer
 	account := accounts.Account{Address: args.From}
 
@@ -1532,6 +1536,10 @@ func (s *PublicTransactionPoolAPI) FillTransaction(ctx context.Context, args Sen
 // SendRawTransaction will add the signed transaction to the transaction pool.
 // The sender is responsible for signing the transaction and using the correct nonce.
 func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	if s.b.IsVerifier() {
+		return common.Hash{}, errors.New("Cannot send raw transaction in verifier mode")
+	}
+
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
@@ -1546,6 +1554,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 // `abi.encodedPacked` transaction was prefixed with the string
 // "Ethereum Signed Message".
 func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
+	if s.b.IsVerifier() {
+		return common.Hash{}, errors.New("Cannot send raw ethsign transaction in verifier mode")
+	}
+
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
@@ -1726,6 +1738,80 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	}
 
 	return common.Hash{}, fmt.Errorf("transaction %#x not found", matchTx.Hash())
+}
+
+// PublicRollupAPI is the collection of Ethereum APIs specific to the rollup
+// functionality.
+type PublicRollupAPI struct {
+	b Backend
+}
+
+// NewPublicRollupAPI creates a new API definition for the rollup methods of the
+// Ethereum service.
+func NewPublicRollupAPI(b Backend) *PublicRollupAPI {
+	return &PublicRollupAPI{b: b}
+}
+
+// rollupAddressses holds the addresses of the layer one contracts
+// that the layer two is configured to use.
+type rollupAddresses struct {
+	AddressResolver           string `json:"addressResolver"`
+	CanonicalTransactionChain string `json:"canonicalTransactionChain"`
+	L1ToL2TransactionQueue    string `json:"l1ToL2TransactionQueue"`
+	SequencerDecompression    string `json:"sequencerDecompression"`
+	StateCommitmentChain      string `json:"stateCommitmentChain"`
+}
+
+type rollupInfo struct {
+	Signer        *common.Address `json:"signer"`
+	Mode          string          `json:"mode"`
+	Syncing       bool            `json:"syncing"`
+	L1BlockHash   common.Hash     `json:"l1BlockHash"`
+	L1BlockHeight uint64          `json:"l1BlockHeight"`
+	Addresses     rollupAddresses `json:"addresses"`
+}
+
+func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
+	addr := api.b.RollupTransactionSender()
+	mode := "sequencer"
+	if v := api.b.IsVerifier(); v {
+		mode = "verifier"
+	}
+	syncing := api.b.IsSyncing()
+	blockHash, blockHeight := api.b.GetLatestEth1Data()
+
+	addrs := api.b.GetRollupContractAddresses()
+	rollupAddrs := rollupAddresses{}
+
+	resolver := addrs["addressResolver"]
+	if resolver != nil {
+		rollupAddrs.AddressResolver = resolver.Hex()
+	}
+	ctc := addrs["canonicalTransactionChain"]
+	if ctc != nil {
+		rollupAddrs.CanonicalTransactionChain = ctc.Hex()
+	}
+	sdc := addrs["sequencerDecompression"]
+	if sdc != nil {
+		rollupAddrs.SequencerDecompression = sdc.Hex()
+	}
+	l1Tol2 := addrs["l1ToL2TransactionQueue"]
+	if l1Tol2 != nil {
+		rollupAddrs.L1ToL2TransactionQueue = l1Tol2.Hex()
+	}
+	scc := addrs["stateCommitmentChain"]
+	if scc != nil {
+		rollupAddrs.StateCommitmentChain = scc.Hex()
+	}
+
+	return rollupInfo{
+		Signer:        addr,
+		Mode:          mode,
+		Syncing:       syncing,
+		L1BlockHash:   blockHash,
+		L1BlockHeight: blockHeight,
+		Addresses:     rollupAddrs,
+	}
 }
 
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public
