@@ -149,6 +149,7 @@ var (
 	}
 
 	optimismFlags = []cli.Flag{
+		// TODO: deprecate these flags
 		utils.TxIngestionEnableFlag,
 		utils.TxIngestionDBHostFlag,
 		utils.TxIngestionDBPortFlag,
@@ -158,6 +159,17 @@ var (
 		utils.TxIngestionPollIntervalFlag,
 		utils.TxIngestionSignerKeyHexFlag,
 		utils.TxIngestionSignerKeyFileFlag,
+		// Flags for the SyncService
+		utils.Eth1SyncServiceEnable,
+		utils.Eth1CanonicalTransactionChainDeployHeightFlag,
+		utils.Eth1CanonicalTransactionChainAddressFlag,
+		utils.Eth1L1toL2TransactionQueueAddressFlag,
+		utils.Eth1SequencerDecompressionAddressFlag,
+		utils.Eth1ChainIdFlag,
+		utils.Eth1NetworkIdFlag,
+		utils.Eth1HTTPFlag,
+		// Enable verifier mode
+		utils.RollupEnableVerifierFlag,
 	}
 
 	rpcFlags = []cli.Flag{
