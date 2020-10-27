@@ -57,7 +57,6 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				isUnknown = false
 				if name == "OVM_ExecutionManager" {
 					fmt.Printf("\033[1;36m%s\033[0m\n", name)
-					fmt.Printf("DATA IS: %x\n", input)
 				} else if name == "OVM_SafetyChecker" {
 					fmt.Printf("\033[1;33m%s\033[0m\n", name)
 				} else {
@@ -90,7 +89,9 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			precompiles = PrecompiledContractsIstanbul
 		}
 		if p := precompiles[*contract.CodeAddr]; p != nil {
-			return RunPrecompiledContract(p, input, contract)
+			ret, err := RunPrecompiledContract(p, input, contract)
+			fmt.Printf("Ret for unknown: %x\n", ret)
+			return ret, err
 		}
 	}
 
@@ -311,9 +312,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 
 	ret, err = run(evm, contract, input, false)
-	fmt.Printf("For target: %s\n", addr.Hex())
-	fmt.Printf("Ret is: %x\n", ret)
-	fmt.Printf("Err is: %v\n", err)
 
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
@@ -333,7 +331,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 
 		if evm.depth == 0 {
 			ret = evm.OriginalTargetResult
-			fmt.Printf("Target was: %s\n", evm.OriginalTargetAddress.Hex())
 			fmt.Printf("Ret is: %x\n", ret)
 			fmt.Printf("Err is: %v\n", err)
 		}

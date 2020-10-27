@@ -39,24 +39,16 @@ func NeedsEOACreate(tx *types.Transaction, signer types.Signer, statedb *state.S
 	}
 }
 
-func ToOvmMessage(tx *types.Transaction, signer types.Signer, eoa bool) (Message, error) {
-	msg, err := tx.AsMessage(signer)
-	if err != nil {
-		return nil, err
-	}
-
-	var inputmsg Message
-	if (msg.From() == GodAddress) {
-		inputmsg = msg
+func ToOvmMessage(msg *Message, tx *types.Transaction, signer *types.Signer, eoa bool) (Message, error) {
+	if tx == nil {
+		return msgToOvmMessage(*msg)
 	} else {
-		inputmsg, err = encodeCompressedMessage(msg, tx, signer, eoa)
-		if err != nil {
-			return nil, err
-		}
+		return txToOvmMessage(tx, *signer, eoa)
 	}
+}
 
-	// Take the compressed message and encode it into something the execution
-	// manager can understand (i.e., the input to "run").
+func msgToOvmMessage(inputmsg Message) (Message, error) {
+
 	data, err := encodeExecutionManagerRun(inputmsg)
 	if err != nil {
 		return nil, err
@@ -73,6 +65,25 @@ func ToOvmMessage(tx *types.Transaction, signer types.Signer, eoa bool) (Message
 	}
 
 	return outputmsg, nil
+}
+
+func txToOvmMessage(tx *types.Transaction, signer types.Signer, eoa bool) (Message, error) {
+	msg, err := tx.AsMessage(signer)
+	if err != nil {
+		return nil, err
+	}
+ 
+	var inputmsg Message
+	if (msg.From() == GodAddress) {
+		inputmsg = msg
+	} else {
+		inputmsg, err = encodeCompressedMessage(msg, tx, signer, eoa)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return msgToOvmMessage(inputmsg)
 }
 
 func encodeCompressedMessage(
@@ -109,7 +120,7 @@ func encodeCompressedMessage(
 
 	if (sigtype == 0) {
 		// EOACreate: Encode the transaction hash.
-		data.Write(tx.Hash().Bytes())												// 32 bytes: Transaction hash
+		data.Write(signer.Hash(tx).Bytes())												// 32 bytes: Transaction hash
 	} else {
 		// EIP 155 or ETH Sign Message: Encode the full transaction data.
 		data.Write(big.NewInt(int64(msg.Nonce())).FillBytes(make([]byte, 2, 2))) 	// 2 bytes: Nonce
@@ -119,8 +130,6 @@ func encodeCompressedMessage(
 		data.Write(target.Bytes())											 		// 20 bytes: Target address
 		data.Write(msg.Data())													 	// ?? bytes: Transaction data
 	}
-
-	fmt.Printf("ORIGINAL DATA: %x\n", data.Bytes())
 
 	outmsg, err := modMessage(
 		msg,

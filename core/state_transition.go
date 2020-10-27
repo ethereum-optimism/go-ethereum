@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"errors"
 	"math"
 	"math/big"
@@ -131,6 +132,25 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 	}
 }
 
+func ApplyOvmMessage(evm *vm.EVM, msg Message, gp *GasPool, tx *types.Transaction, signer *types.Signer, eoa bool) ([]byte, uint64, bool, error) {
+	if tx != nil {
+		evm.Context.Origin = GodAddress
+	} else {
+		evm.Context.Origin = *(msg.L1MessageSender())
+	}
+
+	if evm.Context.L1MessageSender == nil {
+		evm.Context.L1MessageSender = msg.L1MessageSender()
+	}
+
+	outmsg, err := ToOvmMessage(&msg, tx, signer, eoa)
+	if err != nil {
+		return nil, 0, false, err
+	}
+
+	return ApplyMessage(evm, outmsg, gp)
+}
+
 // ApplyMessage computes the new state by applying the given message
 // against the old state within the environment.
 //
@@ -191,9 +211,16 @@ func (st *StateTransition) preCheck() error {
 // returning the result including the used gas. It returns an error if failed.
 // An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
-	if err = st.preCheck(); err != nil {
-		return
+	if !vm.UsingOVM {
+		// OVM_DISABLED
+		if err = st.preCheck(); err != nil {
+			return
+		}
+	} else {
+		// OVM_ENABLED
+		st.buyGas()
 	}
+
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
@@ -203,9 +230,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	// TODO(mark): pay intrinsic gas function needs to be updated
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
 	if err != nil {
+		fmt.Printf("????1")
 		return nil, 0, false, err
 	}
 	if err = st.useGas(gas); err != nil {
+		fmt.Printf("????2: %v\n", err)
 		return nil, 0, false, err
 	}
 
@@ -218,8 +247,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	} else {
 		// Increment the nonce for the next transaction
 		if !vm.UsingOVM {
-			// OVM_DISABLED
-			st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
+			st.state.SetNonce(msg.From(), st.state.GetNonce(msg.From())+1)
 		}
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}

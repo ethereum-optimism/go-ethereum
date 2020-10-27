@@ -309,12 +309,12 @@ func (tx *Transaction) Size() common.StorageSize {
 //
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
+
 	msg := Message{
 		nonce:             tx.data.AccountNonce,
 		gasLimit:          tx.data.GasLimit,
 		gasPrice:          new(big.Int).Set(tx.data.Price),
 		to:                tx.data.Recipient,
-		l1MessageSender:   tx.meta.L1MessageSender,
 		l1RollupTxId:      tx.meta.L1RollupTxId,
 		signatureHashType: tx.meta.SignatureHashType,
 		queueOrigin:       tx.meta.QueueOrigin,
@@ -325,6 +325,13 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 
 	var err error
 	msg.from, err = Sender(s, tx)
+
+	if (tx.meta.L1MessageSender != nil) {
+		msg.l1MessageSender = tx.meta.L1MessageSender
+	} else {
+		msg.l1MessageSender = &msg.from
+	}
+
 	return msg, err
 }
 

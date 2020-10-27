@@ -17,6 +17,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -66,6 +67,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		statedb.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, err := ApplyTransaction(p.config, p.bc, nil, gp, statedb, header, tx, usedGas, cfg)
 		if err != nil {
+			fmt.Printf("ERRRRRRORRRRRRR")
 			return nil, nil, 0, err
 		}
 		receipts = append(receipts, receipt)
@@ -86,42 +88,27 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	if vm.UsingOVM {
 		// OVM_ENABLED
 
-		// Check to see if we need to preempt this transaction with an EOACreate transaction.
 		needseoa, err := NeedsEOACreate(tx, types.MakeSigner(config, header.Number), statedb)
 		if err != nil {
 			return nil, err
 		}
 
 		if needseoa {
-			msg, err := ToOvmMessage(tx, types.MakeSigner(config, header.Number), true)
+			signer2 := types.MakeSigner(config, header.Number)
+			msg2, err := tx.AsMessage(signer2)
 			if err != nil {
 				return nil, err
 			}
-
-			// Create a new context to be used in the EVM environment
-			context := NewEVMContext(msg, header, bc, author)
-			// Create a new environment which holds all relevant information
-			// about the transaction and calling mechanisms.
-			vmenv := vm.NewEVM(context, statedb, config, cfg)
-
-			// Apply the transaction to the current state (included in the env)
-			ApplyMessage(vmenv, msg, gp)
+			context2 := NewEVMContext(msg2, header, bc, author)
+			vmenv2 := vm.NewEVM(context2, statedb, config, cfg)
+			ApplyOvmMessage(vmenv2, msg2, new(GasPool).AddGas(10000000), tx, &signer2, true)
 		}
 	}
 
-	var msg Message
-	if !vm.UsingOVM {
-		// OVM_DISABLED
-		msg, err = tx.AsMessage(types.MakeSigner(config, header.Number))
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// OVM_ENABLED
-		msg, err = ToOvmMessage(tx, types.MakeSigner(config, header.Number), false)
-		if err != nil {
-			return nil, err
-		}
+	signer := types.MakeSigner(config, header.Number)
+	msg, err := tx.AsMessage(signer)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create a new context to be used in the EVM environment
@@ -130,9 +117,20 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	// Apply the transaction to the current state (included in the env)
-	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
-	if err != nil {
-		return nil, err
+	var gas uint64
+	var failed bool
+	if vm.UsingOVM {
+		// OVM_ENABLED
+		_, gas, failed, err = ApplyOvmMessage(vmenv, msg, gp, tx, &signer, false)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// OVM_DISABLED
+		_, gas, failed, err = ApplyMessage(vmenv, msg, gp)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// Update the state with pending changes
 	var root []byte

@@ -604,6 +604,7 @@ func (m callmsg) Data() []byte                     { return m.CallMsg.Data }
 func (m callmsg) L1MessageSender() *common.Address { return m.CallMsg.L1MessageSender }
 func (m callmsg) L1RollupTxId() *hexutil.Uint64    { return m.CallMsg.L1RollupTxId }
 func (m callmsg) QueueOrigin() *big.Int            { return m.CallMsg.QueueOrigin }
+func (m callmsg) SignatureHashType() types.SignatureHashType            { return m.CallMsg.SignatureHashType }
 
 // filterBackend implements filters.Backend to support filtering for logs without
 // taking bloom-bits acceleration structures into account.
