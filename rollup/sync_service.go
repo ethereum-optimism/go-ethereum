@@ -523,7 +523,6 @@ func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 	var err error
 
 	go func(c chan error) {
-		defer close(c)
 		retries := 0
 		for {
 			rpcClient, err = rpc.Dial(s.eth1HTTPEndpoint)
@@ -556,6 +555,7 @@ func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 		return nil, nil, errors.New("Connection to Eth1 timed out")
 	}
 
+	close(connErrCh)
 	client := ethclient.NewClient(rpcClient)
 	return rpcClient, client, nil
 }
