@@ -140,9 +140,10 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 var (
 	// General settings
 	DataDirFlag = DirectoryFlag{
-		Name:  "datadir",
-		Usage: "Data directory for the databases and keystore",
-		Value: DirectoryString(node.DefaultDataDir()),
+		Name:   "datadir",
+		Usage:  "Data directory for the databases and keystore",
+		Value:  DirectoryString(node.DefaultDataDir()),
+		EnvVar: "DATADIR",
 	}
 	AncientFlag = DirectoryFlag{
 		Name:  "datadir.ancient",
@@ -153,8 +154,9 @@ var (
 		Usage: "Directory for the keystore (default = inside the datadir)",
 	}
 	NoUSBFlag = cli.BoolFlag{
-		Name:  "nousb",
-		Usage: "Disables monitoring for and managing USB hardware wallets",
+		Name:   "nousb",
+		Usage:  "Disables monitoring for and managing USB hardware wallets",
+		EnvVar: "NO_USB",
 	}
 	SmartCardDaemonPathFlag = cli.StringFlag{
 		Name:  "pcscdpath",
@@ -162,9 +164,10 @@ var (
 		Value: pcsclite.PCSCDSockName,
 	}
 	NetworkIdFlag = cli.Uint64Flag{
-		Name:  "networkid",
-		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
-		Value: eth.DefaultConfig.NetworkId,
+		Name:   "networkid",
+		Usage:  "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+		Value:  eth.DefaultConfig.NetworkId,
+		EnvVar: "NETWORK_ID",
 	}
 	TestnetFlag = cli.BoolFlag{
 		Name:  "testnet",
@@ -179,8 +182,9 @@ var (
 		Usage: "Görli network: pre-configured proof-of-authority test network",
 	}
 	DeveloperFlag = cli.BoolFlag{
-		Name:  "dev",
-		Usage: "Ephemeral proof-of-authority network with a pre-funded developer account, mining enabled",
+		Name:   "dev",
+		Usage:  "Ephemeral proof-of-authority network with a pre-funded developer account, mining enabled",
+		EnvVar: "DEV",
 	}
 	DeveloperPeriodFlag = cli.IntFlag{
 		Name:  "dev.period",
@@ -222,9 +226,10 @@ var (
 		Value: &defaultSyncMode,
 	}
 	GCModeFlag = cli.StringFlag{
-		Name:  "gcmode",
-		Usage: `Blockchain garbage collection mode ("full", "archive")`,
-		Value: "full",
+		Name:   "gcmode",
+		Usage:  `Blockchain garbage collection mode ("full", "archive")`,
+		Value:  "full",
+		EnvVar: "GCMODE",
 	}
 	LightKDFFlag = cli.BoolFlag{
 		Name:  "lightkdf",
@@ -421,9 +426,10 @@ var (
 		Value: eth.DefaultConfig.Miner.GasFloor,
 	}
 	MinerLegacyGasTargetFlag = cli.Uint64Flag{
-		Name:  "targetgaslimit",
-		Usage: "Target gas floor for mined blocks (deprecated, use --miner.gastarget)",
-		Value: eth.DefaultConfig.Miner.GasFloor,
+		Name:   "targetgaslimit",
+		Usage:  "Target gas floor for mined blocks (deprecated, use --miner.gastarget)",
+		Value:  eth.DefaultConfig.Miner.GasFloor,
+		EnvVar: "TARGET_GAS_LIMIT",
 	}
 	MinerGasLimitFlag = cli.Uint64Flag{
 		Name:  "miner.gaslimit",
@@ -436,9 +442,10 @@ var (
 		Value: eth.DefaultConfig.Miner.GasPrice,
 	}
 	MinerLegacyGasPriceFlag = BigFlag{
-		Name:  "gasprice",
-		Usage: "Minimum gas price for mining a transaction (deprecated, use --miner.gasprice)",
-		Value: eth.DefaultConfig.Miner.GasPrice,
+		Name:   "gasprice",
+		Usage:  "Minimum gas price for mining a transaction (deprecated, use --miner.gasprice)",
+		Value:  eth.DefaultConfig.Miner.GasPrice,
+		EnvVar: "GASPRICE",
 	}
 	MinerEtherbaseFlag = cli.StringFlag{
 		Name:  "miner.etherbase",
@@ -510,41 +517,48 @@ var (
 	}
 	// RPC settings
 	IPCDisabledFlag = cli.BoolFlag{
-		Name:  "ipcdisable",
-		Usage: "Disable the IPC-RPC server",
+		Name:   "ipcdisable",
+		Usage:  "Disable the IPC-RPC server",
+		EnvVar: "IPC_DISABLE",
 	}
 	IPCPathFlag = DirectoryFlag{
 		Name:  "ipcpath",
 		Usage: "Filename for IPC socket/pipe within the datadir (explicit paths escape it)",
 	}
 	RPCEnabledFlag = cli.BoolFlag{
-		Name:  "rpc",
-		Usage: "Enable the HTTP-RPC server",
+		Name:   "rpc",
+		Usage:  "Enable the HTTP-RPC server",
+		EnvVar: "RPC_ENABLE",
 	}
 	RPCListenAddrFlag = cli.StringFlag{
-		Name:  "rpcaddr",
-		Usage: "HTTP-RPC server listening interface",
-		Value: node.DefaultHTTPHost,
+		Name:   "rpcaddr",
+		Usage:  "HTTP-RPC server listening interface",
+		Value:  node.DefaultHTTPHost,
+		EnvVar: "RPC_ADDR",
 	}
 	RPCPortFlag = cli.IntFlag{
-		Name:  "rpcport",
-		Usage: "HTTP-RPC server listening port",
-		Value: node.DefaultHTTPPort,
+		Name:   "rpcport",
+		Usage:  "HTTP-RPC server listening port",
+		Value:  node.DefaultHTTPPort,
+		EnvVar: "RPC_PORT",
 	}
 	RPCCORSDomainFlag = cli.StringFlag{
-		Name:  "rpccorsdomain",
-		Usage: "Comma separated list of domains from which to accept cross origin requests (browser enforced)",
-		Value: "",
+		Name:   "rpccorsdomain",
+		Usage:  "Comma separated list of domains from which to accept cross origin requests (browser enforced)",
+		Value:  "",
+		EnvVar: "RPC_CORS_DOMAIN",
 	}
 	RPCVirtualHostsFlag = cli.StringFlag{
-		Name:  "rpcvhosts",
-		Usage: "Comma separated list of virtual hostnames from which to accept requests (server enforced). Accepts '*' wildcard.",
-		Value: strings.Join(node.DefaultConfig.HTTPVirtualHosts, ","),
+		Name:   "rpcvhosts",
+		Usage:  "Comma separated list of virtual hostnames from which to accept requests (server enforced). Accepts '*' wildcard.",
+		Value:  strings.Join(node.DefaultConfig.HTTPVirtualHosts, ","),
+		EnvVar: "RPC_VHOSTS",
 	}
 	RPCApiFlag = cli.StringFlag{
-		Name:  "rpcapi",
-		Usage: "API's offered over the HTTP-RPC interface",
-		Value: "",
+		Name:   "rpcapi",
+		Usage:  "API's offered over the HTTP-RPC interface",
+		Value:  "",
+		EnvVar: "RPC_API",
 	}
 	WSEnabledFlag = cli.BoolFlag{
 		Name:  "ws",
@@ -797,45 +811,56 @@ var (
 	}
 	// New Transaction Ingestion Flags
 	Eth1SyncServiceEnable = cli.BoolFlag{
-		Name:  "eth1.syncservice",
-		Usage: "Enable the sync service",
+		Name:   "eth1.syncservice",
+		Usage:  "Enable the sync service",
+		EnvVar: "ETH1_SYNC_SERVICE_ENABLE",
 	}
 	Eth1CanonicalTransactionChainDeployHeightFlag = cli.StringFlag{
-		Name:  "eth1.ctcdeploymentheight",
-		Usage: "Deployment of the canonical transaction chain",
+		Name:   "eth1.ctcdeploymentheight",
+		Usage:  "Deployment of the canonical transaction chain",
+		EnvVar: "ETH1_CTC_DEPLOYMENT_HEIGHT",
 	}
 	Eth1CanonicalTransactionChainAddressFlag = cli.StringFlag{
-		Name:  "eth1.ctcaddress",
-		Usage: "Deployment address of the canonical transaction chain",
+		Name:   "eth1.ctcaddress",
+		Usage:  "Deployment address of the canonical transaction chain",
+		EnvVar: "ETH1_CTC_ADDRESS",
 	}
 	Eth1L1toL2TransactionQueueAddressFlag = cli.StringFlag{
-		Name:  "eth1.queueaddress",
-		Usage: "Deployment address of the L1 to L2 transaction queue",
+		Name:   "eth1.queueaddress",
+		Usage:  "Deployment address of the L1 to L2 transaction queue",
+		EnvVar: "ETH1_QUEUE_ADDRESS",
 	}
 	Eth1SequencerDecompressionAddressFlag = cli.StringFlag{
-		Name:  "eth1.sequencerdecompressionaddress",
-		Usage: "Deployment address of the sequencer decompression contract",
+		Name:   "eth1.sequencerdecompressionaddress",
+		Usage:  "Deployment address of the sequencer decompression contract",
+		EnvVar: "ETH1_DECOMPRESSION_ADDRESS",
 	}
 	Eth1AddressResolverAddressFlag = cli.StringFlag{
-		Name:  "eth1.addressresolveraddress",
-		Usage: "Deployment address of the address resolver contract",
+		Name:   "eth1.addressresolveraddress",
+		Usage:  "Deployment address of the address resolver contract",
+		Value:  "0x0000000000000000000000000000000000000000",
+		EnvVar: "ETH1_ADDRESS_RESOLVER_ADDRESS",
 	}
 	Eth1ChainIdFlag = cli.Uint64Flag{
-		Name:  "eth1.chainid",
-		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+		Name:   "eth1.chainid",
+		Usage:  "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+		EnvVar: "ETH1_CHAINID",
 	}
 	Eth1NetworkIdFlag = cli.Uint64Flag{
-		Name:  "eth1.networkid",
-		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+		Name:   "eth1.networkid",
+		Usage:  "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+		EnvVar: "ETH1_NETWORKID",
 	}
 	Eth1HTTPFlag = cli.StringFlag{
-		Name:  "eth1.http",
-		Usage: "HTTP endpoint of an eth 1 node",
+		Name:   "eth1.http",
+		Usage:  "HTTP endpoint of an eth 1 node",
+		EnvVar: "EHT1_HTTP",
 	}
 	// Flag to enable verifier mode
 	RollupEnableVerifierFlag = cli.BoolFlag{
-		Name:  "rollup.verifier",
-		Usage: "Enable the verifier",
+		Name:   "rollup.verifier",
+		Usage:  "Enable the verifier",
+		EnvVar: "ROLLUP_VERIFIER_ENABLE",
 	}
 )
 
