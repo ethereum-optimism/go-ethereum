@@ -237,7 +237,7 @@ func (s *SyncService) Start() error {
 		return nil
 	}
 
-	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "ctc", s.CanonicalTransactionChainAddress, "queue", s.L1ToL2TransactionQueueAddress)
+	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address resolver", s.AddressResolverAddress)
 
 	blockHeight := rawdb.ReadHeadEth1HeaderHeight(s.db)
 	if blockHeight == 0 {
@@ -519,12 +519,11 @@ func (s *SyncService) ClearTransactionLoop() {
 // dialEth1Node will connect with a retry to eth1 nodes
 func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 	connErrCh := make(chan error, 1)
-	defer close(connErrCh)
-
 	var rpcClient *rpc.Client
 	var err error
 
 	go func(c chan error) {
+		defer close(c)
 		retries := 0
 		for {
 			rpcClient, err = rpc.Dial(s.eth1HTTPEndpoint)
