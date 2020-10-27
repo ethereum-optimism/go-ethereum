@@ -518,7 +518,8 @@ func (s *SyncService) ClearTransactionLoop() {
 
 // dialEth1Node will connect with a retry to eth1 nodes
 func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
-	connErrCh := make(chan error, 1)
+	connErrCh := make(chan error)
+	defer close(connErrCh)
 	var rpcClient *rpc.Client
 	var err error
 
@@ -555,7 +556,6 @@ func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 		return nil, nil, errors.New("Connection to Eth1 timed out")
 	}
 
-	close(connErrCh)
 	client := ethclient.NewClient(rpcClient)
 	return rpcClient, client, nil
 }
