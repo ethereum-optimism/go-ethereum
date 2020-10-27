@@ -284,6 +284,8 @@ func (s *SyncService) Start() error {
 	if err != nil {
 		return fmt.Errorf("Bad sync status: %w", err)
 	}
+
+	go s.LogDoneProcessing()
 	// Catch up to the tip of the eth1 chain
 	err = s.processHistoricalLogs()
 	if err != nil {
@@ -305,7 +307,6 @@ func (s *SyncService) Start() error {
 	}
 	s.gasLimit = gasLimit.Uint64()
 
-	go s.LogDoneProcessing()
 	go s.Loop()
 	go s.ClearTransactionLoop()
 
