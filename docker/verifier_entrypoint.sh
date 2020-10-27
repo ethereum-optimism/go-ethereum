@@ -30,7 +30,7 @@ geth --dev \
     --rpcport $PORT \
     --networkid $NETWORK_ID \
     --ipcdisable \
-    --rpcapi 'eth,net' \
+    --rpcapi 'eth,net,rollup' \
     --gasprice '0' \
     --targetgaslimit $TARGET_GAS_LIMIT \
     --nousb \

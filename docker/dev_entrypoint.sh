@@ -16,29 +16,24 @@ TX_INGESTION_POLL_INTERVAL=${TX_INGESTION_POLL_INTERVAL:-3s}
 TX_INGESTION_DB_USER=${TX_INGESTION_DB_USER:-test}
 TX_INGESTION_DB_PASSWORD=${TX_INGESTION_DB_PASSWORD:-test}
 
-if [ -n "$REBUILD" ]; then
-    echo -e "\nRebuilding geth\n"
-    make geth
-else
-    echo "Starting Geth..."
-    ./build/bin/geth --dev \
-      --datadir $VOLUME_PATH \
-      --rpc \
-      --rpcaddr $HOSTNAME \
-      --rpcvhosts='*' \
-      --rpccorsdomain='*' \
-      --rpcport $PORT \
-      --ipcdisable \
-      --networkid $NETWORK_ID \
-      --rpcapi 'eth,net' \
-      --gasprice '0' \
-      --targetgaslimit $TARGET_GAS_LIMIT \
-      --nousb \
-      --gcmode=archive \
-      --verbosity "6" \
-      --txingestion.enable="$TX_INGESTION" \
-      --txingestion.dbhost=$TX_INGESTION_DB_HOST \
-      --txingestion.pollinterval=$TX_INGESTION_POLL_INTERVAL \
-      --txingestion.dbuser=$TX_INGESTION_DB_USER \
-      --txingestion.dbpassword=$TX_INGESTION_DB_PASSWORD
-fi
+echo "Starting Geth..."
+./build/bin/geth --dev \
+    --datadir $VOLUME_PATH \
+    --rpc \
+    --rpcaddr $HOSTNAME \
+    --rpcvhosts='*' \
+    --rpccorsdomain='*' \
+    --rpcport $PORT \
+    --ipcdisable \
+    --networkid $NETWORK_ID \
+    --rpcapi 'eth,net,rollup' \
+    --gasprice '0' \
+    --targetgaslimit $TARGET_GAS_LIMIT \
+    --nousb \
+    --gcmode=archive \
+    --verbosity "6" \
+    --txingestion.enable="$TX_INGESTION" \
+    --txingestion.dbhost=$TX_INGESTION_DB_HOST \
+    --txingestion.pollinterval=$TX_INGESTION_POLL_INTERVAL \
+    --txingestion.dbuser=$TX_INGESTION_DB_USER \
+    --txingestion.dbpassword=$TX_INGESTION_DB_PASSWORD
