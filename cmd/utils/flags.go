@@ -816,6 +816,10 @@ var (
 		Name:  "eth1.sequencerdecompressionaddress",
 		Usage: "Deployment address of the sequencer decompression contract",
 	}
+	Eth1AddressResolverAddressFlag = cli.StringFlag{
+		Name:  "eth1.addressresolveraddress",
+		Usage: "Deployment address of the address resolver contract",
+	}
 	Eth1ChainIdFlag = cli.Uint64Flag{
 		Name:  "eth1.chainid",
 		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
@@ -1106,6 +1110,10 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(Eth1CanonicalTransactionChainDeployHeightFlag.Name) {
 		height := ctx.GlobalUint64(Eth1CanonicalTransactionChainDeployHeightFlag.Name)
 		cfg.CanonicalTransactionChainDeployHeight = new(big.Int).SetUint64(height)
+	}
+	if ctx.GlobalIsSet(Eth1AddressResolverAddressFlag.Name) {
+		addr := ctx.GlobalString(Eth1AddressResolverAddressFlag.Name)
+		cfg.AddressResolverAddress = common.HexToAddress(addr)
 	}
 	if ctx.GlobalIsSet(Eth1CanonicalTransactionChainAddressFlag.Name) {
 		addr := ctx.GlobalString(Eth1CanonicalTransactionChainAddressFlag.Name)

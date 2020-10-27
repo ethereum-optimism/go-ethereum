@@ -75,6 +75,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.TxIngestionSignerKeyHexFlag,
 			utils.TxIngestionSignerKeyFileFlag,
 			utils.Eth1SyncServiceEnable,
+			utils.Eth1AddressResolverAddressFlag,
 			utils.Eth1CanonicalTransactionChainDeployHeightFlag,
 			utils.Eth1CanonicalTransactionChainAddressFlag,
 			utils.Eth1L1toL2TransactionQueueAddressFlag,
