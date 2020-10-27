@@ -519,7 +519,7 @@ func (s *SyncService) ClearTransactionLoop() {
 // dialEth1Node will connect with a retry to eth1 nodes
 func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 	connErrCh := make(chan error)
-	defer close(connErrCh)
+	defer func() { close(connErrCh) }()
 	var rpcClient *rpc.Client
 	var err error
 
@@ -536,7 +536,7 @@ func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 				retries++
 				select {
 				case <-s.ctx.Done():
-					break
+					return
 				case <-time.After(time.Second):
 					continue
 				}
