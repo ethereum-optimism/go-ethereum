@@ -603,10 +603,10 @@ func (s *SyncService) checkSyncStatus() error {
 // processHistoricalLogs will sync block by block of the eth1 chain, looking for
 // events it can process.
 func (s *SyncService) processHistoricalLogs() error {
-	errCh := make(chan error, 1)
-	defer func() { close(errCh) }()
+	errCh := make(chan error)
 
-	go func() {
+	go func(c chan error) {
+		defer func() { close(c) }()
 		for {
 			// Get the tip of the chain
 			tip, err := s.ethclient.HeaderByNumber(s.ctx, nil)
@@ -618,6 +618,7 @@ func (s *SyncService) processHistoricalLogs() error {
 			// Check to see if the tip is the last processed block height
 			tipHeight := tip.Number.Uint64()
 			if tipHeight == s.Eth1Data.BlockHeight {
+				log.Info("Done fetching historical logs", "height", tipHeight)
 				errCh <- nil
 			}
 			if tipHeight < s.Eth1Data.BlockHeight {
@@ -640,7 +641,7 @@ func (s *SyncService) processHistoricalLogs() error {
 			log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
 			s.doneProcessing <- headerHeight
 		}
-	}()
+	}(errCh)
 
 	select {
 	case <-s.ctx.Done():
