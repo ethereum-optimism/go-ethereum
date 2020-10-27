@@ -510,44 +510,11 @@ func (s *SyncService) ClearTransactionLoop() {
 	}
 }
 
-// dialEth1Node will connect with a retry to eth1 nodes
+// dialEth1Node will connect to an eth1 node
 func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
-	connErrCh := make(chan error)
-	var rpcClient *rpc.Client
-	var err error
-
-	go func(c chan error) {
-		defer func() { close(c) }()
-		retries := 0
-		for {
-			rpcClient, err = rpc.Dial(s.eth1HTTPEndpoint)
-			if err != nil {
-				log.Error("Error connecting to Eth1", "endpoint", s.eth1HTTPEndpoint, "retries", retries)
-				if retries > 10 {
-					c <- err
-					return
-				}
-				retries++
-				select {
-				case <-s.ctx.Done():
-					return
-				case <-time.After(time.Second):
-					continue
-				}
-			}
-			c <- nil
-		}
-	}(connErrCh)
-
-	select {
-	case err = <-connErrCh:
-		break
-	case <-s.ctx.Done():
-		return nil, nil, errors.New("Cancelled connection to Eth1")
-	}
-
+	rpcClient, err := rpc.Dial(s.eth1HTTPEndpoint)
 	if err != nil {
-		return nil, nil, errors.New("Connection to Eth1 timed out")
+		return nil, nil, fmt.Errorf("Unable to connect to eth1 at %s: %w", s.eth1HTTPEndpoint, err)
 	}
 
 	client := ethclient.NewClient(rpcClient)
