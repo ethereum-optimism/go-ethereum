@@ -16,7 +16,7 @@ ETH1_CHAINID=${ETH1_CHAINID:-1}
 ETH1_NETWORKID=${ETH1_NETWORKID:-1}
 
 if [ $ETH1_SYNC_SERVICE == 'false' ]; then
-    ETH1_HTTP_ENDPOINT=''
+    ETH1_HTTP=''
 fi
 
 echo "Starting Sequencer"
@@ -40,4 +40,4 @@ geth --dev \
     --eth1.addressresolveraddress $ETH1_ADDRESS_RESOLVER_ADDRESS \
     --eth1.chainid $ETH1_CHAINID \
     --eth1.networkid $ETH1_NETWORKID \
-    --eth1.http $ETH1_HTTP_ENDPOINT
+    --eth1.http $ETH1_HTTP

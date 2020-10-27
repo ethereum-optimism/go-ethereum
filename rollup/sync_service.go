@@ -529,7 +529,7 @@ func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 		for {
 			rpcClient, err = rpc.Dial(s.eth1HTTPEndpoint)
 			if err != nil {
-				log.Error("Error connecting to Eth1", "endpoint", s.eth1HTTPEndpoint)
+				log.Error("Error connecting to Eth1", "endpoint", s.eth1HTTPEndpoint, "retries", retries)
 				if retries > 10 {
 					c <- err
 					return

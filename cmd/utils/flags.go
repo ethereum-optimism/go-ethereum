@@ -854,7 +854,7 @@ var (
 	Eth1HTTPFlag = cli.StringFlag{
 		Name:   "eth1.http",
 		Usage:  "HTTP endpoint of an eth 1 node",
-		EnvVar: "EHT1_HTTP",
+		EnvVar: "ETH1_HTTP",
 	}
 	// Flag to enable verifier mode
 	RollupEnableVerifierFlag = cli.BoolFlag{
