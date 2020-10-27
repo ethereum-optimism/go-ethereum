@@ -8,11 +8,14 @@ VOLUME_PATH=${VOLUME_PATH:-/mnt/l2geth}
 
 CLEAR_DATA_FILE_PATH="${VOLUME_PATH}/.clear_data_key_${CLEAR_DATA_KEY}"
 TARGET_GAS_LIMIT=${TARGET_GAS_LIMIT:-8000000}
-TX_INGESTION=${TX_INGESTION:-false}
-TX_INGESTION_DB_HOST=${TX_INGESTION_DB_HOST:-localhost}
-TX_INGESTION_DB_PASSWORD=${TX_INGESTION_DB_PASSWORD:-test}
-TX_INGESTION_DB_USER=${TX_INGESTION_DB_USER:-test}
-TX_INGESTION_POLL_INTERVAL=${TX_INGESTION_POLL_INTERVAL:-3s}
+
+ETH1_SYNC_SERVICE=${ETH1_SYNC_SERVICE:-true}
+ETH1_CTC_DEPLOYMENT_HEIGHT=${ETH1_CTC_DEPLOYMENT_HEIGHT-:0}
+ETH1_CTC_ADDRESS=${ETH1_CTC_ADDRESS-:0}
+ETH1_QUEUE_ADDRESS=${ETH1_QUEUE_ADDRESS-:0}
+ETH1_SEQUENCER_DECOMPRESSION_ADDRESS=${ETH1_SEQUENCER_DECOMPRESSION_ADDRESS-:0}
+ETH1_CHAINID=${ETH1_CHAINID:-1}
+ETH1_NETWORKID=${ETH1_NETWORKID:-1}
 
 if [[ -n "$CLEAR_DATA_KEY" && ! -f "$CLEAR_DATA_FILE_PATH" ]]; then
   echo "Detected change in CLEAR_DATA_KEY. Purging data."
@@ -39,8 +42,11 @@ geth --dev \
     --nousb \
     --gcmode=archive \
     --verbosity "6" \
-    --txingestion.enable=$TX_INGESTION \
-    --txingestion.dbhost=$TX_INGESTION_DB_HOST \
-    --txingestion.pollinterval=$TX_INGESTION_POLL_INTERVAL \
-    --txingestion.dbuser=$TX_INGESTION_DB_USER \
-    --txingestion.dbpassword=$TX_INGESTION_DB_PASSWORD
+    --eth1.syncservice=$ETH1_SYNC_SERVICE \
+    --eth1.ctcdeploymentheight $ETH1_CTC_DEPLOYMENT_HEIGHT \
+    --eth1.ctcaddress $ETH1_CTC_ADDRESS \
+    --eth1.queueaddress $ETH1_QUEUE_ADDRESS \
+    --eth1.sequencerdecompressionaddress $ETH1_SEQUENCER_DECOMPRESSION_ADDRESS \
+    --eth1.chainid $ETH1_CHAINID \
+    --eth1.networkid $ETH1_NETWORKID \
+    --eth1.http $ETH_HTTP_ENDPOINT

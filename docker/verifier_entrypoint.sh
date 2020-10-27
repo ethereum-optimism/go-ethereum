@@ -41,7 +41,7 @@ geth --dev \
     --eth1.ctcdeploymentheight $ETH1_CTC_DEPLOYMENT_HEIGHT \
     --eth1.ctcaddress $ETH1_CTC_ADDRESS \
     --eth1.queueaddress $ETH1_QUEUE_ADDRESS \
-    --et1.sequencerdecompressionaddress $ETH1_SEQUENCER_DECOMPRESSION_ADDRESS \
+    --eth1.sequencerdecompressionaddress $ETH1_SEQUENCER_DECOMPRESSION_ADDRESS \
     --eth1.chainid $ETH1_CHAINID \
     --eth1.networkid $ETH1_NETWORKID \
     --eth1.http $ETH_HTTP_ENDPOINT
