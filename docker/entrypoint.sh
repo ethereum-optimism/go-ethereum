@@ -15,13 +15,8 @@ ETH1_ADDRESS_RESOLVER_ADDRESS=${ETH1_ADDRESS_RESOLVER_ADDRESS:-0x000000000000000
 ETH1_CHAINID=${ETH1_CHAINID:-1}
 ETH1_NETWORKID=${ETH1_NETWORKID:-1}
 
-if [[ -n "$CLEAR_DATA_KEY" && ! -f "$CLEAR_DATA_FILE_PATH" ]]; then
-  echo "Detected change in CLEAR_DATA_KEY. Purging data."
-  rm -rf ${VOLUME_PATH}/*
-  rm -rf ${VOLUME_PATH}/.clear_data_key_*
-  echo "Local data cleared from '${VOLUME_PATH}/*'"
-  echo "Contents of volume dir: $(ls -alh $VOLUME_PATH)"
-  touch $CLEAR_DATA_FILE_PATH
+if [ $ETH1_SYNC_SERVICE == 'false' ]; then
+    ETH1_HTTP_ENDPOINT=''
 fi
 
 echo "Starting Sequencer"
@@ -45,4 +40,4 @@ geth --dev \
     --eth1.addressresolveraddress $ETH1_ADDRESS_RESOLVER_ADDRESS \
     --eth1.chainid $ETH1_CHAINID \
     --eth1.networkid $ETH1_NETWORKID \
-    --eth1.http $ETH_HTTP_ENDPOINT
+    --eth1.http $ETH1_HTTP_ENDPOINT
