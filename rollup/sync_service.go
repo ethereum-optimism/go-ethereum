@@ -524,14 +524,14 @@ func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 	var rpcClient *rpc.Client
 	var err error
 
-	go func() {
+	go func(c chan error) {
 		retries := 0
 		for {
 			rpcClient, err = rpc.Dial(s.eth1HTTPEndpoint)
 			if err != nil {
 				log.Error("Error connecting to Eth1", "endpoint", s.eth1HTTPEndpoint)
 				if retries > 10 {
-					connErrCh <- err
+					c <- err
 					return
 				}
 				retries++
@@ -542,9 +542,9 @@ func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 					continue
 				}
 			}
-			connErrCh <- err // sending `nil`
+			c <- nil
 		}
-	}()
+	}(connErrCh)
 
 	select {
 	case err = <-connErrCh:
