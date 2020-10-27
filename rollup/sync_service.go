@@ -353,6 +353,7 @@ func (s *SyncService) bindContracts() error {
 	}
 
 	var err error
+	log.Info("Binding to OVM_CanonicalTransactionChain", "address", s.CanonicalTransactionChainAddress)
 	s.ctcFilterer, err = ctc.NewOVMCanonicalTransactionChainFilterer(s.CanonicalTransactionChainAddress, s.ethrpcclient)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize ctc filterer: %w", err)
@@ -361,6 +362,7 @@ func (s *SyncService) bindContracts() error {
 	if err != nil {
 		return fmt.Errorf("Cannot initialize ctc caller: %w", err)
 	}
+	log.Info("Binding to OVM_ExecutionManager", "address", s.ExecutionManagerAddress)
 	s.mgrCaller, err = mgr.NewOVMExecutionManagerCaller(s.ExecutionManagerAddress, s.ethrpcclient)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize execution manager caller: %w", err)
