@@ -323,7 +323,9 @@ func (s *SyncService) resolveAddresses() error {
 		return errors.New("Must initialize eth rpc client first")
 	}
 	resolver, err := addressmanager.NewLibAddressManager(s.AddressResolverAddress, s.ethrpcclient)
-	opts := bind.CallOpts{Context: s.ctx, BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight)}
+	// TODO(mark): using the correct block height is a consensus critical thing.
+	// Be sure to use the correct height by setting BlockNumber in the context
+	opts := bind.CallOpts{Context: s.ctx}
 
 	s.CanonicalTransactionChainAddress, err = resolver.GetAddress(&opts, "OVM_CanonicalTransactionChain")
 	if err != nil {
