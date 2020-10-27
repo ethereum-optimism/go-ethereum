@@ -24,24 +24,23 @@ if [[ -n "$CLEAR_DATA_KEY" && ! -f "$CLEAR_DATA_FILE_PATH" ]]; then
 fi
 
 echo "Starting Geth..."
-## Command to kick off geth
 geth --dev \
-  --datadir $VOLUME_PATH \
-  --rpc \
-  --rpcaddr $HOSTNAME \
-  --rpcvhosts='*' \
-  --rpccorsdomain='*' \
-  --rpcport $PORT \
-  --networkid $NETWORK_ID \
-  --ipcdisable \
-  --rpcapi 'eth,net' \
-  --gasprice '0' \
-  --targetgaslimit $TARGET_GAS_LIMIT \
-  --nousb \
-  --gcmode=archive \
-  --verbosity "6" \
-  --txingestion.enable=$TX_INGESTION \
-  --txingestion.dbhost=$TX_INGESTION_DB_HOST \
-  --txingestion.pollinterval=$TX_INGESTION_POLL_INTERVAL \
-  --txingestion.dbuser=$TX_INGESTION_DB_USER \
-  --txingestion.dbpassword=$TX_INGESTION_DB_PASSWORD
+    --datadir $VOLUME_PATH \
+    --rpc \
+    --rpcaddr $HOSTNAME \
+    --rpcvhosts='*' \
+    --rpccorsdomain='*' \
+    --rpcport $PORT \
+    --networkid $NETWORK_ID \
+    --ipcdisable \
+    --rpcapi 'eth,net,rollup' \
+    --gasprice '0' \
+    --targetgaslimit $TARGET_GAS_LIMIT \
+    --nousb \
+    --gcmode=archive \
+    --verbosity "6" \
+    --txingestion.enable=$TX_INGESTION \
+    --txingestion.dbhost=$TX_INGESTION_DB_HOST \
+    --txingestion.pollinterval=$TX_INGESTION_POLL_INTERVAL \
+    --txingestion.dbuser=$TX_INGESTION_DB_USER \
+    --txingestion.dbpassword=$TX_INGESTION_DB_PASSWORD
