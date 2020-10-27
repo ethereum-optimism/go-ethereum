@@ -629,6 +629,12 @@ func (s *SyncService) processHistoricalLogs() error {
 
 			// Fetch the next header and process it
 			header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(s.Eth1Data.BlockHeight+1))
+			if err != nil {
+				errCh <- fmt.Errorf("Cannot fetch header by number %d: %w", s.Eth1Data.BlockHeight+1, err)
+			}
+			if header.Number == nil {
+				errCh <- fmt.Errorf("Header has nil number")
+			}
 			headerHeight := header.Number.Uint64()
 			headerHash := header.Hash()
 
