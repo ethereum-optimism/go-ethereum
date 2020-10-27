@@ -519,11 +519,11 @@ func (s *SyncService) ClearTransactionLoop() {
 // dialEth1Node will connect with a retry to eth1 nodes
 func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 	connErrCh := make(chan error)
-	defer func() { close(connErrCh) }()
 	var rpcClient *rpc.Client
 	var err error
 
 	go func(c chan error) {
+		defer func() { close(c) }()
 		retries := 0
 		for {
 			rpcClient, err = rpc.Dial(s.eth1HTTPEndpoint)
@@ -647,7 +647,7 @@ func (s *SyncService) checkSyncStatus() error {
 // events it can process.
 func (s *SyncService) processHistoricalLogs() error {
 	errCh := make(chan error, 1)
-	defer close(errCh)
+	defer func() { close(errCh) }()
 
 	go func() {
 		for {
