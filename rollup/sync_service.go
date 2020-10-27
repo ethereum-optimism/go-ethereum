@@ -168,7 +168,6 @@ type SyncService struct {
 	ctcDeployHeight                  *big.Int
 	AddressResolverAddress           common.Address
 	CanonicalTransactionChainAddress common.Address
-	L1ToL2TransactionQueueAddress    common.Address
 	SequencerDecompressionAddress    common.Address
 	StateCommitmentChainAddress      common.Address
 	ExecutionManagerAddress          common.Address
@@ -207,7 +206,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		eth1HTTPEndpoint:                 cfg.Eth1HTTPEndpoint,
 		AddressResolverAddress:           cfg.AddressResolverAddress,
 		CanonicalTransactionChainAddress: cfg.CanonicalTransactionChainAddress,
-		L1ToL2TransactionQueueAddress:    cfg.L1ToL2TransactionQueueAddress,
 		SequencerDecompressionAddress:    cfg.SequencerDecompressionAddress,
 		signer:                           types.NewOVMSigner(chainID),
 		key:                              *cfg.TxIngestionSignerKey,
@@ -327,19 +325,15 @@ func (s *SyncService) resolveAddresses() error {
 	resolver, err := addressresolver.NewLibAddressResolver(s.AddressResolverAddress, s.ethrpcclient)
 	opts := bind.CallOpts{Context: s.ctx, BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight)}
 
-	s.CanonicalTransactionChainAddress, err = resolver.Resolve(&opts, "CanonicalTransactionChain")
+	s.CanonicalTransactionChainAddress, err = resolver.Resolve(&opts, "OVM_CanonicalTransactionChain")
 	if err != nil {
 		return fmt.Errorf("Cannot resolve canonical transaction chain: %w", err)
 	}
-	s.L1ToL2TransactionQueueAddress, err = resolver.Resolve(&opts, "L1ToL2TransactionQueue")
-	if err != nil {
-		return fmt.Errorf("Cannot resolve l1 to l2 transaction queue: %w", err)
-	}
-	s.SequencerDecompressionAddress, err = resolver.Resolve(&opts, "SequencerDecompression")
+	s.SequencerDecompressionAddress, err = resolver.Resolve(&opts, "OVM_SequencerDecompression")
 	if err != nil {
 		return fmt.Errorf("Cannot resolve sequencer decompression: %w", err)
 	}
-	s.StateCommitmentChainAddress, err = resolver.Resolve(&opts, "StateCommitmentChain")
+	s.StateCommitmentChainAddress, err = resolver.Resolve(&opts, "OVM_StateCommitmentChain")
 	if err != nil {
 		return fmt.Errorf("Cannot resolve state commitment chain: %w", err)
 	}

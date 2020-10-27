@@ -825,11 +825,6 @@ var (
 		Usage:  "Deployment address of the canonical transaction chain",
 		EnvVar: "ETH1_CTC_ADDRESS",
 	}
-	Eth1L1toL2TransactionQueueAddressFlag = cli.StringFlag{
-		Name:   "eth1.queueaddress",
-		Usage:  "Deployment address of the L1 to L2 transaction queue",
-		EnvVar: "ETH1_QUEUE_ADDRESS",
-	}
 	Eth1SequencerDecompressionAddressFlag = cli.StringFlag{
 		Name:   "eth1.sequencerdecompressionaddress",
 		Usage:  "Deployment address of the sequencer decompression contract",
@@ -1143,10 +1138,6 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(Eth1CanonicalTransactionChainAddressFlag.Name) {
 		addr := ctx.GlobalString(Eth1CanonicalTransactionChainAddressFlag.Name)
 		cfg.CanonicalTransactionChainAddress = common.HexToAddress(addr)
-	}
-	if ctx.GlobalIsSet(Eth1L1toL2TransactionQueueAddressFlag.Name) {
-		addr := ctx.GlobalString(Eth1L1toL2TransactionQueueAddressFlag.Name)
-		cfg.L1ToL2TransactionQueueAddress = common.HexToAddress(addr)
 	}
 	if ctx.GlobalIsSet(Eth1SequencerDecompressionAddressFlag.Name) {
 		addr := ctx.GlobalString(Eth1SequencerDecompressionAddressFlag.Name)
