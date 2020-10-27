@@ -643,10 +643,13 @@ func (s *SyncService) processHistoricalLogs() error {
 		}
 	}(errCh)
 
+	log.Info("Processing historical logs...")
 	select {
 	case <-s.ctx.Done():
+		log.Info("Received done")
 		return nil
 	case err := <-errCh:
+		log.Info("Received on channel", "msg", err)
 		return err
 	}
 }
