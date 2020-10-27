@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/contracts/addressresolver"
+	"github.com/ethereum/go-ethereum/contracts/addressmanager"
 	ctc "github.com/ethereum/go-ethereum/contracts/canonicaltransactionchain"
 	mgr "github.com/ethereum/go-ethereum/contracts/executionmanager"
 	"github.com/ethereum/go-ethereum/core"
@@ -322,22 +322,22 @@ func (s *SyncService) resolveAddresses() error {
 	if s.ethrpcclient == nil {
 		return errors.New("Must initialize eth rpc client first")
 	}
-	resolver, err := addressresolver.NewLibAddressResolver(s.AddressResolverAddress, s.ethrpcclient)
+	resolver, err := addressmanager.NewLibAddressManager(s.AddressResolverAddress, s.ethrpcclient)
 	opts := bind.CallOpts{Context: s.ctx, BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight)}
 
-	s.CanonicalTransactionChainAddress, err = resolver.Resolve(&opts, "OVM_CanonicalTransactionChain")
+	s.CanonicalTransactionChainAddress, err = resolver.GetAddress(&opts, "OVM_CanonicalTransactionChain")
 	if err != nil {
 		return fmt.Errorf("Cannot resolve canonical transaction chain: %w", err)
 	}
-	s.SequencerDecompressionAddress, err = resolver.Resolve(&opts, "OVM_SequencerDecompression")
+	s.SequencerDecompressionAddress, err = resolver.GetAddress(&opts, "OVM_SequencerDecompression")
 	if err != nil {
 		return fmt.Errorf("Cannot resolve sequencer decompression: %w", err)
 	}
-	s.StateCommitmentChainAddress, err = resolver.Resolve(&opts, "OVM_StateCommitmentChain")
+	s.StateCommitmentChainAddress, err = resolver.GetAddress(&opts, "OVM_StateCommitmentChain")
 	if err != nil {
 		return fmt.Errorf("Cannot resolve state commitment chain: %w", err)
 	}
-	s.ExecutionManagerAddress, err = resolver.Resolve(&opts, "ExecutionManager")
+	s.ExecutionManagerAddress, err = resolver.GetAddress(&opts, "OVM_ExecutionManager")
 	if err != nil {
 		return fmt.Errorf("Cannot resolve execution manager: %w", err)
 	}
