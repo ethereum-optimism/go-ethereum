@@ -47,6 +47,7 @@ type CTCEventFilterer interface {
 
 type CTCCaller interface {
 	GetNextQueueIndex(*bind.CallOpts) (*big.Int, error)
+	GetNumPendingQueueElements(*bind.CallOpts) (*big.Int, error)
 	GetQueueElement(*bind.CallOpts, *big.Int) (ctc.Lib_OVMCodecQueueElement, error)
 	GetTotalElements(*bind.CallOpts) (*big.Int, error)
 }
@@ -442,6 +443,11 @@ func (s *SyncService) sequencerIngestQueue() {
 				}
 			case true:
 				opts := bind.CallOpts{Pending: false, Context: s.ctx}
+				pending, err := s.ctcCaller.GetNumPendingQueueElements(&opts)
+				if pending.Uint64() == 0 {
+					continue
+				}
+
 				index, err := s.ctcCaller.GetNextQueueIndex(&opts)
 				if err != nil {
 					log.Error("Cannot get next queue index", "message", err.Error())
