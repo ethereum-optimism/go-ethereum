@@ -547,14 +547,7 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 	// Start the RPC service
 	s.netRPCService = ethapi.NewPublicNetAPI(srvr, s.NetVersion())
 
-	// Figure out a max peers count based on the server limits
-	maxPeers := srvr.MaxPeers
-	if s.config.LightServ > 0 {
-		if s.config.LightPeers >= srvr.MaxPeers {
-			return fmt.Errorf("invalid peer config: light peer count (%d) >= total peer count (%d)", s.config.LightPeers, srvr.MaxPeers)
-		}
-		maxPeers -= s.config.LightPeers
-	}
+	// Start the sync service
 	err := s.syncService.Start()
 	if err != nil {
 		return fmt.Errorf("unable to start syncservice: %w", err)

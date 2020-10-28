@@ -437,9 +437,10 @@ var (
 		Value: eth.DefaultConfig.Miner.GasCeil,
 	}
 	MinerGasPriceFlag = BigFlag{
-		Name:  "miner.gasprice",
-		Usage: "Minimum gas price for mining a transaction",
-		Value: eth.DefaultConfig.Miner.GasPrice,
+		Name:   "miner.gasprice",
+		Usage:  "Minimum gas price for mining a transaction",
+		Value:  eth.DefaultConfig.Miner.GasPrice,
+		EnvVar: "GASPRICE",
 	}
 	MinerLegacyGasPriceFlag = BigFlag{
 		Name:   "gasprice",
@@ -561,28 +562,33 @@ var (
 		EnvVar: "RPC_API",
 	}
 	WSEnabledFlag = cli.BoolFlag{
-		Name:  "ws",
-		Usage: "Enable the WS-RPC server",
+		Name:   "ws",
+		Usage:  "Enable the WS-RPC server",
+		EnvVar: "WS",
 	}
 	WSListenAddrFlag = cli.StringFlag{
-		Name:  "wsaddr",
-		Usage: "WS-RPC server listening interface",
-		Value: node.DefaultWSHost,
+		Name:   "wsaddr",
+		Usage:  "WS-RPC server listening interface",
+		Value:  node.DefaultWSHost,
+		EnvVar: "WS_ADDR",
 	}
 	WSPortFlag = cli.IntFlag{
-		Name:  "wsport",
-		Usage: "WS-RPC server listening port",
-		Value: node.DefaultWSPort,
+		Name:   "wsport",
+		Usage:  "WS-RPC server listening port",
+		Value:  node.DefaultWSPort,
+		EnvVar: "WS_PORT",
 	}
 	WSApiFlag = cli.StringFlag{
-		Name:  "wsapi",
-		Usage: "API's offered over the WS-RPC interface",
-		Value: "",
+		Name:   "wsapi",
+		Usage:  "API's offered over the WS-RPC interface",
+		Value:  "",
+		EnvVar: "WS_API",
 	}
 	WSAllowedOriginsFlag = cli.StringFlag{
-		Name:  "wsorigins",
-		Usage: "Origins from which to accept websockets requests",
-		Value: "",
+		Name:   "wsorigins",
+		Usage:  "Origins from which to accept websockets requests",
+		Value:  "",
+		EnvVar: "WS_ORIGINS",
 	}
 	GraphQLEnabledFlag = cli.BoolFlag{
 		Name:  "graphql",
@@ -662,8 +668,9 @@ var (
 		Value: "any",
 	}
 	NoDiscoverFlag = cli.BoolFlag{
-		Name:  "nodiscover",
-		Usage: "Disables the peer discovery mechanism (manual peer addition)",
+		Name:   "nodiscover",
+		Usage:  "Disables the peer discovery mechanism (manual peer addition)",
+		EnvVar: "NO_DISCOVER",
 	}
 	DiscoveryV5Flag = cli.BoolFlag{
 		Name:  "v5disc",
