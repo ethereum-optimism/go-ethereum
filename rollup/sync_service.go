@@ -614,6 +614,7 @@ func (s *SyncService) processHistoricalLogs() error {
 	errCh := make(chan error)
 
 	go func(c chan error) {
+		log.Info("Processing historical logs")
 		defer func() { close(c) }()
 		for {
 			// Get the tip of the chain
@@ -672,6 +673,7 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	}
 	blockHeight := header.Number.Uint64()
 	blockHash := header.Hash()
+	log.Debug("Processing block", "height", blockHeight, "hash", blockHash.Hex())
 	// This indicates a reorg on layer 1. Need to delete transactions
 	// from the cache that correspond to the block height.
 	if blockHeight <= s.Eth1Data.BlockHeight {
@@ -698,7 +700,11 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 		Addresses: []common.Address{
 			s.CanonicalTransactionChainAddress,
 		},
-		BlockHash: &blockHash,
+		// currently unsupported in hardhat
+		// see: https://github.com/nomiclabs/hardhat/pull/948/
+		//BlockHash: &blockHash
+		FromBlock: header.Number,
+		ToBlock:   header.Number,
 	}
 
 	logs, err := s.logClient.FilterLogs(ctx, query)
