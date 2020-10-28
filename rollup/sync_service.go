@@ -579,6 +579,13 @@ func (s *SyncService) verifyNetwork() error {
 	if cid.Uint64() != s.eth1ChainId {
 		return fmt.Errorf("Received incorrect chain id %d", cid.Uint64())
 	}
+	nid, err := s.ethclient.NetworkID(s.ctx)
+	if err != nil {
+		return fmt.Errorf("Cannot fetch network id: %w", err)
+	}
+	if nid.Uint64() != s.eth1NetworkId {
+		return fmt.Errorf("Received incorrect network id %d", nid.Uint64())
+	}
 	return nil
 }
 
@@ -650,13 +657,10 @@ func (s *SyncService) processHistoricalLogs() error {
 		}
 	}(errCh)
 
-	log.Info("Processing historical logs...")
 	select {
 	case <-s.ctx.Done():
-		log.Info("Received done")
 		return nil
 	case err := <-errCh:
-		log.Info("Received on channel", "msg", err)
 		return err
 	}
 }
