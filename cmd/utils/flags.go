@@ -439,7 +439,7 @@ var (
 	MinerGasPriceFlag = BigFlag{
 		Name:   "miner.gasprice",
 		Usage:  "Minimum gas price for mining a transaction",
-		Value:  eth.DefaultConfig.Miner.GasPrice,
+		Value:  big.NewInt(0),
 		EnvVar: "GASPRICE",
 	}
 	MinerLegacyGasPriceFlag = BigFlag{
