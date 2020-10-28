@@ -705,6 +705,7 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 		//BlockHash: &blockHash
 		FromBlock: header.Number,
 		ToBlock:   header.Number,
+		Topics:    nil,
 	}
 
 	logs, err := s.logClient.FilterLogs(ctx, query)
