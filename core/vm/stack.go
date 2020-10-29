@@ -19,8 +19,6 @@ package vm
 import (
 	"fmt"
 	"math/big"
-
-	"github.com/ethereum/go-ethereum/log"
 )
 
 // Stack is an object for basic stack operations. Items popped to the stack are
@@ -87,17 +85,4 @@ func (st *Stack) Print() {
 		fmt.Println("-- empty --")
 	}
 	fmt.Println("#############")
-}
-
-// Print dumps the content of the stack
-func (st *Stack) Debug() {
-	log.Debug("######## STACK ##########")
-	if len(st.data) > 0 {
-		for i, val := range st.data {
-			log.Debug("Stack Item", "Index", i, "Value", val)
-		}
-	} else {
-		fmt.Println("-- empty --")
-	}
-	log.Debug("######## STACK ##########")
 }

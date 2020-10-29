@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -125,6 +124,8 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	}
 }
 
+var returnDataCopy string
+
 // Run loops and evaluates the contract's code with the given input data and returns
 // the return byte-slice and an error if one occurred.
 //
@@ -153,9 +154,8 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 
 	// Reset the previous call's return data. It's unimportant to preserve the old buffer
 	// as every returning call will return new data anyway.
-	log.Debug("RESETTING RETURN DATA")
 	in.returnData = nil
-	log.Debug("DONE RESETTING RETURN DATA")
+	returnDataCopy = ""
 
 	// Don't bother with the execution if there's no code.
 	if len(contract.Code) == 0 {
@@ -269,36 +269,24 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			logged = true
 		}
 
-		// execute the operation
-		log.Debug("Executing Opcode", "Name", op.String(), "Memsize", mem.Len())
-		if in.returnData != nil {
-			log.Debug("Current return data is", "data", hexutil.Encode(in.returnData))
-		} else {
-			log.Debug("NO CURRENT RETURN DATA")
+		if len(returnDataCopy) > 0 {
+			in.returnData = []byte(returnDataCopy)
 		}
-		// if opCodeToString[op] == "MSTORE" || opCodeToString[op] == "RETURNDATACOPY" || opCodeToString[op] == "CALL" {
-		// 	if in.returnData != nil {
-		// 		log.Debug("Current return data is", "data", hexutil.Encode(in.returnData))
-		// 	} else {
-		// 		log.Debug("NO CURRENT RETURN DATA")
-		// 	}
-		// 	stack.Debug()
-		// }
+
+		// execute the operation
 		res, err = operation.execute(&pc, in, contract, mem, stack)
-		// if opCodeToString[op] == "MSTORE" || opCodeToString[op] == "RETURNDATACOPY" || opCodeToString[op] == "CALL" {
-		// 	mem.Debug()
-		// }
 
 		// verifyPool is a build flag. Pool verification makes sure the integrity
 		// of the integer pool by comparing values to a default value.
 		if verifyPool {
 			verifyIntegerPool(in.intPool)
 		}
+
 		// if the operation clears the return data (e.g. it has returning data)
 		// set the last return to the result of the operation.
 		if operation.returns {
-			log.Debug("Got returndata", "data", hexutil.Encode(res))
 			in.returnData = res
+			returnDataCopy = string(res)
 		}
 
 		switch {
