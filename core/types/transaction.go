@@ -326,6 +326,13 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 
 	var err error
 	msg.from, err = Sender(s, tx)
+
+	if tx.meta.L1MessageSender != nil {
+		msg.l1MessageSender = tx.meta.L1MessageSender
+	} else {
+		msg.l1MessageSender = &msg.from
+	}
+
 	return msg, err
 }
 

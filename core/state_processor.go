@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -82,17 +83,29 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
-	if err != nil {
-		return nil, err
+	var msg Message
+	var err error
+	if !vm.UsingOVM {
+		msg, err = tx.AsMessage(types.MakeSigner(config, header.Number))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		msg, err = asOvmMessage(tx, types.MakeSigner(config, header.Number))
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
 	// Apply the transaction to the current state (included in the env)
+	log.Debug(">>>>>> Serving an OVM transaction <<<<<<")
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
+	log.Debug("<<<<<< Served an OVM transaction  >>>>>>")
 	if err != nil {
 		return nil, err
 	}

@@ -20,7 +20,9 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 // Memory implements a simple memory model for the ethereum virtual machine.
@@ -44,6 +46,9 @@ func (m *Memory) Set(offset, size uint64, value []byte) {
 		if offset+size > uint64(len(m.store)) {
 			panic("invalid memory: store empty")
 		}
+
+		log.Debug("Memory stuff", "memory size", m.Len(), "value size", len(value), "offset", offset, "size", size)
+
 		copy(m.store[offset:offset+size], value)
 	}
 }
@@ -57,6 +62,9 @@ func (m *Memory) Set32(offset uint64, val *big.Int) {
 		panic("invalid memory: store empty")
 	}
 	// Zero the memory area
+	log.Debug("Current length is", "len", uint64(len(m.store)))
+	log.Debug("Writing to", "offset", offset, "val", val)
+
 	copy(m.store[offset:offset+32], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	// Fill in relevant bits
 	math.ReadBits(val, m.store[offset:offset+32])
@@ -121,4 +129,19 @@ func (m *Memory) Print() {
 		fmt.Println("-- empty --")
 	}
 	fmt.Println("####################")
+}
+
+// Debug dumps the content of the memory.
+func (m *Memory) Debug() {
+	log.Debug("####################")
+	if len(m.store) > 0 {
+		addr := 0
+		for i := 0; i+32 <= len(m.store); i += 32 {
+			log.Debug("Memory Item", "Index", addr, "Value", hexutil.Encode(m.store[i:i+32]))
+			addr++
+		}
+	} else {
+		fmt.Println("-- empty --")
+	}
+	log.Debug("####################")
 }

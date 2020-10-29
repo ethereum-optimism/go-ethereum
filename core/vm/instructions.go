@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"golang.org/x/crypto/sha3"
 )
@@ -676,6 +677,7 @@ func opPc(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *M
 }
 
 func opMsize(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	log.Debug("MSIZE result", "size", memory.Len())
 	stack.push(interpreter.intPool.get().SetInt64(int64(memory.Len())))
 	return nil, nil
 }

@@ -18,31 +18,19 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
 var (
 	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
-	executionManagerAbi          abi.ABI
 )
-
-func init() {
-	var err error
-	executionManagerAbi, err = abi.JSON(strings.NewReader(vm.RawExecutionManagerAbi))
-	if err != nil {
-		panic(fmt.Sprintf("Error reading ExecutionManagerAbi! Error: %s", err))
-	}
-}
 
 /*
 The State Transitioning Model
@@ -89,6 +77,7 @@ type Message interface {
 	L1MessageSender() *common.Address
 	L1RollupTxId() *hexutil.Uint64
 	QueueOrigin() *big.Int
+	SignatureHashType() types.SignatureHashType
 }
 
 // IntrinsicGas computes the 'intrinsic gas' for a message with the given data.
@@ -149,6 +138,18 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
 func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, error) {
+	if vm.UsingOVM {
+		// OVM_ENABLED
+		ovmmsg, err := toExecutionManagerRun(evm, msg)
+		if err != nil {
+			return nil, 0, false, err
+		}
+
+		evm.Context.Origin = msg.From()
+
+		return NewStateTransition(evm, ovmmsg, gp).TransitionDb()
+	}
+
 	return NewStateTransition(evm, msg, gp).TransitionDb()
 }
 
@@ -201,9 +202,16 @@ func (st *StateTransition) preCheck() error {
 // returning the result including the used gas. It returns an error if failed.
 // An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
-	if err = st.preCheck(); err != nil {
-		return
+	if !vm.UsingOVM {
+		// OVM_DISABLED
+		if err = st.preCheck(); err != nil {
+			return
+		}
+	} else {
+		// OVM_ENABLED
+		st.buyGas()
 	}
+
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
@@ -220,80 +228,35 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 
 	var (
-		evm = st.evm
 		// vm errors do not effect consensus and are therefore
 		// not assigned to err, except for insufficient balance
 		// error.
 		vmerr error
 	)
 
-	to := "<nil>"
-	if msg.To() != nil {
-		to = msg.To().Hex()
-	}
-
-	executionMgrTime := st.evm.Time
-	if executionMgrTime.Cmp(big.NewInt(0)) == 0 {
-		executionMgrTime = big.NewInt(1)
-	}
-
-	// TODO: queue origin is always 0 with current version of em
-	queueOrigin := big.NewInt(0)
-
-	l1MessageSender := msg.L1MessageSender()
-	if l1MessageSender == nil {
-		addr := common.HexToAddress("")
-		l1MessageSender = &addr
-	}
-
-	log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "l1MessageSender", l1MessageSender.Hex(), "data", hexutil.Encode(msg.Data()))
-
 	if contractCreation {
-		// Here we are going to call the EM directly
-		deployContractCalldata, _ := executionManagerAbi.Pack(
-			"executeTransaction",
-			executionMgrTime,        // lastL1Timestamp
-			queueOrigin,             // queueOrigin
-			common.HexToAddress(""), // ovmEntrypoint
-			st.data,                 // callBytes
-			sender,                  // fromAddress
-			l1MessageSender,         // l1MsgSenderAddress
-			true,                    // allowRevert
-		)
-
-		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, deployContractCalldata, st.gas, st.value)
+		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
 	} else {
-		callContractCalldata, _ := executionManagerAbi.Pack(
-			"executeTransaction",
-			executionMgrTime, // lastL1Timestamp
-			queueOrigin,      // queueOrigin
-			st.to(),          // ovmEntrypoint
-			st.data,          // callBytes
-			sender,           // fromAddress
-			l1MessageSender,  // l1MsgSenderAddress
-			true,             // allowRevert
-		)
-
-		ret, st.gas, vmerr = evm.Call(sender, vm.ExecutionManagerAddress, callContractCalldata, st.gas, st.value)
+		// Increment the nonce for the next transaction
+		if !vm.UsingOVM {
+			st.state.SetNonce(msg.From(), st.state.GetNonce(msg.From())+1)
+		}
+		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
+
 	if vmerr != nil {
-		log.Debug("VM returned with error", "err", vmerr)
-
-		// If the tx fails we won't have incremented the nonce. In this case, increment it manually
-		log.Debug("Incrementing nonce due to transaction failure")
-		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
-
-		// The only possible consensus-error would be if there wasn't
-		// sufficient balance to make the transfer happen. The first
-		// balance transfer may never fail.
 		if vmerr == vm.ErrInsufficientBalance {
 			return nil, 0, false, vmerr
 		}
 	}
-	st.refundGas()
-	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
-	log.Debug("return data", "data", hexutil.Encode(ret))
+	st.refundGas()
+
+	if !vm.UsingOVM {
+		// OVM_DISABLED
+		st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
+	}
+
 	return ret, st.gasUsed(), vmerr != nil, err
 }
 
