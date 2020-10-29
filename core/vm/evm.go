@@ -17,10 +17,10 @@
 package vm
 
 import (
-	"encoding/hex"
 	"errors"
 	"math/big"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -47,14 +47,33 @@ type (
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
-	// Intercept the StateManager calls
-	if contract.Address() == StateManagerAddress {
-		log.Debug("Calling State Manager contract.", "StateManagerAddress", StateManagerAddress.Hex())
-		ret, err := callStateManager(input, evm, contract)
-		if err != nil {
-			log.Error("State manager error!", "error", err)
+	if UsingOVM {
+		// OVM_ENABLED
+		var isUnknown = true
+		for name, account := range OvmStateDump.Accounts {
+			if contract.Address() == account.Address {
+				isUnknown = false
+				abi := &(account.ABI)
+				method, err := abi.MethodById(input)
+				if err != nil {
+					log.Debug("Calling Known Contract", "Name", name)
+				} else {
+					log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
+				}
+			}
 		}
-		return ret, err
+
+		if isUnknown {
+			log.Debug("Calling Unknown Contract", "Address", contract.Address().Hex())
+		}
+
+		if contract.Address() == OvmStateDump.Accounts["OVM_SafetyChecker"].Address {
+			return common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001"), nil
+		}
+
+		if contract.Address() == OvmStateManager.Address {
+			return callStateManager(input, evm, contract)
+		}
 	}
 
 	if contract.CodeAddr != nil {
@@ -69,6 +88,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			return RunPrecompiledContract(p, input, contract)
 		}
 	}
+
 	for _, interpreter := range evm.interpreters {
 		if interpreter.CanRun(contract.Code) {
 			if evm.interpreter != interpreter {
@@ -82,6 +102,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			return interpreter.Run(contract, input, readOnly)
 		}
 	}
+
 	return nil, ErrNoCompatibleInterpreter
 }
 
@@ -106,6 +127,10 @@ type Context struct {
 	BlockNumber *big.Int       // Provides information for NUMBER
 	Time        *big.Int       // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
+
+	// OVM_ADDITION
+	OriginalTargetAddress *common.Address
+	OriginalTargetResult  []byte
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -202,7 +227,23 @@ func (evm *EVM) Interpreter() Interpreter {
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
 func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
-	log.Debug("~~~ New Call ~~~", "Contract caller", caller.Address().Hex(), "Contract target address", addr.Hex(), "Calldata", hexutil.Encode(input))
+	var isTarget = false
+	if UsingOVM {
+		// OVM_ENABLED
+		if evm.depth == 0 {
+			evm.OriginalTargetAddress = nil
+			evm.OriginalTargetResult = []byte("00")
+		}
+
+		if caller.Address() == OvmExecutionManager.Address &&
+			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0xdeaddeaddeaddeaddeaddeaddeaddeaddead") &&
+			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x000000000000000000000000000000000000") &&
+			evm.OriginalTargetAddress == nil {
+			evm.OriginalTargetAddress = &addr
+			isTarget = true
+		}
+	}
+
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -211,15 +252,20 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
-	// Fail if we're trying to transfer more than the available balance
-	if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
-		return nil, gas, ErrInsufficientBalance
+
+	if !UsingOVM {
+		// OVM_DISABLED
+		// Fail if we're trying to transfer more than the available balance
+		if !evm.Context.CanTransfer(evm.StateDB, caller.Address(), value) {
+			return nil, gas, ErrInsufficientBalance
+		}
 	}
 
 	var (
 		to       = AccountRef(addr)
 		snapshot = evm.StateDB.Snapshot()
 	)
+
 	if !evm.StateDB.Exist(addr) {
 		precompiles := PrecompiledContractsHomestead
 		if evm.chainRules.IsByzantium {
@@ -238,7 +284,12 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		}
 		evm.StateDB.CreateAccount(addr)
 	}
-	evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
+
+	if !UsingOVM {
+		// OVM_DISABLED
+		evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
+	}
+
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
 	contract := NewContract(caller, to, value, gas)
@@ -266,6 +317,19 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			contract.UseGas(contract.Gas)
 		}
 	}
+
+	if UsingOVM {
+		// OVM_ENABLED
+		if isTarget {
+			evm.OriginalTargetResult = ret[96:]
+		}
+
+		if evm.depth == 0 {
+			ret = evm.OriginalTargetResult
+			log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Error", err)
+		}
+	}
+
 	return ret, contract.Gas, err
 }
 
@@ -285,9 +349,12 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
-	// Fail if we're trying to transfer more than the available balance
-	if !evm.CanTransfer(evm.StateDB, caller.Address(), value) {
-		return nil, gas, ErrInsufficientBalance
+	if !UsingOVM {
+		// OVM_DISABLED
+		// Fail if we're trying to transfer more than the available balance
+		if !evm.CanTransfer(evm.StateDB, caller.Address(), value) {
+			return nil, gas, ErrInsufficientBalance
+		}
 	}
 
 	var (
@@ -315,7 +382,6 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 // DelegateCall differs from CallCode in the sense that it executes the given address'
 // code with the caller as context and the caller is set to the caller of the caller.
 func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	log.Debug("~~~ New DelegateCall ~~~", "Contract caller:", hex.EncodeToString(caller.Address().Bytes()), "Contract target address:", hex.EncodeToString(addr.Bytes()))
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -348,7 +414,6 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 // Opcodes that attempt to perform such modifications will result in exceptions
 // instead of performing the modifications.
 func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error) {
-	log.Debug("~~~ New StaticCall ~~~", "Contract caller", caller.Address().Hex(), "Contract target address", addr.Hex())
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -404,8 +469,11 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, common.Address{}, gas, ErrDepth
 	}
-	if !evm.CanTransfer(evm.StateDB, caller.Address(), value) {
-		return nil, common.Address{}, gas, ErrInsufficientBalance
+	if !UsingOVM {
+		// OVM_DISABLED
+		if !evm.CanTransfer(evm.StateDB, caller.Address(), value) {
+			return nil, common.Address{}, gas, ErrInsufficientBalance
+		}
 	}
 
 	// Ensure there's no existing contract already at the designated address
@@ -416,7 +484,10 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	// Create a new account on the state
 	snapshot := evm.StateDB.Snapshot()
 	evm.StateDB.CreateAccount(address)
-	evm.Transfer(evm.StateDB, caller.Address(), address, value)
+	if !UsingOVM {
+		// OVM_DISABLED
+		evm.Transfer(evm.StateDB, caller.Address(), address, value)
+	}
 
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
@@ -471,14 +542,22 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 
 // Create creates a new contract using code as deployment code.
 func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
-	if caller.Address() != ExecutionManagerAddress {
-		log.Error("Creation called by non-Execution Manager contract! This should never happen.", "Offending address", caller.Address().Hex())
-		return nil, caller.Address(), 0, errors.New("creation called by non-Execution Manager contract")
+	if !UsingOVM {
+		// OVM_DISABLED
+		contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(caller.Address()))
+	} else {
+		// OVM_ENABLED
+		if caller.Address() != OvmExecutionManager.Address {
+			log.Error("Creation called by non-Execution Manager contract! This should never happen.", "Offending address", caller.Address().Hex())
+			return nil, caller.Address(), 0, errors.New("creation called by non-Execution Manager contract")
+		}
+
+		emaddr := OvmExecutionManager.Address
+		slot := common.HexToHash(strconv.FormatInt(15, 16))
+		contractAddr = common.BytesToAddress(evm.StateDB.GetState(emaddr, slot).Bytes())
+		log.Debug("[EM] Creating contract.", "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
 	}
-	// The contract address is stored at the Zero storage slot
-	contractAddrStorageSlot := common.HexToHash(strconv.FormatInt(ActiveContractStorageSlot, 16))
-	contractAddr = common.BytesToAddress(evm.StateDB.GetState(ExecutionManagerAddress, contractAddrStorageSlot).Bytes())
-	log.Debug("[EM] Creating contract.", "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+
 	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
 }
 
