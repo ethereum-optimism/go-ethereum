@@ -193,10 +193,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 
 	// Layer 2 chainid to use for signing
 	chainID := bc.Config().ChainID
-	// Always initialize syncing to true to start, the sequencer can toggle off
-	// syncing while the verifier is always syncing
-	syncing := true
-
 	service := SyncService{
 		ctx:                              ctx,
 		cancel:                           cancel,
@@ -221,8 +217,11 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		clearTransactionsAfter:           (5760 * 15), // 15 days worth of blocks
 		clearTransactionsTicker:          time.NewTicker(time.Hour),
 		txCache:                          NewTransactionCache(),
-		syncing:                          syncing,
 	}
+
+	// Always initialize syncing to true to start, the sequencer can toggle off
+	// syncing while the verifier is always syncing
+	service.setSyncStatus(true)
 
 	return &service, nil
 }
@@ -378,6 +377,7 @@ func (s *SyncService) bindContracts() error {
 // `eth_sendRawTransaction`. `syncing` should never be set directly
 // outside of this function.
 func (s *SyncService) setSyncStatus(status bool) {
+	log.Info("Setting sync status", "status", status)
 	if status {
 		s.txpool.LockAddRemote()
 	} else {
