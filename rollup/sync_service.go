@@ -306,6 +306,7 @@ func (s *SyncService) Start() error {
 		return fmt.Errorf("Cannot fetch gas limit: %w", err)
 	}
 	s.gasLimit = gasLimit.Uint64()
+	log.Info("Setting max transaction gas limit", "gas limit", s.gasLimit)
 
 	go s.Loop()
 	go s.ClearTransactionLoop()
@@ -492,6 +493,7 @@ func (s *SyncService) LogDoneProcessing() {
 // this could be improved so that the guarantees are better around removing
 // exactly when the transactions are finalized.
 func (s *SyncService) ClearTransactionLoop() {
+	log.Info("Starting transaction clearing loop")
 	for {
 		select {
 		case <-s.clearTransactionsTicker.C:
@@ -550,6 +552,7 @@ func (s *SyncService) Stop() error {
 }
 
 func (s *SyncService) Loop() {
+	log.Info("Starting Tip processing loop")
 	for {
 		select {
 		case header := <-s.heads:
