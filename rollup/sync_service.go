@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -158,6 +159,8 @@ type SyncService struct {
 	clearTransactionsTicker          *time.Ticker
 	clearTransactionsAfter           uint64
 	heads                            chan *types.Header
+	chainAdds                        chan core.ChainEvent
+	chainFeed                        event.Subscription
 	headSubscription                 ethereum.Subscription
 	doneProcessing                   chan uint64
 	signer                           types.Signer
@@ -200,7 +203,8 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		cancel:                           cancel,
 		verifier:                         cfg.IsVerifier,
 		enable:                           cfg.Eth1SyncServiceEnable,
-		heads:                            make(chan *types.Header, 256),
+		heads:                            make(chan *types.Header),
+		chainAdds:                        make(chan core.ChainEvent),
 		doneProcessing:                   make(chan uint64, 16),
 		eth1HTTPEndpoint:                 cfg.Eth1HTTPEndpoint,
 		AddressResolverAddress:           cfg.AddressResolverAddress,
@@ -261,6 +265,8 @@ func (s *SyncService) Start() error {
 		BlockHash:   blockHash,
 	}
 	s.Eth1Data = eth1Data
+
+	s.chainFeed = s.bc.SubscribeChainEvent(s.chainAdds)
 
 	_, client, err := s.dialEth1Node()
 	if err != nil {
@@ -598,8 +604,13 @@ func (s *SyncService) Stop() error {
 		defer s.cancel()
 	}
 
+	// TODO: this is potentially dead code
 	if s.headSubscription != nil {
 		defer s.headSubscription.Unsubscribe()
+	}
+
+	if s.chainFeed != nil {
+		defer s.chainFeed.Unsubscribe()
 	}
 
 	return nil
@@ -1106,5 +1117,23 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("Cannot add tx to mempool: %w", err)
 	}
-	return nil
+
+	// I think this may result in halting if txs come in from a different origin
+	// but try as a PoC for syncing
+	for {
+		select {
+		case chainEvent := <-s.chainAdds:
+			block := chainEvent.Block
+			txs := block.Transactions()
+			if len(txs) != 1 {
+				log.Error("Block with multiple transactions detected", "height", block.Number().Uint64(), "count", len(block.Transactions()))
+			}
+			received := txs[0]
+			if bytes.Equal(tx.Hash().Bytes(), received.Hash().Bytes()) {
+				return nil
+			}
+		case <-time.After(1 * time.Minute):
+			return fmt.Errorf("Transaction %s application timed out", tx.Hash().Hex())
+		}
+	}
 }
