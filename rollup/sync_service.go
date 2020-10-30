@@ -1028,7 +1028,7 @@ func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, 
 			return fmt.Errorf("Cannot sign transaction with god key: %w", err)
 		}
 	}
-	err = s.maybeApplyTransaction(index, tx)
+	err = s.applyTransaction(tx)
 	if err != nil {
 		return fmt.Errorf("Cannot apply tx: %w", err)
 	}
@@ -1038,6 +1038,8 @@ func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, 
 // maybeApplyTransaction will look at the tips height and apply the transaction
 // if the transaction is at the next index. This allows the codepath to work for
 // the verifier as it syncs as well as the sequencer for reorgs.
+// This is currently subject to race conditions because the block production
+// goes through the miner. Cannot use.
 func (s *SyncService) maybeApplyTransaction(index uint64, tx *types.Transaction) error {
 	block := s.bc.CurrentBlock()
 	// Special case for the transaction at index 0
