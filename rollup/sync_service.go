@@ -167,6 +167,7 @@ type SyncService struct {
 	syncing                          bool
 	Eth1Data                         Eth1Data
 	HeaderCache                      [2048]*types.Header
+	sequencerIngestTicker            *time.Ticker
 	ctcDeployHeight                  *big.Int
 	AddressResolverAddress           common.Address
 	CanonicalTransactionChainAddress common.Address
@@ -217,6 +218,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		db:                               db,
 		clearTransactionsAfter:           (5760 * 15), // 15 days worth of blocks
 		clearTransactionsTicker:          time.NewTicker(time.Hour),
+		sequencerIngestTicker:            time.NewTicker(15 * time.Second),
 		txCache:                          NewTransactionCache(),
 		HeaderCache:                      [2048]*types.Header{},
 	}
@@ -451,12 +453,9 @@ func (s *SyncService) sequencerIngestQueue() {
 		panic("Cannot run sequencer ingestion in verifier mode")
 	}
 
-	// TODO: make this tunable
-	ticker := time.NewTicker(time.Second * 10)
-
 	for {
 		select {
-		case <-ticker.C:
+		case <-s.sequencerIngestTicker.C:
 			switch s.syncing {
 			case false:
 				// Get the tip
@@ -469,18 +468,19 @@ func (s *SyncService) sequencerIngestQueue() {
 				// The transactions need to be played in order and there is no
 				// guarantee of order when it comes to the txcache iteration, so
 				// collect an array of pointers and then sort them by index.
-				txs := []*RollupTransaction{}
+				txs := new([]*RollupTransaction)
 				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
 					// The transaction has not been executed
 					// TODO(mark): possibly add sufficiently old logic
 					if !rtx.executed {
-						txs = append(txs, rtx)
+						*txs = append(*txs, rtx)
 					}
 				})
+				transactions := (*txs)[:]
 
-				sort.Sort(RollupTxsByIndex(txs))
-				log.Info("Ingesting transactions from L1", "count", len(txs))
-				for _, rtx := range txs {
+				sort.Sort(RollupTxsByIndex(transactions))
+				log.Info("Ingesting transactions from L1", "count", len(transactions))
+				for _, rtx := range transactions {
 					// set the timestamp
 					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 					// The god key needs to sign L1ToL2 transactions
@@ -488,6 +488,8 @@ func (s *SyncService) sequencerIngestQueue() {
 					if err != nil {
 						log.Error("Sequencer ingest queue transaction failed: %w", err)
 					}
+					// This executed value isn't being applied correctly
+					// or the ticker time is too short. Potentially add a lock
 					rtx.executed = true
 				}
 				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "tip-height", tipHeight)
