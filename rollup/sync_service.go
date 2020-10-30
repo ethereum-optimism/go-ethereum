@@ -159,7 +159,6 @@ type SyncService struct {
 	clearTransactionsTicker          *time.Ticker
 	clearTransactionsAfter           uint64
 	heads                            chan *types.Header
-	chainAdds                        chan core.ChainEvent
 	chainFeed                        event.Subscription
 	headSubscription                 ethereum.Subscription
 	doneProcessing                   chan uint64
@@ -204,7 +203,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		verifier:                         cfg.IsVerifier,
 		enable:                           cfg.Eth1SyncServiceEnable,
 		heads:                            make(chan *types.Header),
-		chainAdds:                        make(chan core.ChainEvent),
 		doneProcessing:                   make(chan uint64, 16),
 		eth1HTTPEndpoint:                 cfg.Eth1HTTPEndpoint,
 		AddressResolverAddress:           cfg.AddressResolverAddress,
@@ -265,8 +263,6 @@ func (s *SyncService) Start() error {
 		BlockHash:   blockHash,
 	}
 	s.Eth1Data = eth1Data
-
-	s.chainFeed = s.bc.SubscribeChainEvent(s.chainAdds)
 
 	_, client, err := s.dialEth1Node()
 	if err != nil {
@@ -1121,36 +1117,10 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("Cannot add tx to mempool: %w", err)
 	}
-
-	// I think this may result in halting if txs come in from a different origin
-	// but try as a PoC for syncing
-	for {
-		select {
-		case chainEvent := <-s.chainAdds:
-			block := chainEvent.Block
-			txs := block.Transactions()
-			if len(txs) != 1 {
-				log.Error("Block with multiple transactions detected", "height", block.Number().Uint64(), "count", len(block.Transactions()))
-			}
-			received := txs[0]
-			log.Debug("Received chain event", "height", block.Number().Uint64(), "to", received.To().Hex())
-
-			one := s.signer.Hash(tx)
-			two := s.signer.Hash(received)
-			log.Debug(fmt.Sprintf("tx: %s, event: %s", one.Hex(), two.Hex()))
-
-			if bytes.Equal(one.Bytes(), two.Bytes()) {
-				log.Debug("Chain event equality", "to", tx.To().Hex())
-				return nil
-			}
-			prettyPrintTx(tx, "tx")
-			prettyPrintTx(received, "received")
-		case <-time.After(10 * time.Second):
-			return fmt.Errorf("Transaction %s application timed out: %s", tx.Hash().Hex(), tx.To().Hex())
-		}
-	}
+	return nil
 }
 
+// TODO(mark): just for debugging
 func prettyPrintTx(tx *types.Transaction, s string) {
 	nonce := tx.Nonce()
 	gasPrice := tx.GasPrice().Uint64()
