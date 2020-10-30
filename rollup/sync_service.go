@@ -1130,7 +1130,8 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 			}
 			received := txs[0]
 			log.Debug("Received chain event", "height", block.Number().Uint64(), "to", received.To().Hex())
-			if bytes.Equal(tx.Hash().Bytes(), received.Hash().Bytes()) {
+			if bytes.Equal(s.signer.Hash(tx).Bytes(), s.signer.Hash(received).Bytes()) {
+				log.Debug("Chain event equality", "to", tx.To().Bytes())
 				return nil
 			}
 		case <-time.After(10 * time.Second):
