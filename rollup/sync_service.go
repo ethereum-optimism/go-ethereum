@@ -886,6 +886,7 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 // ProcessSequencerBatchAppendedLog processes the sequencerbatchappended log
 // from the canonical transaction chain contract.
 func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
+	log.Debug("Processing sequencer batch appended")
 	event, err := s.ctcFilterer.ParseSequencerBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse sequencer batch appended log data: %w", err)
@@ -980,6 +981,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 			s.txCache.Store(rtx.index, rtx)
 		}
 
+		log.Debug("Sequencer batch appended applying tx", "index", index)
 		err = s.maybeReorgAndApplyTx(index, tx, godKeyShouldSign)
 		if err != nil {
 			return fmt.Errorf("Sequencer batch appended error with index %d: %w", index, err)
@@ -1081,6 +1083,7 @@ func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction
 // ProcessQueueBatchAppendedLog handles the queue batch appended event that is
 // emitted from the canonical transaction chain.
 func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
+	log.Debug("Processing queue batch appended")
 	event, err := s.ctcFilterer.ParseQueueBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse queue batch appended log data: %w", err)
@@ -1118,5 +1121,31 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("Cannot add tx to mempool: %w", err)
 	}
-	return nil
+
+	// I think this may result in halting if txs come in from a different origin
+	// but try as a PoC for syncing
+	for {
+		select {
+		case chainEvent := <-s.chainAdds:
+			block := chainEvent.Block
+			txs := block.Transactions()
+			if len(txs) != 1 {
+				log.Error("Block with multiple transactions detected", "height", block.Number().Uint64(), "count", len(block.Transactions()))
+			}
+			received := txs[0]
+			log.Debug("Received chain event", "height", block.Number().Uint64(), "to", received.To().Hex())
+
+			one := s.signer.Hash(tx)
+			two := s.signer.Hash(received)
+			log.Debug(fmt.Sprintf("tx: %s, event: %s", one.Hex(), two.Hex()))
+			log.Debug(fmt.Sprintf("tx: %#v, event: %#v", tx, received))
+
+			if bytes.Equal(one.Bytes(), two.Bytes()) {
+				log.Debug("Chain event equality", "to", tx.To().Hex())
+				return nil
+			}
+		case <-time.After(10 * time.Second):
+			return fmt.Errorf("Transaction %s application timed out: %s", tx.Hash().Hex(), tx.To().Hex())
+		}
+	}
 }
