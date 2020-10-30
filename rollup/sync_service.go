@@ -486,7 +486,8 @@ func (s *SyncService) sequencerIngestQueue() {
 				// Sort in ascending order
 				sort.Sort(RollupTxsByIndex(txs))
 				log.Info("Ingesting transactions from L1", "count", len(txs))
-				for i, rtx := range txs {
+				for i := 0; i < len(txs); i++ {
+					rtx := txs[i]
 					log.Debug("Sequencer ingesting", "local-index", i, "rtx-index", rtx.index)
 					// set the timestamp
 					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
