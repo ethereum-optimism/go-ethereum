@@ -1039,10 +1039,12 @@ func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, 
 func (s *SyncService) maybeApplyTransaction(index uint64, tx *types.Transaction) error {
 	block := s.bc.CurrentBlock()
 	// Special case for the transaction at index 0
-	if block.Number().Uint64()+1 == index || index == 0 {
+	blockNumber := block.Number().Uint64()
+	if blockNumber+1 == index || index == 0 {
+		log.Debug("Can apply transaction", "index", index)
 		return s.applyTransaction(tx)
 	}
-	log.Debug("Skipping application of transaction", "index", index, "hash", tx.Hash().Hex(), "to", tx.To().Hex())
+	log.Debug("Skipping application of transaction", "index", index, "hash", tx.Hash().Hex(), "to", tx.To().Hex(), "local-tip-height", blockNumber)
 	return nil
 }
 
