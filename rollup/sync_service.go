@@ -1138,14 +1138,25 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 			one := s.signer.Hash(tx)
 			two := s.signer.Hash(received)
 			log.Debug(fmt.Sprintf("tx: %s, event: %s", one.Hex(), two.Hex()))
-			log.Debug(fmt.Sprintf("tx: %#v, event: %#v", tx, received))
 
 			if bytes.Equal(one.Bytes(), two.Bytes()) {
 				log.Debug("Chain event equality", "to", tx.To().Hex())
 				return nil
 			}
+			prettyPrintTx(tx, "tx")
+			prettyPrintTx(received, "received")
 		case <-time.After(10 * time.Second):
 			return fmt.Errorf("Transaction %s application timed out: %s", tx.Hash().Hex(), tx.To().Hex())
 		}
 	}
+}
+
+func prettyPrintTx(tx *types.Transaction, s string) {
+	nonce := tx.Nonce()
+	gasPrice := tx.GasPrice().Uint64()
+	gasLimit := tx.Gas()
+	to := tx.To().Hex()
+	amount := tx.Value().Uint64()
+	data := hexutil.Encode(tx.Data())
+	log.Debug(fmt.Sprintf("%s: nonce: %d, gasPrice: %d, gasLimit %d, to: %s, amount: %d, data: %s", s, nonce, gasPrice, gasLimit, to, amount, data))
 }
