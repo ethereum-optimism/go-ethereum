@@ -351,7 +351,7 @@ func (s *SyncService) pollHead() {
 			}
 			process := new([]*types.Header)
 			index, err := s.getCommonAncestor(head.Number, process)
-			log.Info("get common ancestor", "index", index, "count", len(*process))
+			log.Debug("get common ancestor", "index", index, "count", len(*process))
 			blocks := (*process)[:]
 			for i := len(blocks) - 1; i >= 0; i-- {
 				block := blocks[i]
@@ -450,7 +450,8 @@ func (s *SyncService) sequencerIngestQueue() {
 		panic("Cannot run sequencer ingestion in verifier mode")
 	}
 
-	ticker := time.NewTicker(time.Second * 30)
+	// TODO: make this tunable
+	ticker := time.NewTicker(time.Second * 10)
 
 	for {
 		select {
@@ -857,6 +858,7 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	rtx := RollupTransaction{tx: tx, timestamp: timestamp, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
 	// In the case of a reorg, the rtx at a certain index can be overwritten
 	s.txCache.Store(event.QueueIndex.Uint64(), rtx)
+	log.Debug("Transaction enqueued", "index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1 blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
 
 	return nil
 }
