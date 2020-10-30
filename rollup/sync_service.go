@@ -512,8 +512,9 @@ func (s *SyncService) sequencerIngestQueue() {
 				tip := s.bc.CurrentBlock()
 
 				isAtTip := tip.Number().Uint64() == totalElements.Uint64()
+				// Time stamp check isn't working
 				isSufficientlyOld := ts.Unix() > time.Now().Unix()
-				if isSufficientlyOld && isAtTip {
+				if isAtTip {
 					s.setSyncStatus(false)
 				}
 				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "is sufficiently old", isSufficientlyOld, "at tip", isAtTip)
@@ -656,10 +657,9 @@ func (s *SyncService) checkSyncStatus() error {
 
 		if syncProg == nil {
 			return nil
-		} else {
-			log.Info("Ethereum node not fully synced", "current block", syncProg.CurrentBlock)
-			time.Sleep(1 * time.Minute)
 		}
+		log.Info("Ethereum node not fully synced", "current block", syncProg.CurrentBlock)
+		time.Sleep(1 * time.Minute)
 	}
 }
 
