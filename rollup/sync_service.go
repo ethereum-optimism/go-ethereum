@@ -166,6 +166,7 @@ type SyncService struct {
 	gasLimit                         uint64
 	syncing                          bool
 	Eth1Data                         Eth1Data
+	HeaderCache                      [2048]*types.Header
 	ctcDeployHeight                  *big.Int
 	AddressResolverAddress           common.Address
 	CanonicalTransactionChainAddress common.Address
@@ -217,6 +218,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		clearTransactionsAfter:           (5760 * 15), // 15 days worth of blocks
 		clearTransactionsTicker:          time.NewTicker(time.Hour),
 		txCache:                          NewTransactionCache(),
+		HeaderCache:                      [2048]*types.Header{},
 	}
 
 	// Always initialize syncing to true to start, the sequencer can toggle off
@@ -291,12 +293,6 @@ func (s *SyncService) Start() error {
 	if err != nil {
 		return fmt.Errorf("Cannot process historical logs: %w", err)
 	}
-	// Create a new block subscription
-	sub, err := client.SubscribeNewHead(s.ctx, s.heads)
-	if err != nil {
-		return fmt.Errorf("Cannot subscribe to new heads: %w", err)
-	}
-	s.headSubscription = sub
 
 	gasLimit, err := s.mgrCaller.GetMaxTransactionGasLimit(&bind.CallOpts{
 		BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight),
@@ -309,6 +305,7 @@ func (s *SyncService) Start() error {
 	log.Info("Setting max transaction gas limit", "gas limit", s.gasLimit)
 
 	go s.Loop()
+	go s.pollHead()
 	go s.ClearTransactionLoop()
 
 	if !s.verifier {
@@ -316,6 +313,54 @@ func (s *SyncService) Start() error {
 	}
 
 	return nil
+}
+
+func (s *SyncService) getCommonAncestor(index *big.Int, list *[]*types.Header) (uint64, error) {
+	header, err := s.ethclient.HeaderByNumber(s.ctx, index)
+	if err != nil {
+		return 0, fmt.Errorf(":%w", err)
+	}
+	number := header.Number.Uint64()
+	// Do not allow for reorgs past the deployment height
+	// of the contracts.
+	if number == s.ctcDeployHeight.Uint64() {
+		return number, nil
+	}
+	cached := s.HeaderCache[number%2048]
+	if cached != nil && bytes.Equal(header.Hash().Bytes(), cached.Hash().Bytes()) {
+		return number, nil
+	}
+	prevNumber := new(big.Int).SetUint64(number - 1)
+	*list = append(*list, header)
+	return s.getCommonAncestor(prevNumber, list)
+}
+
+func (s *SyncService) pollHead() {
+	headTicker := time.NewTicker(time.Second * 2)
+	for {
+		select {
+		case <-headTicker.C:
+			head, err := s.ethclient.HeaderByNumber(s.ctx, nil)
+			if err != nil {
+				log.Error("Cannot fetch tip")
+				continue
+			}
+			// The tip is the same
+			if bytes.Equal(head.Hash().Bytes(), s.Eth1Data.BlockHash.Bytes()) {
+				continue
+			}
+			process := new([]*types.Header)
+			index, err := s.getCommonAncestor(head.Number, process)
+			log.Info("get common ancestor", "index", index, "count", len(*process))
+			blocks := (*process)[:]
+			for i := len(blocks) - 1; i >= 0; i-- {
+				block := blocks[i]
+				s.heads <- block
+			}
+		case <-s.ctx.Done():
+			break
+		}
+	}
 }
 
 // resolveAddresses will resolve the addresses from the address resolver on
@@ -556,6 +601,7 @@ func (s *SyncService) Loop() {
 	for {
 		select {
 		case header := <-s.heads:
+			log.Debug("Receiving header in main loop")
 			if header == nil {
 				continue
 			}
@@ -748,6 +794,7 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	// Write to the database for term persistence
 	rawdb.WriteHeadEth1HeaderHash(s.db, header.Hash())
 	rawdb.WriteHeadEth1HeaderHeight(s.db, blockHeight)
+	s.HeaderCache[blockHeight%2018] = header
 
 	return Eth1Data{
 		BlockHash:   blockHash,
