@@ -82,7 +82,7 @@ type TransactionCache struct {
 	m *sync.Map
 }
 
-func (t *TransactionCache) Store(index uint64, rtx RollupTransaction) {
+func (t *TransactionCache) Store(index uint64, rtx *RollupTransaction) {
 	t.m.Store(index, rtx)
 }
 
@@ -95,17 +95,17 @@ func (t *TransactionCache) Load(index uint64) (*RollupTransaction, bool) {
 	if !ok {
 		return nil, false
 	}
-	rtx, ok := result.(RollupTransaction)
+	rtx, ok := result.(*RollupTransaction)
 	if !ok {
 		log.Error("Incorrect type in transaction cache", "type", fmt.Sprintf("%T", rtx))
 		return nil, false
 	}
-	return &rtx, true
+	return rtx, true
 }
 
 func (t *TransactionCache) Range(f func(uint64, *RollupTransaction)) {
 	t.m.Range(func(key interface{}, value interface{}) bool {
-		rtx, ok := value.(RollupTransaction)
+		rtx, ok := value.(*RollupTransaction)
 		if !ok {
 			log.Error("Unexpected value in transaction cache", "type", fmt.Sprintf("%T", value))
 			return true
@@ -116,7 +116,7 @@ func (t *TransactionCache) Range(f func(uint64, *RollupTransaction)) {
 			return true
 
 		}
-		f(index, &rtx)
+		f(index, rtx)
 		return true
 	})
 }
@@ -468,19 +468,18 @@ func (s *SyncService) sequencerIngestQueue() {
 				// The transactions need to be played in order and there is no
 				// guarantee of order when it comes to the txcache iteration, so
 				// collect an array of pointers and then sort them by index.
-				txs := new([]*RollupTransaction)
+				txs := []*RollupTransaction{}
 				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
 					// The transaction has not been executed
 					// TODO(mark): possibly add sufficiently old logic
 					if !rtx.executed {
-						*txs = append(*txs, rtx)
+						txs = append(txs, rtx)
 					}
 				})
-				transactions := (*txs)[:]
 
-				sort.Sort(RollupTxsByIndex(transactions))
-				log.Info("Ingesting transactions from L1", "count", len(transactions))
-				for _, rtx := range transactions {
+				sort.Sort(RollupTxsByIndex(txs))
+				log.Info("Ingesting transactions from L1", "count", len(txs))
+				for _, rtx := range txs {
 					// set the timestamp
 					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 					// The god key needs to sign L1ToL2 transactions
@@ -491,6 +490,7 @@ func (s *SyncService) sequencerIngestQueue() {
 					// This executed value isn't being applied correctly
 					// or the ticker time is too short. Potentially add a lock
 					rtx.executed = true
+					s.txCache.Store(rtx.index, rtx)
 				}
 				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "tip-height", tipHeight)
 			case true:
@@ -863,7 +863,7 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	timestamp := time.Unix(event.Timestamp.Int64(), 0)
 	rtx := RollupTransaction{tx: tx, timestamp: timestamp, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
 	// In the case of a reorg, the rtx at a certain index can be overwritten
-	s.txCache.Store(event.QueueIndex.Uint64(), rtx)
+	s.txCache.Store(event.QueueIndex.Uint64(), &rtx)
 	log.Debug("Transaction enqueued", "index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1-blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
 
 	return nil
@@ -963,6 +963,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 			// There is also the case that maybeReorgAndApplyTx returns
 			// an error and the tx is not executed.
 			rtx.executed = true
+			s.txCache.Store(rtx.index, rtx)
 		}
 
 		err = s.maybeReorgAndApplyTx(index, tx, godKeyShouldSign)
@@ -1086,6 +1087,7 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 		// TODO: make sure that this mutates the item in the cache and not
 		// a copy of the item here.
 		rtx.executed = true
+		s.txCache.Store(rtx.index, rtx)
 	}
 	return nil
 }
