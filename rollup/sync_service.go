@@ -1118,25 +1118,5 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("Cannot add tx to mempool: %w", err)
 	}
-
-	// I think this may result in halting if txs come in from a different origin
-	// but try as a PoC for syncing
-	for {
-		select {
-		case chainEvent := <-s.chainAdds:
-			block := chainEvent.Block
-			txs := block.Transactions()
-			if len(txs) != 1 {
-				log.Error("Block with multiple transactions detected", "height", block.Number().Uint64(), "count", len(block.Transactions()))
-			}
-			received := txs[0]
-			log.Debug("Received chain event", "height", block.Number().Uint64(), "to", received.To().Hex())
-			if bytes.Equal(s.signer.Hash(tx).Bytes(), s.signer.Hash(received).Bytes()) {
-				log.Debug("Chain event equality", "to", tx.To().Bytes())
-				return nil
-			}
-		case <-time.After(10 * time.Second):
-			return fmt.Errorf("Transaction %s application timed out: %s", tx.Hash().Hex(), tx.To().Hex())
-		}
-	}
+	return nil
 }
