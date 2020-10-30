@@ -238,6 +238,7 @@ func (s *SyncService) Start() error {
 	}
 
 	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address resolver", s.AddressResolverAddress)
+	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature))
 
 	blockHeight := rawdb.ReadHeadEth1HeaderHeight(s.db)
 	if blockHeight == 0 {
@@ -828,6 +829,7 @@ func (s *SyncService) ProcessLog(ctx context.Context, ethlog types.Log) error {
 		return fmt.Errorf("No topics for block %d", ethlog.BlockNumber)
 	}
 	topic := ethlog.Topics[0].Bytes()
+	log.Debug("Processing log", "topic", hexutil.Encode(topic))
 
 	if bytes.Equal(topic, transactionEnqueuedEventSignature) {
 		return s.ProcessTransactionEnqueuedLog(ctx, ethlog)
