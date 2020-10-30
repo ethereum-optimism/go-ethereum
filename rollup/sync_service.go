@@ -858,7 +858,7 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	rtx := RollupTransaction{tx: tx, timestamp: timestamp, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
 	// In the case of a reorg, the rtx at a certain index can be overwritten
 	s.txCache.Store(event.QueueIndex.Uint64(), rtx)
-	log.Debug("Transaction enqueued", "index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1 blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
+	log.Debug("Transaction enqueued", "index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1-blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
 
 	return nil
 }
@@ -917,6 +917,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				nonce := uint64(0)
 				to := s.SequencerDecompressionAddress
 				tx = types.NewTransaction(nonce, to, big.NewInt(0), s.gasLimit, big.NewInt(0), element.TxData, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
+				log.Debug("Deserialized CTC EOA transaction", "index", index, "to", tx.To().Hex())
 			case CTCTransactionTypeEIP155:
 				// The signature is deserialized so the god key does not need to
 				// sign in this case.
@@ -935,6 +936,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				if err != nil {
 					return fmt.Errorf("Cannot add signature to eip155 tx: %w", err)
 				}
+				log.Debug("Deserialized CTC EIP155 transaction", "index", index, "to", tx.To().Hex())
 			default:
 				// This should never happen
 				return fmt.Errorf("Unknown tx type: %x", element.TxData)
@@ -949,6 +951,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				continue
 			}
 			s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
+			log.Debug("Setting timestamp", "timestamp", rtx.timestamp.Unix())
 			// TODO: Make sure that this change will persist in the cache
 			// and that txCache.Store doesn't need to be called
 			// There is also the case that maybeReorgAndApplyTx returns
@@ -960,6 +963,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 		if err != nil {
 			return fmt.Errorf("Sequencer batch appended error with index %d: %w", index, err)
 		}
+		log.Info("Sequencer Batch appended success", "index", index, "to", tx.To().Hex(), "god-key-used", godKeyShouldSign)
 	}
 	return nil
 }
