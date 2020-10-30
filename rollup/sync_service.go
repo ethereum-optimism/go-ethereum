@@ -477,9 +477,11 @@ func (s *SyncService) sequencerIngestQueue() {
 					}
 				})
 
+				// Sort in ascending order
 				sort.Sort(RollupTxsByIndex(txs))
 				log.Info("Ingesting transactions from L1", "count", len(txs))
-				for _, rtx := range txs {
+				for i, rtx := range txs {
+					log.Debug("Sequencer ingesting", "local-index", i)
 					// set the timestamp
 					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 					// The god key needs to sign L1ToL2 transactions
