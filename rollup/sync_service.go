@@ -1134,7 +1134,7 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 				return nil
 			}
 		case <-time.After(10 * time.Second):
-			return fmt.Errorf("Transaction %s application timed out", tx.Hash().Hex(), "to", received.To().Hex())
+			return fmt.Errorf("Transaction %s application timed out: %s", tx.Hash().Hex(), tx.To().Hex())
 		}
 	}
 }
