@@ -734,6 +734,10 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	if header == nil {
 		return s.Eth1Data, errors.New("Cannot process nil header")
 	}
+	// defer catchPanic()
+	s.processingLock.RLock()
+	defer s.processingLock.RUnlock()
+
 	blockHeight := header.Number.Uint64()
 	blockHash := header.Hash()
 	log.Debug("Processing block", "height", blockHeight, "hash", blockHash.Hex())
@@ -826,10 +830,6 @@ func (s *SyncService) GetLastProcessedEth1Data() Eth1Data {
 // It assumes that the log came from the ctc contract, so be sure to filter out
 // other logs before calling this method.
 func (s *SyncService) ProcessLog(ctx context.Context, ethlog types.Log) error {
-	// defer catchPanic()
-	s.processingLock.RLock()
-	defer s.processingLock.RUnlock()
-
 	// This should not happen, but don't trust service providers.
 	if len(ethlog.Topics) == 0 {
 		return fmt.Errorf("No topics for block %d", ethlog.BlockNumber)
