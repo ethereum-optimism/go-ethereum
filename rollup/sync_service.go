@@ -1129,11 +1129,12 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 				log.Error("Block with multiple transactions detected", "height", block.Number().Uint64(), "count", len(block.Transactions()))
 			}
 			received := txs[0]
+			log.Debug("Received chain event", "height", block.Number().Uint64(), "to", received.To().Hex())
 			if bytes.Equal(tx.Hash().Bytes(), received.Hash().Bytes()) {
 				return nil
 			}
-		case <-time.After(1 * time.Minute):
-			return fmt.Errorf("Transaction %s application timed out", tx.Hash().Hex())
+		case <-time.After(10 * time.Second):
+			return fmt.Errorf("Transaction %s application timed out", tx.Hash().Hex(), "to", received.To().Hex())
 		}
 	}
 }
