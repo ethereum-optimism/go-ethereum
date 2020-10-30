@@ -864,6 +864,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
 	log.Debug(">>>>>> Serving an eth_call <<<<<<", "From", addr.Hex(), "To", args.To.Hex())
+	evm.Context.EthCallSender = &addr
 	res, gas, failed, err := core.ApplyMessage(evm, outmsg, gp)
 	log.Debug("<<<<<< Served an eth_call  >>>>>>", "From", addr.Hex(), "To", args.To.Hex())
 	if err := vmError(); err != nil {

@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"bytes"
 	"errors"
 	"math/big"
 	"strconv"
@@ -56,7 +57,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				abi := &(account.ABI)
 				method, err := abi.MethodById(input)
 				if err != nil {
-					log.Debug("Calling Known Contract", "Name", name)
+					log.Debug("Calling Known Contract", "Name", name, "ERROR", err)
 				} else {
 					log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
 				}
@@ -129,6 +130,7 @@ type Context struct {
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 
 	// OVM_ADDITION
+	EthCallSender         *common.Address
 	OriginalTargetAddress *common.Address
 	OriginalTargetResult  []byte
 }
@@ -238,6 +240,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		if caller.Address() == OvmExecutionManager.Address &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0xdeaddeaddeaddeaddeaddeaddeaddeaddead") &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x000000000000000000000000000000000000") &&
+			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x420000000000000000000000000000000000") &&
 			evm.OriginalTargetAddress == nil {
 			evm.OriginalTargetAddress = &addr
 			isTarget = true
@@ -290,10 +293,26 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
 	}
 
+	var prevCode []byte
+	if UsingOVM {
+		// OVM_ENABLED
+		if evm.EthCallSender != nil && *evm.EthCallSender == addr {
+			prevCode = evm.StateDB.GetCode(addr)
+			evm.StateDB.SetCode(addr, common.FromHex(OvmStateDump.Accounts["mockOVM_ECDSAContractAccount"].Code))
+		}
+	}
+
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
 	contract := NewContract(caller, to, value, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
+
+	if UsingOVM {
+		// OVM_ENABLED
+		if evm.EthCallSender != nil && *evm.EthCallSender == addr {
+			evm.StateDB.SetCode(addr, prevCode)
+		}
+	}
 
 	// Even if the account has no code, we need to continue because it might be a precompile
 	start := time.Now()
@@ -321,11 +340,16 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if UsingOVM {
 		// OVM_ENABLED
 		if isTarget {
-			evm.OriginalTargetResult = ret[96:]
+			evm.OriginalTargetResult = ret
 		}
 
 		if evm.depth == 0 {
-			ret = evm.OriginalTargetResult
+			ret = evm.OriginalTargetResult[96:]
+			if bytes.Equal(evm.OriginalTargetResult[:32], common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000000")) {
+				err = errExecutionReverted
+				ret = append(ret, make([]byte, 4, 4)...)
+			}
+
 			log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Error", err)
 		}
 	}

@@ -336,7 +336,7 @@ func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	if tx.meta.L1MessageSender != nil {
 		msg.l1MessageSender = tx.meta.L1MessageSender
 	} else {
-		msg.l1MessageSender = &msg.from
+		msg.l1MessageSender = &msg.from // TODO: Zero address
 	}
 
 	return msg, err

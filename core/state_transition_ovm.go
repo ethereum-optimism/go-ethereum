@@ -69,7 +69,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 	}
 
 	v, r, s := tx.RawSignatureValues()
-	v = new(big.Int).Mod(v, big.NewInt(256))
+	v = big.NewInt(int64(v.Uint64() - 35 - 2*420))
 	var data = new(bytes.Buffer)
 
 	var sigtype = getSignatureType(msg)
@@ -85,24 +85,18 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 	data.WriteByte(byte(sigtype)) // 1 byte: 00 == EOACreate, 01 == EIP 155, 02 == ETH Sign Message
 
 	// Signature data
-	data.Write(v.FillBytes(make([]byte, 1, 1)))   // 1 byte: Signature `v` parameter
 	data.Write(r.FillBytes(make([]byte, 32, 32))) // 32 bytes: Signature `r` parameter
 	data.Write(s.FillBytes(make([]byte, 32, 32))) // 32 bytes: Signature `s` parameter
+	data.Write(v.FillBytes(make([]byte, 1, 1)))   // 1 byte: Signature `v` parameter
 
-	if sigtype == 0 {
-		// EOACreate: Encode the transaction hash.
-		data.Write(signer.Hash(tx).Bytes()) // 32 bytes: Transaction hash
-	} else {
-		// EIP 155 or ETH Sign Message: Encode the full transaction data.
-		data.Write(big.NewInt(int64(msg.Nonce())).FillBytes(make([]byte, 2, 2))) // 2 bytes: Nonce
-		data.Write(big.NewInt(int64(msg.Gas())).FillBytes(make([]byte, 3, 3)))   // 3 bytes: Gas limit
-		data.Write(msg.GasPrice().FillBytes(make([]byte, 1, 1)))                 // 1 byte: Gas price
-		data.Write(tx.ChainId().FillBytes(make([]byte, 4, 4)))                   // 4 bytes: Chain ID
-		data.Write(target.Bytes())                                               // 20 bytes: Target address
-		data.Write(msg.Data())                                                   // ?? bytes: Transaction data
-	}
+	// EIP 155 or ETH Sign Message: Encode the full transaction data.
+	data.Write(big.NewInt(int64(msg.Gas())).FillBytes(make([]byte, 3, 3)))   // 3 bytes: Gas limit
+	data.Write(msg.GasPrice().FillBytes(make([]byte, 3, 3)))                 // 3 bytes: Gas price
+	data.Write(big.NewInt(int64(msg.Nonce())).FillBytes(make([]byte, 3, 3))) // 3 bytes: Nonce
+	data.Write(target.Bytes())                                               // 20 bytes: Target address
+	data.Write(msg.Data())                                                   // ?? bytes: Transaction data
 
-	decompressor := vm.OvmStateDump.Accounts["OVM_SequencerMessageDecompressor"]
+	decompressor := vm.OvmStateDump.Accounts["OVM_SequencerEntrypoint"]
 
 	outmsg, err := modMessage(
 		msg,
@@ -128,7 +122,7 @@ func EncodeFakeMessage(
 	}
 
 	var abi = vm.OvmStateDump.Accounts["mockOVM_ECDSAContractAccount"].ABI
-	output, err := abi.Pack("kall", input...)
+	output, err := abi.Pack("qall", input...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,11 +169,11 @@ func getSignatureType(
 	msg Message,
 ) uint8 {
 	if msg.SignatureHashType() == 0 {
-		return 1
+		return 0
 	} else if msg.SignatureHashType() == 1 {
 		return 2
 	} else {
-		return 0
+		return 1
 	}
 }
 
