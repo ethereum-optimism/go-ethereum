@@ -9,6 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
+// AbiBytesTrue represents the ABI encoding of "true" as a byte slice
+var AbiBytesTrue = common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
+
+// AbiBytesFalse represents the ABI encoding of "false" as a byte slice
+var AbiBytesFalse = common.FromHex("0x0000000000000000000000000000000000000000000000000000000000000001")
+
 var ovmStateDumpJSON = []byte(`
 {
     "accounts": {
