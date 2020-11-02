@@ -71,7 +71,6 @@ func (b *EthAPIBackend) GetRollupContractAddresses() map[string]*common.Address 
 		"addressResolver":           &b.eth.syncService.AddressResolverAddress,
 		"canonicalTransactionChain": &b.eth.syncService.CanonicalTransactionChainAddress,
 		"sequencerDecompression":    &b.eth.syncService.SequencerDecompressionAddress,
-		"l1ToL2TransactionQueue":    &b.eth.syncService.L1ToL2TransactionQueueAddress,
 		"stateCommitmentChain":      &b.eth.syncService.StateCommitmentChainAddress,
 	}
 }
