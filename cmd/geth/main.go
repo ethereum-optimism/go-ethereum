@@ -161,9 +161,9 @@ var (
 		utils.TxIngestionSignerKeyFileFlag,
 		// Flags for the SyncService
 		utils.Eth1SyncServiceEnable,
+		utils.Eth1AddressResolverAddressFlag,
 		utils.Eth1CanonicalTransactionChainDeployHeightFlag,
 		utils.Eth1CanonicalTransactionChainAddressFlag,
-		utils.Eth1L1toL2TransactionQueueAddressFlag,
 		utils.Eth1SequencerDecompressionAddressFlag,
 		utils.Eth1ChainIdFlag,
 		utils.Eth1NetworkIdFlag,

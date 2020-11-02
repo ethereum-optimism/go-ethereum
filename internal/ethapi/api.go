@@ -1757,7 +1757,6 @@ func NewPublicRollupAPI(b Backend) *PublicRollupAPI {
 type rollupAddresses struct {
 	AddressResolver           string `json:"addressResolver"`
 	CanonicalTransactionChain string `json:"canonicalTransactionChain"`
-	L1ToL2TransactionQueue    string `json:"l1ToL2TransactionQueue"`
 	SequencerDecompression    string `json:"sequencerDecompression"`
 	StateCommitmentChain      string `json:"stateCommitmentChain"`
 }
@@ -1794,10 +1793,6 @@ func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
 	sdc := addrs["sequencerDecompression"]
 	if sdc != nil {
 		rollupAddrs.SequencerDecompression = sdc.Hex()
-	}
-	l1Tol2 := addrs["l1ToL2TransactionQueue"]
-	if l1Tol2 != nil {
-		rollupAddrs.L1ToL2TransactionQueue = l1Tol2.Hex()
 	}
 	scc := addrs["stateCommitmentChain"]
 	if scc != nil {
