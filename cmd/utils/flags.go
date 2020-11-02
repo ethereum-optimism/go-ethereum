@@ -813,7 +813,7 @@ var (
 		Usage: "Deployment address of the L1 to L2 transaction queue",
 	}
 	Eth1SequencerDecompressionAddressFlag = cli.StringFlag{
-		Name:  "et1.sequencerdecompressionaddress",
+		Name:  "eth1.sequencerdecompressionaddress",
 		Usage: "Deployment address of the sequencer decompression contract",
 	}
 	Eth1ChainIdFlag = cli.Uint64Flag{
