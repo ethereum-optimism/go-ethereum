@@ -61,7 +61,7 @@ type RollupTxsByIndex []*RollupTransaction
 
 func (l RollupTxsByIndex) Len() int           { return len(l) }
 func (l RollupTxsByIndex) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
-func (l RollupTxsByIndex) Less(i, j int) bool { return l[i].index < l[i].index }
+func (l RollupTxsByIndex) Less(i, j int) bool { return l[i].index < l[j].index }
 
 // Consider adding a processed bool for sanity check
 type RollupTransaction struct {
@@ -142,6 +142,7 @@ type SyncService struct {
 	cancel                           context.CancelFunc
 	verifier                         bool
 	processingLock                   sync.RWMutex
+	txLock                           sync.Mutex
 	db                               ethdb.Database
 	enable                           bool
 	ctcFilterer                      CTCEventFilterer
@@ -159,6 +160,7 @@ type SyncService struct {
 	clearTransactionsTicker          *time.Ticker
 	clearTransactionsAfter           uint64
 	heads                            chan *types.Header
+	chainAdds                        chan core.ChainEvent
 	chainFeed                        event.Subscription
 	headSubscription                 ethereum.Subscription
 	doneProcessing                   chan uint64
@@ -177,6 +179,13 @@ type SyncService struct {
 	StateCommitmentChainAddress      common.Address
 	ExecutionManagerAddress          common.Address
 }
+
+// subscribe to chain add event
+// create goroutine that:
+// place the Transaction in a map if the queue origin is
+// l1 to l2
+// after applytx, wait until the element is added to the map
+// and then delete it
 
 // NewSyncService returns an initialized sync service
 func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *core.BlockChain, db ethdb.Database) (*SyncService, error) {
@@ -203,7 +212,8 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		verifier:                         cfg.IsVerifier,
 		enable:                           cfg.Eth1SyncServiceEnable,
 		heads:                            make(chan *types.Header),
-		doneProcessing:                   make(chan uint64, 16),
+		chainAdds:                        make(chan core.ChainEvent),
+		doneProcessing:                   make(chan uint64),
 		eth1HTTPEndpoint:                 cfg.Eth1HTTPEndpoint,
 		AddressResolverAddress:           cfg.AddressResolverAddress,
 		CanonicalTransactionChainAddress: cfg.CanonicalTransactionChainAddress,
@@ -868,6 +878,8 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	// Value and gasPrice are set to 0
 	// nil is the txid (unused)
 	tx := types.NewTransaction(uint64(0), event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, nil, types.QueueOriginL1ToL2, types.SighashEIP155)
+	// Set the index on the transaction so that it can be sorted by index.
+	tx.SetIndex(event.QueueIndex.Uint64())
 
 	// Timestamp is used to update the blockchains clocktime
 	timestamp := time.Unix(event.Timestamp.Int64(), 0)
@@ -934,6 +946,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				nonce := uint64(0)
 				to := s.SequencerDecompressionAddress
 				tx = types.NewTransaction(nonce, to, big.NewInt(0), s.gasLimit, big.NewInt(0), element.TxData, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
+				tx.SetIndex(index)
 				log.Debug("Deserialized CTC EOA transaction", "index", index, "to", tx.To().Hex())
 			case CTCTransactionTypeEIP155:
 				// The signature is deserialized so the god key does not need to
@@ -947,6 +960,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				gasPrice := new(big.Int).SetUint64(uint64(eip155.gasPrice))
 				data := eip155.data
 				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, &l1TxOrigin, nil, types.QueueOriginSequencer, types.SighashEIP155)
+				tx.SetIndex(index)
 				// `WithSignature` accepts:
 				// r || s || v where v is normalized to 0 or 1
 				tx, err = tx.WithSignature(s.signer, eip155.Signature[:])

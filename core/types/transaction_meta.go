@@ -28,6 +28,7 @@ type TransactionMeta struct {
 	L1MessageSender   *common.Address   `json:"l1MessageSender" gencodec:"required"`
 	SignatureHashType SignatureHashType `json:"signatureHashType" gencodec:"required"`
 	QueueOrigin       *big.Int          `json:"queueOrigin" gencodec:"required"`
+	Index             *uint64           `json:"index" gencodec:"required"`
 }
 
 // Hard code the queue origin as 2 since it represents the origin as the
