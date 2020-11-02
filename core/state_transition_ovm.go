@@ -64,16 +64,22 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 		return msg, err
 	}
 
+	// ovmTODO: Is this still necessary?
 	if msg.From() == GodAddress {
 		return msg, nil
 	}
 
 	v, r, s := tx.RawSignatureValues()
+
+	// V parameter here will include the chain ID, so we need to recover the original V. If the V
+	// does not equal zero or one, we have an invalid parameter and need to throw an error.
 	v = big.NewInt(int64(v.Uint64() - 35 - 2*420))
-	var data = new(bytes.Buffer)
+	if v.Uint64() != 0 && v.Uint64() != 1 {
+		return msg, fmt.Errorf("invalid signature v parameter")
+	}
 
-	var sigtype = getSignatureType(msg)
-
+	// Since we use a fixed encoding, we need to insert some placeholder address to represent that
+	// the user wants to create a contract (in this case, the zero address).
 	var target common.Address
 	if tx.To() == nil {
 		target = ZeroAddress
@@ -81,23 +87,24 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 		target = *tx.To()
 	}
 
-	// Signature type
-	data.WriteByte(byte(sigtype)) // 1 byte: 00 == EOACreate, 01 == EIP 155, 02 == ETH Sign Message
-
-	// Signature data
-	data.Write(r.FillBytes(make([]byte, 32, 32))) // 32 bytes: Signature `r` parameter
-	data.Write(s.FillBytes(make([]byte, 32, 32))) // 32 bytes: Signature `s` parameter
-	data.Write(v.FillBytes(make([]byte, 1, 1)))   // 1 byte: Signature `v` parameter
-
-	// EIP 155 or ETH Sign Message: Encode the full transaction data.
+	// Sequencer uses a custom encoding structure --
+	// We originally receive sequencer transactions encoded in this way, but we decode them before
+	// inserting into Geth so we can make transactions easily parseable. However, this means that
+	// we need to re-encode the transactions before executing them.
+	var data = new(bytes.Buffer)
+	data.WriteByte(byte(getSignatureType(msg)))                              // 1 byte: 00 == EIP 155, 02 == ETH Sign Message
+	data.Write(r.FillBytes(make([]byte, 32, 32)))                            // 32 bytes: Signature `r` parameter
+	data.Write(s.FillBytes(make([]byte, 32, 32)))                            // 32 bytes: Signature `s` parameter
+	data.Write(v.FillBytes(make([]byte, 1, 1)))                              // 1 byte: Signature `v` parameter
 	data.Write(big.NewInt(int64(msg.Gas())).FillBytes(make([]byte, 3, 3)))   // 3 bytes: Gas limit
 	data.Write(msg.GasPrice().FillBytes(make([]byte, 3, 3)))                 // 3 bytes: Gas price
 	data.Write(big.NewInt(int64(msg.Nonce())).FillBytes(make([]byte, 3, 3))) // 3 bytes: Nonce
 	data.Write(target.Bytes())                                               // 20 bytes: Target address
 	data.Write(msg.Data())                                                   // ?? bytes: Transaction data
 
+	// Sequencer transactions get sent to the "sequencer entrypoint," a contract that decompresses
+	// the incoming transaction data.
 	decompressor := vm.OvmStateDump.Accounts["OVM_SequencerEntrypoint"]
-
 	outmsg, err := modMessage(
 		msg,
 		GodAddress,
