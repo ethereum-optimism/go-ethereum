@@ -23,8 +23,8 @@ HAS_IMAGE=$(docker images "$IMAGE" --format='{{.ID}}')
 # The execution manager fails for some reason, removed all
 # things in the ABI field besides `getMaxTransactionGasLimit`
 TARGETS="OVM_CanonicalTransactionChain
-Lib_AddressResolver
-OVM_ExecutionManager"
+Lib_AddressManager"
+#OVM_ExecutionManager"
 
 if [ ! command -v docker &>/dev/null ]; then
     echo "Please install docker"
