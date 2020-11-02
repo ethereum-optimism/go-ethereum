@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -160,9 +159,6 @@ type SyncService struct {
 	clearTransactionsTicker          *time.Ticker
 	clearTransactionsAfter           uint64
 	heads                            chan *types.Header
-	chainAdds                        chan core.ChainEvent
-	chainFeed                        event.Subscription
-	headSubscription                 ethereum.Subscription
 	doneProcessing                   chan uint64
 	signer                           types.Signer
 	key                              ecdsa.PrivateKey
@@ -179,13 +175,6 @@ type SyncService struct {
 	StateCommitmentChainAddress      common.Address
 	ExecutionManagerAddress          common.Address
 }
-
-// subscribe to chain add event
-// create goroutine that:
-// place the Transaction in a map if the queue origin is
-// l1 to l2
-// after applytx, wait until the element is added to the map
-// and then delete it
 
 // NewSyncService returns an initialized sync service
 func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *core.BlockChain, db ethdb.Database) (*SyncService, error) {
@@ -212,7 +201,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		verifier:                         cfg.IsVerifier,
 		enable:                           cfg.Eth1SyncServiceEnable,
 		heads:                            make(chan *types.Header),
-		chainAdds:                        make(chan core.ChainEvent),
 		doneProcessing:                   make(chan uint64),
 		eth1HTTPEndpoint:                 cfg.Eth1HTTPEndpoint,
 		AddressResolverAddress:           cfg.AddressResolverAddress,
@@ -502,8 +490,6 @@ func (s *SyncService) sequencerIngestQueue() {
 					if err != nil {
 						log.Error("Sequencer ingest queue transaction failed: %w", err)
 					}
-					// This executed value isn't being applied correctly
-					// or the ticker time is too short. Potentially add a lock
 					rtx.executed = true
 					s.txCache.Store(rtx.index, rtx)
 				}
@@ -525,20 +511,14 @@ func (s *SyncService) sequencerIngestQueue() {
 					log.Error("Cannot get queue element", "index", index.Uint64(), "message", err.Error())
 					continue
 				}
-				// When the latest queue element is sufficiently old, set the
-				// sync status to false.
-				ts := time.Unix(int64(el.Timestamp.Uint64()), 0).Add(5 * time.Minute)
 				// Also check that the chain is synced to the tip
 				totalElements, err := s.ctcCaller.GetTotalElements(&opts)
 				tip := s.bc.CurrentBlock()
-
 				isAtTip := tip.Number().Uint64() == totalElements.Uint64()
-				// Time stamp check isn't working
-				isSufficientlyOld := ts.Unix() > time.Now().Unix()
 				if isAtTip {
 					s.setSyncStatus(false)
 				}
-				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "is sufficiently old", isSufficientlyOld, "at tip", isAtTip)
+				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "at-tip", isAtTip, "timestamp", el.Timestamp.Uint64())
 			}
 		case <-s.ctx.Done():
 			return
@@ -610,16 +590,6 @@ func (s *SyncService) Stop() error {
 	if s.cancel != nil {
 		defer s.cancel()
 	}
-
-	// TODO: this is potentially dead code
-	if s.headSubscription != nil {
-		defer s.headSubscription.Unsubscribe()
-	}
-
-	if s.chainFeed != nil {
-		defer s.chainFeed.Unsubscribe()
-	}
-
 	return nil
 }
 
@@ -628,7 +598,6 @@ func (s *SyncService) Loop() {
 	for {
 		select {
 		case header := <-s.heads:
-			log.Debug("Receiving header in main loop")
 			if header == nil {
 				continue
 			}
@@ -752,7 +721,6 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	if header == nil {
 		return s.Eth1Data, errors.New("Cannot process nil header")
 	}
-	// defer catchPanic()
 	s.processingLock.RLock()
 	defer s.processingLock.RUnlock()
 
@@ -1132,15 +1100,4 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("Cannot add tx to mempool: %w", err)
 	}
 	return nil
-}
-
-// TODO(mark): just for debugging
-func prettyPrintTx(tx *types.Transaction, s string) {
-	nonce := tx.Nonce()
-	gasPrice := tx.GasPrice().Uint64()
-	gasLimit := tx.Gas()
-	to := tx.To().Hex()
-	amount := tx.Value().Uint64()
-	data := hexutil.Encode(tx.Data())
-	log.Debug(fmt.Sprintf("%s: nonce: %d, gasPrice: %d, gasLimit %d, to: %s, amount: %d, data: %s", s, nonce, gasPrice, gasLimit, to, amount, data))
 }
