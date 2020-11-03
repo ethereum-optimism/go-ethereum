@@ -40,4 +40,5 @@ jobs:
       - name: Test
         run: |
           cd $HOME/optimism-integration
-          ./test.sh
+          BRANCH=${GITHUB_REF##*/}
+          GETH_L2_TAG=$BRANCH ./test.sh
