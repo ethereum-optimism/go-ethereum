@@ -354,6 +354,10 @@ func (s *SyncService) pollHead() {
 			}
 			process := new([]*types.Header)
 			index, err := s.getCommonAncestor(head.Number, process)
+			if err != nil {
+				log.Error("Cannot get common ancestor", "message", err.Error())
+				continue
+			}
 			log.Debug("get common ancestor", "index", index, "count", len(*process))
 			blocks := (*process)[:]
 			for i := len(blocks) - 1; i >= 0; i-- {
@@ -373,6 +377,9 @@ func (s *SyncService) resolveAddresses() error {
 		return errors.New("Must initialize eth rpc client first")
 	}
 	resolver, err := addressmanager.NewLibAddressManager(s.AddressResolverAddress, s.ethrpcclient)
+	if err != nil {
+		return fmt.Errorf("Cannot create new address manager: %w", err)
+	}
 	// TODO(mark): using the correct block height is a consensus critical thing.
 	// Be sure to use the correct height by setting BlockNumber in the context
 	opts := bind.CallOpts{Context: s.ctx}
