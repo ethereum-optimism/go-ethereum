@@ -65,13 +65,6 @@ var AppHelpFlagGroups = []flagGroup{
 	{
 		Name: "OPTIMISM",
 		Flags: []cli.Flag{
-			utils.TxIngestionEnableFlag,
-			utils.TxIngestionDBHostFlag,
-			utils.TxIngestionDBPortFlag,
-			utils.TxIngestionDBNameFlag,
-			utils.TxIngestionDBUserFlag,
-			utils.TxIngestionDBPasswordFlag,
-			utils.TxIngestionPollIntervalFlag,
 			utils.TxIngestionSignerKeyHexFlag,
 			utils.TxIngestionSignerKeyFileFlag,
 			utils.Eth1SyncServiceEnable,
