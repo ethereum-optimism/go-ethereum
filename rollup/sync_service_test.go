@@ -382,7 +382,7 @@ func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	count := 0
 	for _, transactions := range queued {
 		// This stuff should match ctcTx.tx
-		for _, _ = range transactions {
+		for range transactions {
 			count++
 		}
 	}

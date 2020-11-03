@@ -78,9 +78,7 @@ type Ethereum struct {
 	blockchain      *core.BlockChain
 	protocolManager *ProtocolManager
 	lesServer       LesServer
-	// Transaction Ingestion Service
-	txIngestion *rollup.TxIngestion // will be deprecated
-	syncService *rollup.SyncService
+	syncService     *rollup.SyncService
 
 	// DB interfaces
 	chainDb ethdb.Database // Block chain database
@@ -207,7 +205,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		config.TxPool.Journal = ctx.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
-	eth.txIngestion = rollup.NewTxIngestion(config.Rollup, chainConfig, eth.txPool)
 
 	eth.syncService, err = rollup.NewSyncService(context.Background(), config.Rollup, eth.txPool, eth.blockchain, eth.chainDb)
 	if err != nil {

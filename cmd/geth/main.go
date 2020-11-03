@@ -149,17 +149,9 @@ var (
 	}
 
 	optimismFlags = []cli.Flag{
-		// TODO: deprecate these flags
-		utils.TxIngestionEnableFlag,
-		utils.TxIngestionDBHostFlag,
-		utils.TxIngestionDBPortFlag,
-		utils.TxIngestionDBNameFlag,
-		utils.TxIngestionDBUserFlag,
-		utils.TxIngestionDBPasswordFlag,
-		utils.TxIngestionPollIntervalFlag,
+		// Flags for the SyncService
 		utils.TxIngestionSignerKeyHexFlag,
 		utils.TxIngestionSignerKeyFileFlag,
-		// Flags for the SyncService
 		utils.Eth1SyncServiceEnable,
 		utils.Eth1AddressResolverAddressFlag,
 		utils.Eth1CanonicalTransactionChainDeployHeightFlag,
