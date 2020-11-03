@@ -27,11 +27,12 @@ jobs:
           git clone https://github.com/ethereum-optimism/docker.git \
               $HOME/docker
           cd $HOME/docker
-          ./build.sh -s go-ethereum -b $GITHUB_HEAD_REF
+          BRANCH=${GITHUB_REF##*/}
+          ./build.sh -s go-ethereum -b $BRANCH
           if [ $GITHUB_HEAD_REF == 'master' ]; then
               docker push ethereumoptimism/go-ethereum:latest
-          elif [[ $GITHUB_HEAD_REF == 'uat' || $GITHUB_HEAD_REF == 'testnet' ]]; then
-              docker push ethereumoptimism/go-ethereum:$GITHUB_HEAD_REF
+          elif [[ $BRANCH == 'uat' || $BRANCH == 'testnet' ]]; then
+              docker push ethereumoptimism/go-ethereum:$BRANCH
           fi
 
       - name: Logout of DockerHub
