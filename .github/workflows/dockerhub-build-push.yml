@@ -29,7 +29,7 @@ jobs:
           cd $HOME/docker
           BRANCH=${GITHUB_REF##*/}
           ./build.sh -s go-ethereum -b $BRANCH
-          if [ $GITHUB_HEAD_REF == 'master' ]; then
+          if [ $BRANCH == 'master' ]; then
               docker push ethereumoptimism/go-ethereum:latest
           elif [[ $BRANCH == 'uat' || $BRANCH == 'testnet' ]]; then
               docker push ethereumoptimism/go-ethereum:$BRANCH
