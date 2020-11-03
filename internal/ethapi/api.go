@@ -830,10 +830,14 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	}
 
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer, 0)
-	outmsg, err := core.EncodeFakeMessage(msg)
-	if err != nil {
-		return nil, 0, false, err
+	var msg core.Message
+	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer, 0)
+	if vm.UsingOVM {
+		var err error
+		msg, err = core.EncodeFakeMessage(msg)
+		if err != nil {
+			return nil, 0, false, err
+		}
 	}
 
 	// Setup context so it may be cancelled the call has completed
@@ -849,7 +853,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	defer cancel()
 
 	// Get a new instance of the EVM.
-	evm, vmError, err := b.GetEVM(ctx, outmsg, state, header)
+	evm, vmError, err := b.GetEVM(ctx, msg, state, header)
 	if err != nil {
 		return nil, 0, false, err
 	}
@@ -864,8 +868,10 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
 	log.Debug(">>>>>> Serving an eth_call <<<<<<", "From", addr.Hex(), "To", args.To.Hex())
-	evm.Context.EthCallSender = &addr
-	res, gas, failed, err := core.ApplyMessage(evm, outmsg, gp)
+	if vm.UsingOVM {
+		evm.Context.EthCallSender = &addr
+	}
+	res, gas, failed, err := core.ApplyMessage(evm, msg, gp)
 	log.Debug("<<<<<< Served an eth_call  >>>>>>", "From", addr.Hex(), "To", args.To.Hex())
 	if err := vmError(); err != nil {
 		return nil, 0, false, err
