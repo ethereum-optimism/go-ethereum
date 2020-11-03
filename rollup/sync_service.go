@@ -503,11 +503,17 @@ func (s *SyncService) sequencerIngestQueue() {
 				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "tip-height", tipHeight)
 			case true:
 				opts := bind.CallOpts{Pending: false, Context: s.ctx}
+				totalElements, err := s.ctcCaller.GetTotalElements(&opts)
+				// Also check that the chain is synced to the tip
+				tip := s.bc.CurrentBlock()
+				isAtTip := tip.Number().Uint64() == totalElements.Uint64()
+
 				pending, err := s.ctcCaller.GetNumPendingQueueElements(&opts)
-				if pending.Uint64() == 0 {
+				if pending.Uint64() == 0 && isAtTip {
+					s.setSyncStatus(false)
 					continue
 				}
-
+				// Get the next queue index
 				index, err := s.ctcCaller.GetNextQueueIndex(&opts)
 				if err != nil {
 					log.Error("Cannot get next queue index", "message", err.Error())
@@ -518,14 +524,7 @@ func (s *SyncService) sequencerIngestQueue() {
 					log.Error("Cannot get queue element", "index", index.Uint64(), "message", err.Error())
 					continue
 				}
-				// Also check that the chain is synced to the tip
-				totalElements, err := s.ctcCaller.GetTotalElements(&opts)
-				tip := s.bc.CurrentBlock()
-				isAtTip := tip.Number().Uint64() == totalElements.Uint64()
-				if isAtTip {
-					s.setSyncStatus(false)
-				}
-				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "at-tip", isAtTip, "timestamp", el.Timestamp.Uint64())
+				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "at-tip", isAtTip, "timestamp", el.Timestamp.Uint64(), "next-queue-index", index)
 			}
 		case <-s.ctx.Done():
 			return
