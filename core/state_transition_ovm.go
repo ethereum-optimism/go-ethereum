@@ -191,6 +191,8 @@ func getQueueOrigin(
 		return types.QueueOriginSequencer, nil
 	} else if queueOrigin.Cmp(big.NewInt(1)) == 0 {
 		return types.QueueOriginL1ToL2, nil
+	} else if queueOrigin.Cmp(big.NewInt(2)) == 0 {
+		return types.QueueOriginL1ToL2, nil
 	} else {
 		return types.QueueOriginSequencer, fmt.Errorf("invalid queue origin: %d", queueOrigin)
 	}

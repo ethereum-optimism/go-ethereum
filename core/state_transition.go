@@ -202,14 +202,8 @@ func (st *StateTransition) preCheck() error {
 // returning the result including the used gas. It returns an error if failed.
 // An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
-	if !vm.UsingOVM {
-		// OVM_DISABLED
-		if err = st.preCheck(); err != nil {
-			return
-		}
-	} else {
-		// OVM_ENABLED
-		st.buyGas()
+	if err = st.preCheck(); err != nil {
+		return
 	}
 
 	msg := st.msg
