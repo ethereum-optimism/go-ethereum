@@ -26,6 +26,9 @@ jobs:
               $HOME/optimism-integration \
               --recurse-submodules
           cd $HOME/optimism-integration
+          if [ -z $GITHUB_HEAD_REF ]; then
+              GITHUB_HEAD_REF=${GITHUB_REF##*/}
+          fi
           GIT_COMMIT=$(git rev-parse HEAD | head -c 8)
           echo "optimism-integration $GIT_COMMIT"
           ./docker/build.sh -s go-ethereum -b $GITHUB_HEAD_REF
