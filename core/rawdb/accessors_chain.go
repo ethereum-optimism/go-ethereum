@@ -577,6 +577,11 @@ func ReadBlock(db ethdb.Reader, hash common.Hash, number uint64) *types.Block {
 	if body == nil {
 		return nil
 	}
+	// OVM: Write the meta field
+	if len(body.Transactions) > 0 {
+		meta := ReadTransactionMeta(db, body.Transactions[0].Hash())
+		body.Transactions[0].SetTransactionMeta(meta)
+	}
 	return types.NewBlockWithHeader(header).WithBody(body.Transactions, body.Uncles)
 }
 
