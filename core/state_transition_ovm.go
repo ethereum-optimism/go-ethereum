@@ -92,15 +92,15 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 	// inserting into Geth so we can make transactions easily parseable. However, this means that
 	// we need to re-encode the transactions before executing them.
 	var data = new(bytes.Buffer)
-	data.WriteByte(byte(getSignatureType(msg)))                              // 1 byte: 00 == EIP 155, 02 == ETH Sign Message
-	data.Write(r.FillBytes(make([]byte, 32, 32)))                            // 32 bytes: Signature `r` parameter
-	data.Write(s.FillBytes(make([]byte, 32, 32)))                            // 32 bytes: Signature `s` parameter
-	data.Write(v.FillBytes(make([]byte, 1, 1)))                              // 1 byte: Signature `v` parameter
-	data.Write(big.NewInt(int64(msg.Gas())).FillBytes(make([]byte, 3, 3)))   // 3 bytes: Gas limit
-	data.Write(msg.GasPrice().FillBytes(make([]byte, 3, 3)))                 // 3 bytes: Gas price
-	data.Write(big.NewInt(int64(msg.Nonce())).FillBytes(make([]byte, 3, 3))) // 3 bytes: Nonce
-	data.Write(target.Bytes())                                               // 20 bytes: Target address
-	data.Write(msg.Data())                                                   // ?? bytes: Transaction data
+	data.WriteByte(byte(getSignatureType(msg)))              // 1 byte: 00 == EIP 155, 02 == ETH Sign Message
+	data.Write(fillBytes(r, 32))                             // 32 bytes: Signature `r` parameter
+	data.Write(fillBytes(s, 32))                             // 32 bytes: Signature `s` parameter
+	data.Write(fillBytes(v, 1))                              // 1 byte: Signature `v` parameter
+	data.Write(fillBytes(big.NewInt(int64(msg.Gas())), 3))   // 3 bytes: Gas limit
+	data.Write(fillBytes(msg.GasPrice(), 3))                 // 3 bytes: Gas price
+	data.Write(fillBytes(big.NewInt(int64(msg.Nonce())), 3)) // 3 bytes: Nonce
+	data.Write(target.Bytes())                               // 20 bytes: Target address
+	data.Write(msg.Data())                                   // ?? bytes: Transaction data
 
 	// Sequencer transactions get sent to the "sequencer entrypoint," a contract that decompresses
 	// the incoming transaction data.
@@ -195,5 +195,19 @@ func getQueueOrigin(
 		return types.QueueOriginL1ToL2, nil
 	} else {
 		return types.QueueOriginSequencer, fmt.Errorf("invalid queue origin: %d", queueOrigin)
+	}
+}
+
+func fillBytes(x *big.Int, size int) []byte {
+	b := x.Bytes()
+	switch {
+	case len(b) > size:
+		panic("math/big: value won't fit requested size")
+	case len(b) == size:
+		return b
+	default:
+		buf := make([]byte, size)
+		copy(buf[size-len(b):], b)
+		return buf
 	}
 }
