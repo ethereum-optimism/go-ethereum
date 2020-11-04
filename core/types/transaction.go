@@ -228,7 +228,6 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 		}
 	}
 
-	*tx = *tx
 	return nil
 }
 
