@@ -14,110 +14,88 @@ import (
 var _ = (*txdataMarshaling)(nil)
 
 // TransactionMarshalJSON marshals as JSON.
-func TransactionMarshalJSON(t *Transaction) ([]byte, error) {
-	type txnjson struct {
-		AccountNonce      hexutil.Uint64    `json:"nonce"    gencodec:"required"`
-		Price             *hexutil.Big      `json:"gasPrice" gencodec:"required"`
-		GasLimit          hexutil.Uint64    `json:"gas"      gencodec:"required"`
-		Recipient         *common.Address   `json:"to"       rlp:"nil"`
-		Amount            *hexutil.Big      `json:"value"    gencodec:"required"`
-		Payload           hexutil.Bytes     `json:"input"    gencodec:"required"`
-		V                 *hexutil.Big      `json:"v" gencodec:"required"`
-		R                 *hexutil.Big      `json:"r" gencodec:"required"`
-		S                 *hexutil.Big      `json:"s" gencodec:"required"`
-		Hash              *common.Hash      `json:"hash" rlp:"-"`
-		L1RollupTxId      *hexutil.Uint64   `json:"l1RollupTxId,omitempty" rlp:"nil,?"`
-		L1MessageSender   *common.Address   `json:"l1MessageSender,omitempty" rlp:"nil,?"`
-		SignatureHashType SignatureHashType `json:"signatureHashType,omitempty" rlp:"nil,?"`
+func (t txdata) TransactionMarshalJSON() ([]byte, error) {
+	type txdata struct {
+		AccountNonce hexutil.Uint64  `json:"nonce"    gencodec:"required"`
+		Price        *hexutil.Big    `json:"gasPrice" gencodec:"required"`
+		GasLimit     hexutil.Uint64  `json:"gas"      gencodec:"required"`
+		Recipient    *common.Address `json:"to"       rlp:"nil"`
+		Amount       *hexutil.Big    `json:"value"    gencodec:"required"`
+		Payload      hexutil.Bytes   `json:"input"    gencodec:"required"`
+		V            *hexutil.Big    `json:"v" gencodec:"required"`
+		R            *hexutil.Big    `json:"r" gencodec:"required"`
+		S            *hexutil.Big    `json:"s" gencodec:"required"`
+		Hash         *common.Hash    `json:"hash" rlp:"-"`
 	}
-
-	var enc txnjson
-	enc.AccountNonce = hexutil.Uint64(t.data.AccountNonce)
-	enc.Price = (*hexutil.Big)(t.data.Price)
-	enc.GasLimit = hexutil.Uint64(t.data.GasLimit)
-	enc.Recipient = t.data.Recipient
-	enc.L1MessageSender = t.meta.L1MessageSender
-	enc.L1RollupTxId = t.meta.L1RollupTxId
-	enc.SignatureHashType = t.meta.SignatureHashType
-	enc.Amount = (*hexutil.Big)(t.data.Amount)
-	enc.Payload = t.data.Payload
-	enc.V = (*hexutil.Big)(t.data.V)
-	enc.R = (*hexutil.Big)(t.data.R)
-	enc.S = (*hexutil.Big)(t.data.S)
-	hash := t.Hash()
-	enc.Hash = &hash
+	var enc txdata
+	enc.AccountNonce = hexutil.Uint64(t.AccountNonce)
+	enc.Price = (*hexutil.Big)(t.Price)
+	enc.GasLimit = hexutil.Uint64(t.GasLimit)
+	enc.Recipient = t.Recipient
+	enc.Amount = (*hexutil.Big)(t.Amount)
+	enc.Payload = t.Payload
+	enc.V = (*hexutil.Big)(t.V)
+	enc.R = (*hexutil.Big)(t.R)
+	enc.S = (*hexutil.Big)(t.S)
+	enc.Hash = t.Hash
 	return json.Marshal(&enc)
 }
 
-// UnmarshalJSON unmarshals from JSON.
-func TransactionUnmarshalJSON(input []byte) (*Transaction, error) {
-	type txnjson struct {
-		AccountNonce      *hexutil.Uint64   `json:"nonce"    gencodec:"required"`
-		Price             *hexutil.Big      `json:"gasPrice" gencodec:"required"`
-		GasLimit          *hexutil.Uint64   `json:"gas"      gencodec:"required"`
-		Recipient         *common.Address   `json:"to"       rlp:"nil"`
-		Amount            *hexutil.Big      `json:"value"    gencodec:"required"`
-		Payload           *hexutil.Bytes    `json:"input"    gencodec:"required"`
-		V                 *hexutil.Big      `json:"v" gencodec:"required"`
-		R                 *hexutil.Big      `json:"r" gencodec:"required"`
-		S                 *hexutil.Big      `json:"s" gencodec:"required"`
-		Hash              *common.Hash      `json:"hash" rlp:"-"`
-		L1RollupTxId      *hexutil.Uint64   `json:"l1RollupTxId,omitempty"`
-		L1MessageSender   *common.Address   `json:"l1MessageSender,omitempty"`
-		SignatureHashType SignatureHashType `json:"signatureHashType"`
+// TransactionUnmarshalJSON unmarshals from JSON.
+func (t *txdata) TransactionUnmarshalJSON(input []byte) error {
+	type txdata struct {
+		AccountNonce *hexutil.Uint64 `json:"nonce"    gencodec:"required"`
+		Price        *hexutil.Big    `json:"gasPrice" gencodec:"required"`
+		GasLimit     *hexutil.Uint64 `json:"gas"      gencodec:"required"`
+		Recipient    *common.Address `json:"to"       rlp:"nil"`
+		Amount       *hexutil.Big    `json:"value"    gencodec:"required"`
+		Payload      *hexutil.Bytes  `json:"input"    gencodec:"required"`
+		V            *hexutil.Big    `json:"v" gencodec:"required"`
+		R            *hexutil.Big    `json:"r" gencodec:"required"`
+		S            *hexutil.Big    `json:"s" gencodec:"required"`
+		Hash         *common.Hash    `json:"hash" rlp:"-"`
 	}
-
-	var t Transaction
-	var dec txnjson
+	var dec txdata
 	if err := json.Unmarshal(input, &dec); err != nil {
-		return &Transaction{}, err
+		return err
 	}
 	if dec.AccountNonce == nil {
-		return &Transaction{}, errors.New("missing required field 'nonce' for txdata")
+		return errors.New("missing required field 'nonce' for txdata")
 	}
-	t.data.AccountNonce = uint64(*dec.AccountNonce)
+	t.AccountNonce = uint64(*dec.AccountNonce)
 	if dec.Price == nil {
-		return &Transaction{}, errors.New("missing required field 'gasPrice' for txdata")
+		return errors.New("missing required field 'gasPrice' for txdata")
 	}
-	t.data.Price = (*big.Int)(dec.Price)
+	t.Price = (*big.Int)(dec.Price)
 	if dec.GasLimit == nil {
-		return &Transaction{}, errors.New("missing required field 'gas' for txdata")
+		return errors.New("missing required field 'gas' for txdata")
 	}
-	t.data.GasLimit = uint64(*dec.GasLimit)
+	t.GasLimit = uint64(*dec.GasLimit)
 	if dec.Recipient != nil {
-		t.data.Recipient = dec.Recipient
+		t.Recipient = dec.Recipient
 	}
-	if dec.L1MessageSender != nil {
-		t.meta.L1MessageSender = dec.L1MessageSender
-	}
-	if dec.L1RollupTxId != nil {
-		t.meta.L1RollupTxId = dec.L1RollupTxId
-	}
-
-	t.meta.SignatureHashType = dec.SignatureHashType
-
 	if dec.Amount == nil {
-		return &Transaction{}, errors.New("missing required field 'value' for txdata")
+		return errors.New("missing required field 'value' for txdata")
 	}
-	t.data.Amount = (*big.Int)(dec.Amount)
+	t.Amount = (*big.Int)(dec.Amount)
 	if dec.Payload == nil {
-		return &Transaction{}, errors.New("missing required field 'input' for txdata")
+		return errors.New("missing required field 'input' for txdata")
 	}
-	t.data.Payload = *dec.Payload
+	t.Payload = *dec.Payload
 	if dec.V == nil {
-		return &Transaction{}, errors.New("missing required field 'v' for txdata")
+		return errors.New("missing required field 'v' for txdata")
 	}
-	t.data.V = (*big.Int)(dec.V)
+	t.V = (*big.Int)(dec.V)
 	if dec.R == nil {
-		return &Transaction{}, errors.New("missing required field 'r' for txdata")
+		return errors.New("missing required field 'r' for txdata")
 	}
-	t.data.R = (*big.Int)(dec.R)
+	t.R = (*big.Int)(dec.R)
 	if dec.S == nil {
-		return &Transaction{}, errors.New("missing required field 's' for txdata")
+		return errors.New("missing required field 's' for txdata")
 	}
-	t.data.S = (*big.Int)(dec.S)
+	t.S = (*big.Int)(dec.S)
 	if dec.Hash != nil {
-		t.data.Hash = dec.Hash
+		t.Hash = dec.Hash
 	}
-	return &t, nil
+	return nil
 }

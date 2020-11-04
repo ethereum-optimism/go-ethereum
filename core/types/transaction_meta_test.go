@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,50 +11,52 @@ import (
 )
 
 var (
-	addr = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	txid = hexutil.Uint64(0)
+	addr          = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
+	txid          = hexutil.Uint64(0)
+	l1BlockNumber = big.NewInt(0)
 
 	txMetaSerializationTests = []struct {
-		txid        *hexutil.Uint64
-		msgSender   *common.Address
-		sighashType SignatureHashType
-		queueOrigin *big.Int
+		txid          *hexutil.Uint64
+		l1BlockNumber *big.Int
+		msgSender     *common.Address
+		sighashType   SignatureHashType
+		queueOrigin   *big.Int
 	}{
 		{
-			txid:        &txid,
-			msgSender:   &addr,
-			sighashType: SighashEthSign,
-			queueOrigin: big.NewInt(2),
+			l1BlockNumber: l1BlockNumber,
+			msgSender:     &addr,
+			sighashType:   SighashEthSign,
+			queueOrigin:   big.NewInt(2),
 		},
 		{
-			txid:        nil,
-			msgSender:   &addr,
-			sighashType: SighashEthSign,
-			queueOrigin: big.NewInt(2),
+			l1BlockNumber: nil,
+			msgSender:     &addr,
+			sighashType:   SighashEthSign,
+			queueOrigin:   big.NewInt(2),
 		},
 		{
-			txid:        &txid,
-			msgSender:   nil,
-			sighashType: SighashEthSign,
-			queueOrigin: big.NewInt(2),
+			l1BlockNumber: l1BlockNumber,
+			msgSender:     nil,
+			sighashType:   SighashEthSign,
+			queueOrigin:   big.NewInt(2),
 		},
 		{
-			txid:        &txid,
-			msgSender:   &addr,
-			sighashType: SighashEthSign,
-			queueOrigin: nil,
+			l1BlockNumber: l1BlockNumber,
+			msgSender:     &addr,
+			sighashType:   SighashEthSign,
+			queueOrigin:   nil,
 		},
 		{
-			txid:        nil,
-			msgSender:   nil,
-			sighashType: SighashEthSign,
-			queueOrigin: nil,
+			l1BlockNumber: nil,
+			msgSender:     nil,
+			sighashType:   SighashEthSign,
+			queueOrigin:   nil,
 		},
 		{
-			txid:        &txid,
-			msgSender:   &addr,
-			sighashType: SighashEthSign,
-			queueOrigin: big.NewInt(0),
+			l1BlockNumber: l1BlockNumber,
+			msgSender:     &addr,
+			sighashType:   SighashEthSign,
+			queueOrigin:   big.NewInt(0),
 		},
 	}
 
@@ -74,7 +77,7 @@ var (
 
 func TestTransactionMetaEncode(t *testing.T) {
 	for _, test := range txMetaSerializationTests {
-		txmeta := NewTransactionMeta(test.txid, test.msgSender, test.sighashType)
+		txmeta := NewTransactionMeta(test.l1BlockNumber, test.msgSender, test.sighashType)
 		txmeta.QueueOrigin = test.queueOrigin
 
 		encoded := TxMetaEncode(txmeta)
@@ -92,7 +95,7 @@ func TestTransactionMetaEncode(t *testing.T) {
 
 func TestTransactionSighashEncode(t *testing.T) {
 	for _, test := range txMetaSighashEncodeTests {
-		txmeta := NewTransactionMeta(&txid, &addr, test.input)
+		txmeta := NewTransactionMeta(l1BlockNumber, &addr, test.input)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 
@@ -107,6 +110,11 @@ func TestTransactionSighashEncode(t *testing.T) {
 }
 
 func isTxMetaEqual(meta1 *TransactionMeta, meta2 *TransactionMeta) bool {
+	// Maybe can just return this
+	if !reflect.DeepEqual(meta1, meta2) {
+		return false
+	}
+
 	if meta1.L1MessageSender == nil || meta2.L1MessageSender == nil {
 		if meta1.L1MessageSender != meta2.L1MessageSender {
 			return false
@@ -117,12 +125,12 @@ func isTxMetaEqual(meta1 *TransactionMeta, meta2 *TransactionMeta) bool {
 		}
 	}
 
-	if meta1.L1RollupTxId == nil || meta2.L1RollupTxId == nil {
-		if meta1.L1RollupTxId != meta2.L1RollupTxId {
+	if meta1.L1BlockNumber == nil || meta2.L1BlockNumber == nil {
+		if meta1.L1BlockNumber != meta2.L1BlockNumber {
 			return false
 		}
 	} else {
-		if *meta1.L1RollupTxId != *meta2.L1RollupTxId {
+		if !bytes.Equal(meta1.L1BlockNumber.Bytes(), meta2.L1BlockNumber.Bytes()) {
 			return false
 		}
 	}
