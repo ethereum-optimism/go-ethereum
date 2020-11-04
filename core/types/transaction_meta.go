@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 type QueueOrigin int64
@@ -24,25 +23,27 @@ const (
 //go:generate gencodec -type TransactionMeta -out gen_tx_meta_json.go
 
 type TransactionMeta struct {
-	L1RollupTxId      *hexutil.Uint64   `json:"l1RollupTxId" gencodec:"required"`
+	L1BlockNumber     *big.Int          `json:"l1BlockNumber"`
 	L1MessageSender   *common.Address   `json:"l1MessageSender" gencodec:"required"`
 	SignatureHashType SignatureHashType `json:"signatureHashType" gencodec:"required"`
 	QueueOrigin       *big.Int          `json:"queueOrigin" gencodec:"required"`
 	Index             *uint64           `json:"index" gencodec:"required"`
 }
 
-// Hard code the queue origin as 2 since it represents the origin as the
-// sequencer. Add the queue origin to the function signature once l1 transaction
-// ingestion is ready.
-func NewTransactionMeta(L1RollupTxId *hexutil.Uint64, L1MessageSender *common.Address, sighashType SignatureHashType) *TransactionMeta {
-	queueOrigin := new(big.Int).SetUint64(2)
-	return &TransactionMeta{L1RollupTxId: L1RollupTxId, L1MessageSender: L1MessageSender, SignatureHashType: sighashType, QueueOrigin: queueOrigin}
+// NewTransactionMeta creates a TransactionMeta
+func NewTransactionMeta(l1BlockNumber *big.Int, l1MessageSender *common.Address, sighashType SignatureHashType, queueOrigin QueueOrigin) *TransactionMeta {
+	return &TransactionMeta{
+		L1BlockNumber:     l1BlockNumber,
+		L1MessageSender:   l1MessageSender,
+		SignatureHashType: sighashType,
+		QueueOrigin:       big.NewInt(int64(queueOrigin)),
+	}
 }
 
 // TxMetaDecode deserializes bytes as a TransactionMeta struct.
 // The schema is:
 //   varbytes(SignatureHashType) ||
-//   varbytes(L1RollupTxId) ||
+//   varbytes(L1BlockNumber) ||
 //   varbytes(L1MessageSender) ||
 //   varbytes(QueueOrigin)
 func TxMetaDecode(input []byte) (*TransactionMeta, error) {
@@ -59,14 +60,13 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 	binary.Read(bytes.NewReader(sb), binary.LittleEndian, &sighashType)
 	meta.SignatureHashType = sighashType
 
-	lb, err := common.ReadVarBytes(b, 0, 1024, "L1RollupTxId")
+	lb, err := common.ReadVarBytes(b, 0, 1024, "l1BlockNumber")
 	if err != nil {
 		return nil, err
 	}
 	if !isNullValue(lb) {
-		var l1RollupTxId hexutil.Uint64
-		binary.Read(bytes.NewReader(lb), binary.LittleEndian, &l1RollupTxId)
-		meta.L1RollupTxId = &l1RollupTxId
+		l1BlockNumber := new(big.Int).SetBytes(lb)
+		meta.L1BlockNumber = l1BlockNumber
 	}
 
 	mb, err := common.ReadVarBytes(b, 0, 1024, "L1MessageSender")
@@ -99,12 +99,12 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 	binary.Write(s, binary.LittleEndian, &meta.SignatureHashType)
 	common.WriteVarBytes(b, 0, s.Bytes())
 
-	L1RollupTxId := meta.L1RollupTxId
-	if L1RollupTxId == nil {
+	L1BlockNumber := meta.L1BlockNumber
+	if L1BlockNumber == nil {
 		common.WriteVarBytes(b, 0, getNullValue())
 	} else {
 		l := new(bytes.Buffer)
-		binary.Write(l, binary.LittleEndian, *L1RollupTxId)
+		binary.Write(l, binary.LittleEndian, L1BlockNumber.Bytes())
 		common.WriteVarBytes(b, 0, l.Bytes())
 	}
 
