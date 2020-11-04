@@ -7,16 +7,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 var (
 	addr          = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	txid          = hexutil.Uint64(0)
 	l1BlockNumber = big.NewInt(0)
 
 	txMetaSerializationTests = []struct {
-		txid          *hexutil.Uint64
 		l1BlockNumber *big.Int
 		msgSender     *common.Address
 		sighashType   SignatureHashType
