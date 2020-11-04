@@ -31,9 +31,11 @@ jobs:
           fi
           GIT_COMMIT=$(git rev-parse HEAD | head -c 8)
           echo "optimism-integration $GIT_COMMIT"
+          GITHUB_HEAD_REF=$(echo $GITHUB_HEAD_REF | sed 's/\//_/')
           ./docker/build.sh -s go-ethereum -b $GITHUB_HEAD_REF
 
       - name: Test
         run: |
           cd $HOME/optimism-integration
+          GITHUB_HEAD_REF=$(echo $GITHUB_HEAD_REF | sed 's/\//_/')
           GETH_L2_TAG=$GITHUB_HEAD_REF ./test.sh
