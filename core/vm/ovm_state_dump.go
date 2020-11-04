@@ -3676,9 +3676,7 @@ var OvmExecutionManager ovmDumpAccount
 var UsingOVM bool
 
 func init() {
-	var err error
-
-	err = json.Unmarshal(ovmStateDumpJSON, &OvmStateDump)
+	err := json.Unmarshal(ovmStateDumpJSON, &OvmStateDump)
 	if err != nil {
 		panic(fmt.Errorf("could not decode OVM state dump: %v", err))
 	}
