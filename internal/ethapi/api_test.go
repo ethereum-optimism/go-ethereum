@@ -146,14 +146,14 @@ func getDummyErrors(errorIndicies []int, outputSize int) []error {
 
 func getRandomRollupTransaction() *RollupTransaction {
 	gasLimit := hexutil.Uint64(uint64(0))
-	l1RollupTxId := hexutil.Uint64(uint64(0))
+	l1BlockNumber := new(big.Int).SetUint64(0)
 	return &RollupTransaction{
-		L1RollupTxId: &l1RollupTxId,
-		Nonce:        &internalTxNonce,
-		GasLimit:     &gasLimit,
-		Sender:       &internalTxSender,
-		Target:       &internalTxTarget,
-		Calldata:     &internalTxCalldata,
+		L1BlockNumber: l1BlockNumber,
+		Nonce:         &internalTxNonce,
+		GasLimit:      &gasLimit,
+		Sender:        &internalTxSender,
+		Target:        &internalTxTarget,
+		Calldata:      &internalTxCalldata,
 	}
 }
 

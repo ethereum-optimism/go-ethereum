@@ -78,7 +78,7 @@ type SendTxArgs struct {
 	Data              *hexutil.Bytes           `json:"data"`
 	Input             *hexutil.Bytes           `json:"input"`
 	L1MessageSender   *common.MixedcaseAddress `json:"l1MessageSender"`
-	L1RollupTxId      *hexutil.Uint64          `json:"l1RollupTxId"`
+	L1BlockNumber     *big.Int                 `json:"l1BlockNumber"`
 	SignatureHashType types.SignatureHashType  `json:"signatureHashType"`
 	QueueOrigin       types.QueueOrigin        `json:"queueOrigin"`
 }
@@ -103,11 +103,11 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		l1MessageSender = new(common.Address)
 		*l1MessageSender = args.L1MessageSender.Address()
 	}
-	var l1RollupTxId *hexutil.Uint64 = nil
-	if args.L1RollupTxId != nil {
-		l1RollupTxId = new(hexutil.Uint64)
-		*l1RollupTxId = *args.L1RollupTxId
+	var l1BlockNumber *big.Int = nil
+	if args.L1BlockNumber != nil {
+		l1BlockNumber = new(big.Int)
+		*l1BlockNumber = *args.L1BlockNumber
 	}
 
-	return types.NewTransaction(uint64(args.Nonce), args.To.Address(), (*big.Int)(&args.Value), (uint64)(args.Gas), (*big.Int)(&args.GasPrice), input, l1MessageSender, l1RollupTxId, args.QueueOrigin, args.SignatureHashType)
+	return types.NewTransaction(uint64(args.Nonce), args.To.Address(), (*big.Int)(&args.Value), (uint64)(args.Gas), (*big.Int)(&args.GasPrice), input, l1MessageSender, l1BlockNumber, args.QueueOrigin, args.SignatureHashType)
 }

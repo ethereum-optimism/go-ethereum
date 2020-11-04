@@ -23,8 +23,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -34,7 +32,6 @@ import (
 // at github.com/ethereum/tests.
 var (
 	sender               = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	l1RollupTxId         = hexutil.Uint64(1)
 	emptyTx              = NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(0), 0, big.NewInt(0), nil, &sender, nil, QueueOriginSequencer, SighashEIP155)
 	emptyTxEmptyL1Sender = NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(0), 0, big.NewInt(0), nil, nil, nil, QueueOriginSequencer, SighashEIP155)
 
@@ -48,7 +45,7 @@ var (
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
 
-	rightvrsTxWithL1RollupTxId, _ = NewTransaction(3, common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"), big.NewInt(10), 2000, big.NewInt(1), common.FromHex("5544"), nil, &l1RollupTxId, QueueOriginSequencer, SighashEIP155).WithSignature(
+	rightvrsTxWithL1RollupTxId, _ = NewTransaction(3, common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"), big.NewInt(10), 2000, big.NewInt(1), common.FromHex("5544"), nil, big.NewInt(1), QueueOriginSequencer, SighashEIP155).WithSignature(
 		HomesteadSigner{},
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
@@ -219,7 +216,7 @@ func TestTransactionJSON(t *testing.T) {
 		var tx *Transaction
 		switch i % 2 {
 		case 0:
-			tx = NewTransaction(i, common.Address{1}, common.Big0, 1, common.Big2, []byte("abcdef"), &sender, &l1RollupTxId, QueueOriginSequencer, SighashEIP155)
+			tx = NewTransaction(i, common.Address{1}, common.Big0, 1, common.Big2, []byte("abcdef"), &sender, nil, QueueOriginSequencer, SighashEIP155)
 		case 1:
 			tx = NewContractCreation(i, common.Big0, 1, common.Big2, []byte("abcdef"), nil, nil, QueueOriginSequencer)
 		}
@@ -250,12 +247,6 @@ func TestTransactionJSON(t *testing.T) {
 		}
 		if tx.ChainId().Cmp(parsedTx.ChainId()) != 0 {
 			t.Errorf("invalid chain id, want %d, got %d", tx.ChainId(), parsedTx.ChainId())
-		}
-		if tx.L1MessageSender() == nil && parsedTx.L1MessageSender() != nil || tx.L1MessageSender() != nil && parsedTx.L1MessageSender() == nil || (tx.L1MessageSender() != nil && parsedTx.L1MessageSender() != nil && *tx.L1MessageSender() != *parsedTx.L1MessageSender()) {
-			t.Errorf("invalid L1MessageSender, want %x, got %x", tx.L1MessageSender(), parsedTx.L1MessageSender())
-		}
-		if tx.L1RollupTxId() == nil && parsedTx.L1RollupTxId() != nil || tx.L1RollupTxId() != nil && parsedTx.L1RollupTxId() == nil || (tx.L1RollupTxId() != nil && parsedTx.L1RollupTxId() != nil && *tx.L1RollupTxId() != *parsedTx.L1RollupTxId()) {
-			t.Errorf("invalid L1RollupTxId, want %x, got %x", tx.L1RollupTxId(), parsedTx.L1RollupTxId())
 		}
 	}
 }

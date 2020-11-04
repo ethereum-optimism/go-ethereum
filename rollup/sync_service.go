@@ -519,12 +519,7 @@ func (s *SyncService) sequencerIngestQueue() {
 					log.Error("Cannot get next queue index", "message", err.Error())
 					continue
 				}
-				el, err := s.ctcCaller.GetQueueElement(&opts, index)
-				if err != nil {
-					log.Error("Cannot get queue element", "index", index.Uint64(), "message", err.Error())
-					continue
-				}
-				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "at-tip", isAtTip, "timestamp", el.Timestamp.Uint64(), "next-queue-index", index)
+				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "at-tip", isAtTip, "local-tip-height", tip.Number().Uint64(), "next-queue-index", index, "pending-queue-elements", pending.Uint64())
 			}
 		case <-s.ctx.Done():
 			return
@@ -850,8 +845,7 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 
 	// Nonce is set by god key at execution time
 	// Value and gasPrice are set to 0
-	// nil is the txid (unused)
-	tx := types.NewTransaction(uint64(0), event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, nil, types.QueueOriginL1ToL2, types.SighashEIP155)
+	tx := types.NewTransaction(uint64(0), event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, new(big.Int).SetUint64(ethlog.BlockNumber), types.QueueOriginL1ToL2, types.SighashEIP155)
 	// Set the index on the transaction so that it can be sorted by index.
 	tx.SetIndex(event.QueueIndex.Uint64())
 
@@ -913,6 +907,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				return fmt.Errorf("Cannot deserialize txdata at index %d: %w", index, err)
 			}
 
+			// QueueOriginSequencer transactions do not have a L1BlockNumber
 			switch ctcTx.typ {
 			case CTCTransactionTypeEOA:
 				// The god key needs to sign in this case
