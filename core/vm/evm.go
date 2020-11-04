@@ -403,7 +403,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 					// ovmTODO: Figure out how to actually deal with this.
 					// ovmTODO: This may actually be completely broken if the first four bytes of
 					// the return data are **not** the specific "string error" bytes.
-					ret = append(ret, make([]byte, 4, 4)...)
+					ret = append(ret, make([]byte, 4)...)
 				}
 			} else {
 				// User hasn't conformed the standard format, just return "true" for the success

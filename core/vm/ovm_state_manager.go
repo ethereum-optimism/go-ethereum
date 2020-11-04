@@ -120,6 +120,6 @@ func nativeFunctionVoid(evm *EVM, contract *Contract, args map[string]interface{
 }
 
 func toHash(arg interface{}) common.Hash {
-	b := [32]byte(arg.([32]uint8))
+	b := arg.([32]uint8)
 	return common.BytesToHash(b[:])
 }

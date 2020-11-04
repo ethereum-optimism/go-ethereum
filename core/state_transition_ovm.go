@@ -92,7 +92,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 	// inserting into Geth so we can make transactions easily parseable. However, this means that
 	// we need to re-encode the transactions before executing them.
 	var data = new(bytes.Buffer)
-	data.WriteByte(byte(getSignatureType(msg)))              // 1 byte: 00 == EIP 155, 02 == ETH Sign Message
+	data.WriteByte(getSignatureType(msg))                    // 1 byte: 00 == EIP 155, 02 == ETH Sign Message
 	data.Write(fillBytes(r, 32))                             // 32 bytes: Signature `r` parameter
 	data.Write(fillBytes(s, 32))                             // 32 bytes: Signature `s` parameter
 	data.Write(fillBytes(v, 1))                              // 1 byte: Signature `v` parameter
