@@ -87,7 +87,7 @@ type Message interface {
 	CheckNonce() bool
 	Data() []byte
 	L1MessageSender() *common.Address
-	L1RollupTxId() *hexutil.Uint64
+	L1BlockNumber() *big.Int
 	QueueOrigin() *big.Int
 }
 

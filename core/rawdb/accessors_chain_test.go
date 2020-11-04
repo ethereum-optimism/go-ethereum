@@ -26,7 +26,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -437,8 +436,8 @@ func TestBlockMetaStorage(t *testing.T) {
 	if meta.L1MessageSender != nil {
 		t.Fatalf("Could not recover L1MessageSender")
 	}
-	if meta.L1RollupTxId != nil {
-		t.Fatalf("Could not recover L1RollupTxId")
+	if meta.L1BlockNumber != nil {
+		t.Fatalf("Could not recover L1BlockNumber")
 	}
 
 	if meta.SignatureHashType != types.SighashEIP155 {
@@ -453,9 +452,9 @@ func TestBlockMetaStorage(t *testing.T) {
 	}
 
 	addr := common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
-	txid := hexutil.Uint64(777)
+	l1BlockNumber := big.NewInt(777)
 
-	tx2 := types.NewTransaction(2, common.HexToAddress("0x02"), big.NewInt(2), 2, big.NewInt(2), nil, &addr, &txid, types.QueueOriginSequencer, types.SighashEthSign)
+	tx2 := types.NewTransaction(2, common.HexToAddress("0x02"), big.NewInt(2), 2, big.NewInt(2), nil, &addr, l1BlockNumber, types.QueueOriginSequencer, types.SighashEthSign)
 
 	WriteTransactionMeta(db, tx2.Hash(), tx2.GetMeta())
 	meta2 := ReadTransactionMeta(db, tx2.Hash())
@@ -464,8 +463,8 @@ func TestBlockMetaStorage(t *testing.T) {
 		t.Fatalf("Could not recover L1MessageSender")
 	}
 
-	if *meta2.L1RollupTxId != txid {
-		t.Fatalf("Could not recover L1RollupTxId")
+	if meta2.L1BlockNumber.Cmp(l1BlockNumber) != 0 {
+		t.Fatalf("Could not recover L1BlockNumber")
 	}
 	if meta2.SignatureHashType != types.SighashEthSign {
 		t.Fatalf("Could not recover sighash type")

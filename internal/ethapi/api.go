@@ -1097,8 +1097,8 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 
 	if meta := tx.GetMeta(); meta != nil {
 		result.L1TxOrigin = meta.L1MessageSender
-		if meta.L1RollupTxId != nil {
-			result.L1BlockNumber = (*hexutil.Big)(new(big.Int).SetUint64(uint64(*meta.L1RollupTxId)))
+		if meta.L1BlockNumber != nil {
+			result.L1BlockNumber = (*hexutil.Big)(meta.L1BlockNumber)
 		}
 		if meta.QueueOrigin != nil {
 			switch meta.QueueOrigin.Uint64() {
@@ -1354,9 +1354,9 @@ type SendTxArgs struct {
 	// newer name and should be preferred by clients.
 	Data              *hexutil.Bytes          `json:"data"`
 	Input             *hexutil.Bytes          `json:"input"`
-	L1RollupTxId      *hexutil.Uint64         `json:"l1RollupTxId,omitempty"`
-	L1MessageSender   *common.Address         `json:"l1MessageSender,omitempty"`
-	SignatureHashType types.SignatureHashType `json:"signatureHashType,omitempty"`
+	L1BlockNumber     *big.Int                `json:"l1BlockNumber"`
+	L1MessageSender   *common.Address         `json:"l1MessageSender"`
+	SignatureHashType types.SignatureHashType `json:"signatureHashType"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.
@@ -1427,18 +1427,18 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		input = *args.Data
 	}
 	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, nil, args.L1RollupTxId, types.QueueOriginSequencer)
+		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, nil, args.L1BlockNumber, types.QueueOriginSequencer)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1RollupTxId, types.QueueOriginSequencer, args.SignatureHashType)
+	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1BlockNumber, types.QueueOriginSequencer, args.SignatureHashType)
 }
 
 type RollupTransaction struct {
-	L1RollupTxId *hexutil.Uint64 `json:"l1RollupTxId,omitempty"`
-	Nonce        *hexutil.Uint64 `json:"nonce"`
-	GasLimit     *hexutil.Uint64 `json:"gasLimit"`
-	Sender       *common.Address `json:"sender"`
-	Target       *common.Address `json:"target"`
-	Calldata     *hexutil.Bytes  `json:"calldata"`
+	L1BlockNumber *big.Int        `json:"l1BlockNumber"`
+	Nonce         *hexutil.Uint64 `json:"nonce"`
+	GasLimit      *hexutil.Uint64 `json:"gasLimit"`
+	Sender        *common.Address `json:"sender"`
+	Target        *common.Address `json:"target"`
+	Calldata      *hexutil.Bytes  `json:"calldata"`
 }
 
 // Creates a wrapped tx (internal tx that wraps an OVM tx) from the RollupTransaction.
@@ -1447,9 +1447,9 @@ func (r *RollupTransaction) toTransaction(txNonce uint64) *types.Transaction {
 	var tx *types.Transaction
 	c, _ := r.Calldata.MarshalText()
 	if r.Target == nil {
-		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, types.QueueOriginSequencer)
+		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1BlockNumber, types.QueueOriginSequencer)
 	} else {
-		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1RollupTxId, types.QueueOriginSequencer, types.SighashEIP155)
+		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1BlockNumber, types.QueueOriginSequencer, types.SighashEIP155)
 	}
 	tx.AddNonceToWrappedTransaction(uint64(*r.Nonce))
 	return tx
@@ -1544,7 +1544,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	meta := types.NewTransactionMeta(nil, nil, types.SighashEIP155)
+	meta := types.NewTransactionMeta(nil, nil, types.SighashEIP155, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
@@ -1562,7 +1562,7 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	meta := types.NewTransactionMeta(nil, nil, types.SighashEthSign)
+	meta := types.NewTransactionMeta(nil, nil, types.SighashEthSign, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }

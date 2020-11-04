@@ -21,8 +21,6 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
@@ -130,8 +128,7 @@ func (tc *testChain) generate(n int, seed byte, parent *types.Block, heavy bool)
 		if parent == tc.genesis && i%22 == 0 {
 			signer := types.MakeSigner(params.TestChainConfig, block.Number())
 			l1Sender := common.Address{seed}
-			l1RollupTxId := hexutil.Uint64(22)
-			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil, &l1Sender, &l1RollupTxId, types.QueueOriginSequencer, types.SighashEIP155), signer, testKey)
+			tx, err := types.SignTx(types.NewTransaction(block.TxNonce(testAddress), common.Address{seed}, big.NewInt(1000), params.TxGas, nil, nil, &l1Sender, nil, types.QueueOriginSequencer, types.SighashEIP155), signer, testKey)
 			if err != nil {
 				panic(err)
 			}

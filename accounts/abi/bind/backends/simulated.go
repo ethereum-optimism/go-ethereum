@@ -27,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
@@ -602,7 +601,7 @@ func (m callmsg) Gas() uint64                      { return m.CallMsg.Gas }
 func (m callmsg) Value() *big.Int                  { return m.CallMsg.Value }
 func (m callmsg) Data() []byte                     { return m.CallMsg.Data }
 func (m callmsg) L1MessageSender() *common.Address { return m.CallMsg.L1MessageSender }
-func (m callmsg) L1RollupTxId() *hexutil.Uint64    { return m.CallMsg.L1RollupTxId }
+func (m callmsg) L1BlockNumber() *big.Int          { return m.CallMsg.L1BlockNumber }
 func (m callmsg) QueueOrigin() *big.Int            { return m.CallMsg.QueueOrigin }
 
 // filterBackend implements filters.Backend to support filtering for logs without
