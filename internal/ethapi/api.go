@@ -1544,7 +1544,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	meta := types.NewTransactionMeta(nil, nil, types.SighashEIP155)
+	meta := types.NewTransactionMeta(nil, nil, types.SighashEIP155, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
@@ -1562,7 +1562,7 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	meta := types.NewTransactionMeta(nil, nil, types.SighashEthSign)
+	meta := types.NewTransactionMeta(nil, nil, types.SighashEthSign, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }

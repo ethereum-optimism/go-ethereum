@@ -30,12 +30,14 @@ type TransactionMeta struct {
 	Index             *uint64           `json:"index" gencodec:"required"`
 }
 
-// Hard code the queue origin as 2 since it represents the origin as the
-// sequencer. Add the queue origin to the function signature once l1 transaction
-// ingestion is ready.
-func NewTransactionMeta(L1BlockNumber *big.Int, L1MessageSender *common.Address, sighashType SignatureHashType) *TransactionMeta {
-	queueOrigin := new(big.Int).SetUint64(2)
-	return &TransactionMeta{L1BlockNumber: L1BlockNumber, L1MessageSender: L1MessageSender, SignatureHashType: sighashType, QueueOrigin: queueOrigin}
+// NewTransactionMeta creates a TransactionMeta
+func NewTransactionMeta(l1BlockNumber *big.Int, l1MessageSender *common.Address, sighashType SignatureHashType, queueOrigin QueueOrigin) *TransactionMeta {
+	return &TransactionMeta{
+		L1BlockNumber:     l1BlockNumber,
+		L1MessageSender:   l1MessageSender,
+		SignatureHashType: sighashType,
+		QueueOrigin:       big.NewInt(int64(queueOrigin)),
+	}
 }
 
 // TxMetaDecode deserializes bytes as a TransactionMeta struct.

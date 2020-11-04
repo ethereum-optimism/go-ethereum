@@ -17,43 +17,43 @@ var (
 		l1BlockNumber *big.Int
 		msgSender     *common.Address
 		sighashType   SignatureHashType
-		queueOrigin   *big.Int
+		queueOrigin   QueueOrigin
 	}{
 		{
 			l1BlockNumber: l1BlockNumber,
 			msgSender:     &addr,
 			sighashType:   SighashEthSign,
-			queueOrigin:   big.NewInt(2),
+			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: nil,
 			msgSender:     &addr,
 			sighashType:   SighashEthSign,
-			queueOrigin:   big.NewInt(2),
+			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
 			msgSender:     nil,
 			sighashType:   SighashEthSign,
-			queueOrigin:   big.NewInt(2),
+			queueOrigin:   QueueOriginSequencer,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
 			msgSender:     &addr,
 			sighashType:   SighashEthSign,
-			queueOrigin:   nil,
+			queueOrigin:   QueueOriginSequencer,
 		},
 		{
 			l1BlockNumber: nil,
 			msgSender:     nil,
 			sighashType:   SighashEthSign,
-			queueOrigin:   nil,
+			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
 			msgSender:     &addr,
 			sighashType:   SighashEthSign,
-			queueOrigin:   big.NewInt(0),
+			queueOrigin:   QueueOriginL1ToL2,
 		},
 	}
 
@@ -74,8 +74,7 @@ var (
 
 func TestTransactionMetaEncode(t *testing.T) {
 	for _, test := range txMetaSerializationTests {
-		txmeta := NewTransactionMeta(test.l1BlockNumber, test.msgSender, test.sighashType)
-		txmeta.QueueOrigin = test.queueOrigin
+		txmeta := NewTransactionMeta(test.l1BlockNumber, test.msgSender, test.sighashType, test.queueOrigin)
 
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
@@ -92,7 +91,7 @@ func TestTransactionMetaEncode(t *testing.T) {
 
 func TestTransactionSighashEncode(t *testing.T) {
 	for _, test := range txMetaSighashEncodeTests {
-		txmeta := NewTransactionMeta(l1BlockNumber, &addr, test.input)
+		txmeta := NewTransactionMeta(l1BlockNumber, &addr, test.input, QueueOriginSequencer)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 
