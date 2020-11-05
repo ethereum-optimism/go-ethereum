@@ -138,18 +138,6 @@ func NewStateTransition(evm *vm.EVM, msg Message, gp *GasPool) *StateTransition 
 // indicates a core error meaning that the message would always fail for that particular
 // state and would never be accepted within a block.
 func ApplyMessage(evm *vm.EVM, msg Message, gp *GasPool) ([]byte, uint64, bool, error) {
-	if vm.UsingOVM {
-		// OVM_ENABLED
-		ovmmsg, err := toExecutionManagerRun(evm, msg)
-		if err != nil {
-			return nil, 0, false, err
-		}
-
-		evm.Context.Origin = msg.From()
-
-		return NewStateTransition(evm, ovmmsg, gp).TransitionDb()
-	}
-
 	return NewStateTransition(evm, msg, gp).TransitionDb()
 }
 
@@ -204,6 +192,15 @@ func (st *StateTransition) preCheck() error {
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
 	if err = st.preCheck(); err != nil {
 		return
+	}
+
+	if vm.UsingOVM {
+		// OVM_ENABLED
+		st.msg, err = toExecutionManagerRun(st.evm, st.msg)
+		st.data = st.msg.Data()
+		if err != nil {
+			return nil, 0, false, err
+		}
 	}
 
 	msg := st.msg

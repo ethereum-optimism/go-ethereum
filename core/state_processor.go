@@ -102,13 +102,24 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	// Create a new environment which holds all relevant information
 	// about the transaction and calling mechanisms.
 	vmenv := vm.NewEVM(context, statedb, config, cfg)
+
+	if vm.UsingOVM {
+		// OVM_ENABLED
+		log.Debug(">>>>>> Serving an OVM transaction <<<<<<")
+	}
+	
 	// Apply the transaction to the current state (included in the env)
-	log.Debug(">>>>>> Serving an OVM transaction <<<<<<")
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
-	log.Debug("<<<<<< Served an OVM transaction  >>>>>>")
+
+	if vm.UsingOVM {
+		// OVM_ENABLED
+		log.Debug("<<<<<< Served an OVM transaction  >>>>>>")
+	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	// Update the state with pending changes
 	var root []byte
 	if config.IsByzantium(header.Number) {
@@ -123,10 +134,12 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt := types.NewReceipt(root, failed, *usedGas)
 	receipt.TxHash = tx.Hash()
 	receipt.GasUsed = gas
+
 	// if the transaction created a contract, store the creation address in the receipt.
 	if msg.To() == nil {
 		receipt.ContractAddress = crypto.CreateAddress(vmenv.Context.Origin, tx.Nonce())
 	}
+
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = statedb.GetLogs(tx.Hash())
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})

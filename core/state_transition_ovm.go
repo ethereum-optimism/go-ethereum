@@ -107,7 +107,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 	decompressor := vm.OvmStateDump.Accounts["OVM_SequencerEntrypoint"]
 	outmsg, err := modMessage(
 		msg,
-		GodAddress,
+		msg.From(),
 		&(decompressor.Address),
 		data.Bytes(),
 	)
