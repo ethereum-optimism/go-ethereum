@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -66,48 +67,69 @@ func callStateManager(input []byte, evm *EVM, contract *Contract) (ret []byte, e
 
 func owner(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
 	origin := evm.Context.Origin
-
 	return []interface{}{origin}, nil
 }
 
 func setAccountNonce(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
-	address := args["_address"].(common.Address)
-	nonce := args["_nonce"].(*big.Int)
-
+	address, ok := args["_address"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in setAccountNonce")
+	}
+	nonce, ok := args["_nonce"].(*big.Int)
+	if !ok {
+		return nil, errors.New("Could not parse nonce arg in setAccountNonce")
+	}
 	evm.StateDB.SetNonce(address, nonce.Uint64())
-
 	return []interface{}{}, nil
 }
 
 func getAccountNonce(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
-	address := args["_address"].(common.Address)
-
+	address, ok := args["_address"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in getAccountNonce")
+	}
 	nonce := evm.StateDB.GetNonce(address)
 	return []interface{}{new(big.Int).SetUint64(reflect.ValueOf(nonce).Uint())}, nil
 }
 
 func getAccountEthAddress(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
-	address := args["_address"].(common.Address)
-
+	address, ok := args["_address"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in getAccountEthAddress")
+	}
 	return []interface{}{address}, nil
 }
 
 func getContractStorage(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
-	address := args["_contract"].(common.Address)
-	key := toHash(args["_key"])
-
+	address, ok := args["_contract"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse contract arg in getContractStorage")
+	}
+	_key, ok := args["_key"]
+	if !ok {
+		return nil, errors.New("Could not parse key arg in getContractStorage")
+	}
+	key := toHash(_key)
 	val := evm.StateDB.GetState(address, key)
-
 	return []interface{}{val}, nil
 }
 
 func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
-	address := args["_contract"].(common.Address)
-	key := toHash(args["_key"])
-	val := toHash(args["_value"])
-
+	address, ok := args["_contract"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in putContractStorage")
+	}
+	_key, ok := args["_key"]
+	if !ok {
+		return nil, errors.New("Could not parse key arg in putContractStorage")
+	}
+	key := toHash(_key)
+	_value, ok := args["_value"]
+	if !ok {
+		return nil, errors.New("Could not parse value arg in putContractStorage")
+	}
+	val := toHash(_value)
 	evm.StateDB.SetState(address, key, val)
-
 	return []interface{}{}, nil
 }
 
