@@ -1054,19 +1054,10 @@ func (s *SyncService) maybeApplyTransaction(index uint64, tx *types.Transaction)
 func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction, error) {
 	nonce := s.txpool.Nonce(s.address)
 	tx.SetNonce(nonce)
-
 	tx, err := types.SignTx(tx, s.signer, &s.key)
 	if err != nil {
 		return nil, fmt.Errorf("Transaction signing failed: %w", err)
 	}
-
-	sender, err := types.Sender(s.signer, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug("Signed a transaction with the god key", "address", sender.Hex())
-
 	return tx, nil
 }
 
