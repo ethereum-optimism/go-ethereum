@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-var GodAddress = common.HexToAddress("0x444400000000000000000000000000000000000")
+var GodAddress common.Address
 var ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 type ovmTransaction struct {
@@ -21,6 +22,17 @@ type ovmTransaction struct {
 	Entrypoint    common.Address "json:\"entrypoint\""
 	GasLimit      *big.Int       "json:\"gasLimit\""
 	Data          []uint8        "json:\"data\""
+}
+
+func init() {
+	// ovmTODO: Pass this in via standard config flow instead of via environment variables.
+	// kelvin's note: "tee hee, sorry!"
+	address := os.Getenv("TX_INGESTION_SIGNER_ADDRESS")
+	if len(address) != 42 {
+		panic(fmt.Errorf("invalid TX_INGESTION_SIGNER_ADDRESS: %s", address))
+	}
+
+	GodAddress = common.HexToAddress(address)
 }
 
 func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
@@ -50,6 +62,7 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 		msg.From(),
 		&vm.OvmExecutionManager.Address,
 		ret,
+		evm.Context.GasLimit,
 	)
 	if err != nil {
 		return nil, err
@@ -110,6 +123,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 		msg.From(),
 		&(decompressor.Address),
 		data.Bytes(),
+		msg.Gas(),
 	)
 
 	if err != nil {
@@ -140,6 +154,7 @@ func EncodeFakeMessage(
 		from,
 		&from,
 		output,
+		msg.Gas(),
 	)
 }
 
@@ -148,6 +163,7 @@ func modMessage(
 	from common.Address,
 	to *common.Address,
 	data []byte,
+	gasLimit uint64,
 ) (Message, error) {
 	queueOrigin, err := getQueueOrigin(msg.QueueOrigin())
 	if err != nil {
@@ -159,7 +175,7 @@ func modMessage(
 		to,
 		msg.Nonce(),
 		msg.Value(),
-		msg.Gas(),
+		gasLimit,
 		msg.GasPrice(),
 		data,
 		false,

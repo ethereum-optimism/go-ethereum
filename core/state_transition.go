@@ -230,8 +230,14 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	} else {
 		// Increment the nonce for the next transaction
 		if !vm.UsingOVM {
+			// OVM_DISABLED
 			st.state.SetNonce(msg.From(), st.state.GetNonce(msg.From())+1)
+		} else {
+			if msg.From() == GodAddress {
+				st.state.SetNonce(msg.From(), st.state.GetNonce(msg.From())+1)
+			}
 		}
+
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
 	}
 

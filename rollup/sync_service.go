@@ -239,7 +239,7 @@ func (s *SyncService) Start() error {
 		return nil
 	}
 
-	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address resolver", s.AddressResolverAddress)
+	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address)
 	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature))
 
 	blockHeight := rawdb.ReadHeadEth1HeaderHeight(s.db)
@@ -1020,12 +1020,14 @@ func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, 
 	if err != nil {
 		return fmt.Errorf("Cannot reorganize before applying tx: %w", err)
 	}
+
 	if godKeyShouldSign {
 		tx, err = s.signTransaction(tx)
 		if err != nil {
 			return fmt.Errorf("Cannot sign transaction with god key: %w", err)
 		}
 	}
+
 	err = s.applyTransaction(tx)
 	if err != nil {
 		return fmt.Errorf("Cannot apply tx: %w", err)
@@ -1057,10 +1059,19 @@ func (s *SyncService) maybeApplyTransaction(index uint64, tx *types.Transaction)
 func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction, error) {
 	nonce := s.txpool.Nonce(s.address)
 	tx.SetNonce(nonce)
+
 	tx, err := types.SignTx(tx, s.signer, &s.key)
 	if err != nil {
 		return nil, fmt.Errorf("Transaction signing failed: %w", err)
 	}
+
+	sender, err := types.Sender(s.signer, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debug("Signed a transaction with the god key", "address", sender.Hex())
+
 	return tx, nil
 }
 
