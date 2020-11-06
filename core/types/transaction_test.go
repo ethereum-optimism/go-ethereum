@@ -45,7 +45,7 @@ var (
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
 
-	rightvrsTxWithL1RollupTxId, _ = NewTransaction(3, common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"), big.NewInt(10), 2000, big.NewInt(1), common.FromHex("5544"), nil, big.NewInt(1), QueueOriginSequencer, SighashEIP155).WithSignature(
+	rightvrsTxWithL1BlockNumber, _ = NewTransaction(3, common.HexToAddress("b94f5374fce5edbc8e2a8697c15331677e6ebf0b"), big.NewInt(10), 2000, big.NewInt(1), common.FromHex("5544"), nil, big.NewInt(1), QueueOriginSequencer, SighashEIP155).WithSignature(
 		HomesteadSigner{},
 		common.Hex2Bytes("98ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a8887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a301"),
 	)
@@ -81,7 +81,7 @@ func TestTransactionEncode(t *testing.T) {
 		t.Errorf("RLP encoding with L1MessageSender should be the same. Got %x", txc)
 	}
 
-	txd, err := rlp.EncodeToBytes(rightvrsTxWithL1RollupTxId)
+	txd, err := rlp.EncodeToBytes(rightvrsTxWithL1BlockNumber)
 	if err != nil {
 		t.Fatalf("encode error: %v", err)
 	}
@@ -257,8 +257,8 @@ func TestOVMMetaDataHash(t *testing.T) {
 		t.Errorf("L1MessageSender, should not affect the hash, want %x, got %x with L1MessageSender", rightvrsTx.Hash(), rightvrsTxWithL1Sender.Hash())
 	}
 
-	if rightvrsTx.Hash() != rightvrsTxWithL1RollupTxId.Hash() {
-		t.Errorf("L1RollupTxId, should not affect the hash, want %x, got %x with L1RollupTxId", rightvrsTx.Hash(), rightvrsTxWithL1RollupTxId.Hash())
+	if rightvrsTx.Hash() != rightvrsTxWithL1BlockNumber.Hash() {
+		t.Errorf("L1BlockNumber, should not affect the hash, want %x, got %x with L1BlockNumber", rightvrsTx.Hash(), rightvrsTxWithL1BlockNumber.Hash())
 	}
 
 	if emptyTx.Hash() != emptyTxEmptyL1Sender.Hash() {

@@ -180,7 +180,7 @@ func modMessage(
 		data,
 		false,
 		msg.L1MessageSender(),
-		msg.L1RollupTxId(),
+		msg.L1BlockNumber(),
 		queueOrigin,
 		msg.SignatureHashType(),
 	)
