@@ -22,8 +22,10 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -223,6 +225,18 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
+
+	if vm.UsingOVM {
+		to := "<nil>"
+		if msg.To() != nil {
+			to = msg.To().Hex()
+		}
+		l1MessageSender := "<nil>"
+		if msg.L1MessageSender() != nil {
+			l1MessageSender = msg.L1MessageSender().Hex()
+		}
+		log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "l1MessageSender", l1MessageSender, "data", hexutil.Encode(msg.Data()))
+	}
 
 	if contractCreation {
 		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
