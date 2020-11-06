@@ -296,6 +296,7 @@ func txProcessed(t *testing.T, rtx *RollupTransaction, service *SyncService) (bo
 }
 
 func TestSyncServiceSequencerBatchAppend(t *testing.T) {
+	t.Skip("Disabling test until verifier is ready")
 	service, err := newTestSyncService()
 	if err != nil {
 		t.Fatal(err)
