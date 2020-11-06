@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var GodAddress common.Address
@@ -28,7 +29,11 @@ func init() {
 	// ovmTODO: Pass this in via standard config flow instead of via environment variables.
 	// kelvin's note: "tee hee, sorry!"
 	address := os.Getenv("TX_INGESTION_SIGNER_ADDRESS")
-	if len(address) != 42 {
+
+	if len(address) == 0 {
+		log.Warn("No TX_INGESTION_SIGNER_ADDRESS supplied. Using ZERO_ADDRESS default.")
+		address = "0000000000000000000000000000000000000000"
+	} else if len(address) != 42 {
 		panic(fmt.Errorf("invalid TX_INGESTION_SIGNER_ADDRESS: %s", address))
 	}
 
