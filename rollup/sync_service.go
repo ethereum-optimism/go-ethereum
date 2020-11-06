@@ -863,6 +863,11 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 // from the canonical transaction chain contract.
 func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
 	log.Debug("Processing sequencer batch appended")
+	// TODO(mark): temporary fix to disable sequencer batch append
+	if true {
+		return nil
+	}
+
 	event, err := s.ctcFilterer.ParseSequencerBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse sequencer batch appended log data: %w", err)
@@ -879,18 +884,24 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 		return fmt.Errorf("Transaction %s unexpectedly in mempool", ethlog.TxHash.Hex())
 	}
 
+	calldata := tx.Data()
+	if len(calldata) < 4 {
+		return fmt.Errorf("Unexpected calldata %s", hexutil.Encode(calldata))
+	}
+
 	cd := appendSequencerBatchCallData{}
-	err = cd.Decode(bytes.NewReader(tx.Data()))
+	// Remove the function selector
+	err = cd.Decode(bytes.NewReader(calldata[4:]))
 	if err != nil {
 		return fmt.Errorf("Cannot decode sequencer batch appended calldata: %w", err)
 	}
 
+	log.Debug("Decoded chain elements", "count", len(cd.ChainElements))
 	for i, element := range cd.ChainElements {
 		var tx *types.Transaction
 		// The number of queue elements must be the number *after* all of the
 		// operations for this to work properly.
 		index := event.TotalElements.Uint64() - (uint64(i) + event.NumQueueElements.Uint64())
-
 		// Certain types of transactions require a signature from the god key.
 		// Keep track of this so that the god key can sign after reorganizing,
 		// to ensure that nonces are correct.
@@ -907,16 +918,21 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				return fmt.Errorf("Cannot deserialize txdata at index %d: %w", index, err)
 			}
 
-			// QueueOriginSequencer transactions do not have a L1BlockNumber
+			// TODO: QueueOriginSequencer transactions need to include the last
+			// L1BlockNumber of a L1ToL2 transaction, not `nil`.
 			switch ctcTx.typ {
 			case CTCTransactionTypeEOA:
 				// The god key needs to sign in this case
 				godKeyShouldSign = true
 				nonce := uint64(0)
 				to := s.SequencerDecompressionAddress
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), s.gasLimit, big.NewInt(0), element.TxData, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
+				// TEMP: replacement of s.gasLimit, which is fetched from
+				// the contracts, it breaks things
+				gasLimit := uint64(8000000)
+
+				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, big.NewInt(0), element.TxData, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
 				tx.SetIndex(index)
-				log.Debug("Deserialized CTC EOA transaction", "index", index, "to", tx.To().Hex())
+				log.Debug("Deserialized CTC EOA transaction", "index", index, "to", tx.To().Hex(), "data", hexutil.Encode(element.TxData))
 			case CTCTransactionTypeEIP155:
 				// The signature is deserialized so the god key does not need to
 				// sign in this case.
@@ -936,7 +952,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				if err != nil {
 					return fmt.Errorf("Cannot add signature to eip155 tx: %w", err)
 				}
-				log.Debug("Deserialized CTC EIP155 transaction", "index", index, "to", tx.To().Hex())
+				log.Debug("Deserialized CTC EIP155 transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
 			default:
 				// This should never happen
 				return fmt.Errorf("Unknown tx type: %x", element.TxData)
@@ -952,10 +968,6 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 			}
 			s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 			log.Debug("Setting timestamp", "timestamp", rtx.timestamp.Unix())
-			// TODO: Make sure that this change will persist in the cache
-			// and that txCache.Store doesn't need to be called
-			// There is also the case that maybeReorgAndApplyTx returns
-			// an error and the tx is not executed.
 			rtx.executed = true
 			s.txCache.Store(rtx.index, rtx)
 		}
