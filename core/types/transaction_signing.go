@@ -23,7 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
@@ -151,37 +153,63 @@ func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
 // OVMSignerTemplateSighashPreimage creates the preimage for the `eth_sign` like
 // signature hash. The transaction is `ABI.encodePacked`.
 func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
-	// Pad the nonce to 32 bytes
-	n := new(bytes.Buffer)
-	binary.Write(n, binary.BigEndian, tx.data.AccountNonce)
-	nonce := common.LeftPadBytes(n.Bytes(), 32)
+	const abidata = `
+	[
+		{
+			"type": "function",
+			"name": "encode",
+			"constant": true,
+			"inputs": [
+				{
+					"name": "nonce",
+					"type": "uint256"
+				},
+				{
+					"name": "gasLimit",
+					"type": "uint256"
+				},
+				{
+					"name": "gasPrice",
+					"type": "uint256"
+				},
+				{
+					"name": "chainId",
+					"type": "uint256"
+				},
+				{
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"name": "data",
+					"type": "bytes"
+				}
+			]
+		}
+	]
+	`
 
-	// Pad the gas limit to 32 bytes
-	g := new(bytes.Buffer)
-	binary.Write(g, binary.BigEndian, tx.data.GasLimit)
-	gasLimit := common.LeftPadBytes(g.Bytes(), 32)
+	codec, err := abi.JSON(strings.NewReader(abidata))
+	if err != nil {
+		panic(fmt.Errorf("unable to create Eth Sign abi reader: %v", err))
+	}
 
-	p := new(bytes.Buffer)
-	binary.Write(p, binary.BigEndian, tx.data.Price.Bytes())
-	gasPrice := common.LeftPadBytes(p.Bytes(), 32)
+	data := []interface{}{
+		big.NewInt(int64(tx.data.AccountNonce)),
+		big.NewInt(int64(tx.data.GasLimit)),
+		tx.data.Price,
+		s.chainId,
+		*tx.data.Recipient,
+		tx.data.Payload,
+	}
 
-	chainId := common.LeftPadBytes(s.chainId.Bytes(), 32)
-
-	// This should always be 20 bytes
-	to := tx.data.Recipient.Bytes()
-
-	// The signature hash commits to the nonce, gas limit,
-	// recipient and data
-	b := new(bytes.Buffer)
-	binary.Write(b, binary.BigEndian, nonce)
-	binary.Write(b, binary.BigEndian, gasLimit)
-	binary.Write(b, binary.BigEndian, gasPrice)
-	binary.Write(b, binary.BigEndian, chainId)
-	binary.Write(b, binary.BigEndian, to)
-	binary.Write(b, binary.BigEndian, tx.data.Payload)
+	ret, err := codec.Pack("encode", data...)
+	if err != nil {
+		panic(fmt.Errorf("unable to pack Eth Sign data: %v", err))
+	}
 
 	hasher := sha3.NewLegacyKeccak256()
-	hasher.Write(b.Bytes())
+	hasher.Write(ret[4:])
 	digest := hasher.Sum(nil)
 
 	preimage := new(bytes.Buffer)
