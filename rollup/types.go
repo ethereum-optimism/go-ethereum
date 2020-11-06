@@ -278,8 +278,8 @@ func (a *appendSequencerBatchCallData) Decode(r io.ReaderAt) error {
 type CTCTransactionType uint8
 
 const (
-	CTCTransactionTypeEOA    CTCTransactionType = 0
-	CTCTransactionTypeEIP155 CTCTransactionType = 1
+	CTCTransactionTypeEIP155 CTCTransactionType = 0
+	CTCTransactionTypeEOA    CTCTransactionType = 1
 )
 
 type CTCTransaction struct {
@@ -379,6 +379,8 @@ func (c *CTCTxEIP155) Len() (int, error) {
 	return 65 + 2 + 1 + 3 + 20 + len(c.data), nil
 }
 
+// TODO(mark): this serialization has fallen out of sync
+// with what is actually being submitted by the batch submitter
 func (c *CTCTxEIP155) Encode(b []byte) error {
 	length, _ := c.Len()
 	if len(b) < length {
@@ -414,13 +416,20 @@ func (c *CTCTxEIP155) Decode(b []byte) error {
 
 func isCtcTxEqual(a, b *types.Transaction) bool {
 	if a.To() == nil && b.To() != nil {
+		if !bytes.Equal(b.To().Bytes(), common.Address{}.Bytes()) {
+			return false
+		}
+	}
+	if a.To() != nil && b.To() == nil {
+		if !bytes.Equal(a.To().Bytes(), common.Address{}.Bytes()) {
+			return false
+		}
 		return false
 	}
-	if b.To() != nil && a.To() == nil {
-		return false
-	}
-	if !bytes.Equal(a.To().Bytes(), b.To().Bytes()) {
-		return false
+	if a.To() != nil && b.To() != nil {
+		if !bytes.Equal(a.To().Bytes(), b.To().Bytes()) {
+			return false
+		}
 	}
 	if !bytes.Equal(a.Data(), b.Data()) {
 		return false
@@ -431,8 +440,10 @@ func isCtcTxEqual(a, b *types.Transaction) bool {
 	if a.L1MessageSender() != nil && b.L1MessageSender() == nil {
 		return false
 	}
-	if !bytes.Equal(a.L1MessageSender().Bytes(), b.L1MessageSender().Bytes()) {
-		return false
+	if a.L1MessageSender() != nil && b.L1MessageSender() != nil {
+		if !bytes.Equal(a.L1MessageSender().Bytes(), b.L1MessageSender().Bytes()) {
+			return false
+		}
 	}
 	if a.Gas() != b.Gas() {
 		return false
