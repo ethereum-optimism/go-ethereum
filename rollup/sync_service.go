@@ -907,7 +907,6 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 		// to ensure that nonces are correct.
 		godKeyShouldSign := false
 		// Sequencer transaction
-
 		if element.IsSequenced {
 			// Different types of transactions can be included in the canonical
 			// transaction chain. The first byte specifies what kind of
@@ -998,7 +997,6 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 			return fmt.Errorf("Unexpected number of transactions in a block %d", count)
 		}
 		prev := block.Transactions()[0]
-
 		// The transaction hash is not the canonical identifier of a transaction
 		// due to nonces coming from the god key. Do an equality check using
 		// `to`, `data`, `l1TxOrigin` and `gasLimit`
