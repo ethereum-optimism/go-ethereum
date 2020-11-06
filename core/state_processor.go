@@ -107,7 +107,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 		// OVM_ENABLED
 		log.Debug(">>>>>> Serving an OVM transaction <<<<<<")
 	}
-	
+
 	// Apply the transaction to the current state (included in the env)
 	_, gas, failed, err := ApplyMessage(vmenv, msg, gp)
 

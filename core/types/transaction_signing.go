@@ -25,10 +25,10 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -191,21 +191,21 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 
 	codec, err := abi.JSON(strings.NewReader(abidata))
 	if err != nil {
-			panic(fmt.Errorf("unable to create Eth Sign abi reader: %v", err))
+		panic(fmt.Errorf("unable to create Eth Sign abi reader: %v", err))
 	}
 
 	data := []interface{}{
-			big.NewInt(int64(tx.data.AccountNonce)),
-			big.NewInt(int64(tx.data.GasLimit)),
-			tx.data.Price,
-			s.chainId,
-			*tx.data.Recipient,
-			tx.data.Payload,
+		big.NewInt(int64(tx.data.AccountNonce)),
+		big.NewInt(int64(tx.data.GasLimit)),
+		tx.data.Price,
+		s.chainId,
+		*tx.data.Recipient,
+		tx.data.Payload,
 	}
 
 	ret, err := codec.Pack("encode", data...)
 	if err != nil {
-			panic(fmt.Errorf("unable to pack Eth Sign data: %v", err))
+		panic(fmt.Errorf("unable to pack Eth Sign data: %v", err))
 	}
 
 	hasher := sha3.NewLegacyKeccak256()
