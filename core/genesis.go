@@ -256,17 +256,10 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
 func ApplyOvmStateToState(statedb *state.StateDB) {
-	// Set up the OVM genesis state
-	var initOvmStateDump state.Dump
-	// Load the OVM genesis
-	initOvmStateDumpMarshaled, _ := hex.DecodeString(vm.InitialOvmStateDump)
-	json.Unmarshal(initOvmStateDumpMarshaled, &initOvmStateDump)
-	for addr, account := range initOvmStateDump.Accounts {
-		statedb.AddBalance(addr, big.NewInt(0))
-		statedb.SetCode(addr, common.FromHex(account.Code))
-		statedb.SetNonce(addr, account.Nonce)
-		for key, value := range account.Storage {
-			statedb.SetState(addr, key, common.HexToHash(value))
+	for _, account := range vm.OvmStateDump.Accounts {
+		statedb.SetCode(account.Address, common.FromHex(account.Code))
+		for key, val := range account.Storage {
+			statedb.SetState(account.Address, key, common.HexToHash(val))
 		}
 	}
 }

@@ -124,6 +124,8 @@ func NewEVMInterpreter(evm *EVM, cfg Config) *EVMInterpreter {
 	}
 }
 
+var returnDataCopy string
+
 // Run loops and evaluates the contract's code with the given input data and returns
 // the return byte-slice and an error if one occurred.
 //
@@ -153,6 +155,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 	// Reset the previous call's return data. It's unimportant to preserve the old buffer
 	// as every returning call will return new data anyway.
 	in.returnData = nil
+	returnDataCopy = ""
 
 	// Don't bother with the execution if there's no code.
 	if len(contract.Code) == 0 {
@@ -266,6 +269,9 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			logged = true
 		}
 
+		if len(returnDataCopy) > 0 {
+			in.returnData = []byte(returnDataCopy)
+		}
 		// execute the operation
 		res, err = operation.execute(&pc, in, contract, mem, stack)
 		// verifyPool is a build flag. Pool verification makes sure the integrity
@@ -277,6 +283,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		// set the last return to the result of the operation.
 		if operation.returns {
 			in.returnData = res
+			returnDataCopy = string(res)
 		}
 
 		switch {

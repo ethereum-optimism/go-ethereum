@@ -806,7 +806,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 		}
 	}
 	// Set default gas & gas price if none were set
-	gas := uint64(math.MaxUint64 / 2)
+	gas := uint64(10000000)
 	if args.Gas != nil {
 		gas = uint64(*args.Gas)
 	}
@@ -830,7 +830,15 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	}
 
 	// Create new call message
-	msg := types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, nil, nil, types.QueueOriginSequencer, 0)
+	var msg core.Message
+	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer, 0)
+	if vm.UsingOVM {
+		var err error
+		msg, err = core.EncodeFakeMessage(msg)
+		if err != nil {
+			return nil, 0, false, err
+		}
+	}
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -859,6 +867,9 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
+	if vm.UsingOVM {
+		evm.Context.EthCallSender = &addr
+	}
 	res, gas, failed, err := core.ApplyMessage(evm, msg, gp)
 	if err := vmError(); err != nil {
 		return nil, 0, false, err
