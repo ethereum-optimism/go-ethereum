@@ -272,16 +272,13 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		if len(returnDataCopy) > 0 {
 			in.returnData = []byte(returnDataCopy)
 		}
-
 		// execute the operation
 		res, err = operation.execute(&pc, in, contract, mem, stack)
-
 		// verifyPool is a build flag. Pool verification makes sure the integrity
 		// of the integer pool by comparing values to a default value.
 		if verifyPool {
 			verifyIntegerPool(in.intPool)
 		}
-
 		// if the operation clears the return data (e.g. it has returning data)
 		// set the last return to the result of the operation.
 		if operation.returns {
