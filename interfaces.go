@@ -23,7 +23,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -121,7 +120,7 @@ type CallMsg struct {
 	Value             *big.Int        // amount of wei sent along with the call
 	Data              []byte          // input data, usually an ABI-encoded contract method invocation
 	L1MessageSender   *common.Address
-	L1RollupTxId      *hexutil.Uint64
+	L1BlockNumber     *big.Int
 	QueueOrigin       *big.Int
 	SignatureHashType types.SignatureHashType
 }
