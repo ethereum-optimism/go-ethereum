@@ -806,7 +806,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 		}
 	}
 	// Set default gas & gas price if none were set
-	gas := uint64(10000000)
+	gas := uint64(15000000)
 	if args.Gas != nil {
 		gas = uint64(*args.Gas)
 	}

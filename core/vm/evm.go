@@ -256,6 +256,8 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			evm.OriginalTargetAddress = &addr
 			evm.OriginalTargetReached = true
 			isTarget = true
+
+			log.Debug("Set original target address", "target", evm.OriginalTargetAddress.Hex())
 		}
 	}
 
@@ -370,10 +372,12 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// We're back at the root-level message call, so we'll need to modify the return data
 			// sent to us by the OVM_ExecutionManager to instead be the intended return data.
 
+			log.Debug("Real result is", "ret", hexutil.Encode(evm.OriginalTargetResult))
+
 			if !evm.OriginalTargetReached {
 				// If we didn't get to the target contract, then our execution somehow failed
 				// (perhaps due to insufficient gas). Just return an error that represents this.
-				ret = AbiBytesFalse
+				ret = common.FromHex("0x")
 				err = ErrOvmExecutionFailed
 			} else if len(evm.OriginalTargetResult) >= 96 {
 				// We expect that EOA contracts return at least 96 bytes of data, where the first
@@ -388,7 +392,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 					// then the user hasn't correctly ABI encoded the result. We return the ABI
 					// encoding of "true" as a default here (an annoying default that would
 					// convince most people to just use the standard form).
-					ret = AbiBytesTrue
+					ret = common.FromHex("0x")
 				} else if bytes.Equal(success, AbiBytesFalse) {
 					// If the first 32 bytes are the ABI encoding of "false", then we need to add an
 					// artificial error that represents the revert.
@@ -408,10 +412,14 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			} else {
 				// User hasn't conformed the standard format, just return "true" for the success
 				// (with no return data) to convince them to use the standard.
-				ret = AbiBytesTrue
+				ret = common.FromHex("0x")
 			}
 
-			log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Error", err)
+			if evm.OriginalTargetReached {
+				log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Original Target", evm.OriginalTargetAddress.Hex(), "Error", err)
+			} else {
+				log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Error", err)
+			}
 		}
 	}
 

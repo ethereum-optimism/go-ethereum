@@ -223,10 +223,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		HeaderCache:                      [2048]*types.Header{},
 	}
 
-	// Always initialize syncing to true to start, the sequencer can toggle off
-	// syncing while the verifier is always syncing
-	service.setSyncStatus(true)
-
 	return &service, nil
 }
 
@@ -238,6 +234,10 @@ func (s *SyncService) Start() error {
 	if !s.enable {
 		return nil
 	}
+
+	// Always initialize syncing to true to start, the sequencer can toggle off
+	// syncing while the verifier is always syncing
+	s.setSyncStatus(true)
 
 	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address)
 	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature))
