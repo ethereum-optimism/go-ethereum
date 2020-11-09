@@ -373,7 +373,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			if !evm.Context.OriginalTargetReached {
 				// If we didn't get to the target contract, then our execution somehow failed
 				// (perhaps due to insufficient gas). Just return an error that represents this.
-				ret = AbiBytesFalse
+				ret = common.FromHex("0x")
 				err = ErrOvmExecutionFailed
 			} else if len(evm.Context.OriginalTargetResult) >= 96 {
 				// We expect that EOA contracts return at least 96 bytes of data, where the first
@@ -385,10 +385,10 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 
 				if !bytes.Equal(success, AbiBytesTrue) && !bytes.Equal(success, AbiBytesFalse) {
 					// If the first 32 bytes not either are the ABI encoding of "true" or "false",
-					// then the user hasn't correctly ABI encoded the result. We return the ABI
-					// encoding of "true" as a default here (an annoying default that would
-					// convince most people to just use the standard form).
-					ret = AbiBytesTrue
+					// then the user hasn't correctly ABI encoded the result. We return the null
+					// hex string as a default here (an annoying default that would convince most
+					// people to just use the standard form).
+					ret = common.FromHex("0x")
 				} else if bytes.Equal(success, AbiBytesFalse) {
 					// If the first 32 bytes are the ABI encoding of "false", then we need to add an
 					// artificial error that represents the revert.
@@ -406,9 +406,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 					ret = append(ret, make([]byte, 4)...)
 				}
 			} else {
-				// User hasn't conformed the standard format, just return "true" for the success
+				// User hasn't conformed the standard format, just return "null" for the success
 				// (with no return data) to convince them to use the standard.
-				ret = AbiBytesTrue
+				ret = common.FromHex("0x")
 			}
 
 			log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Error", err)
