@@ -241,20 +241,20 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		// OVM_ENABLED
 		if evm.depth == 0 {
 			// We're inside a new transaction, so make sure to wipe these variables beforehand.
-			evm.OriginalTargetAddress = nil
-			evm.OriginalTargetResult = []byte("00")
-			evm.OriginalTargetReached = false
+			evm.Context.OriginalTargetAddress = nil
+			evm.Context.OriginalTargetResult = []byte("00")
+			evm.Context.OriginalTargetReached = false
 		}
 
 		if caller.Address() == OvmExecutionManager.Address &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0xdeaddeaddeaddeaddeaddeaddeaddeaddead") &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x000000000000000000000000000000000000") &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x420000000000000000000000000000000000") &&
-			evm.OriginalTargetAddress == nil {
+			evm.Context.OriginalTargetAddress == nil {
 			// Whew. Okay, so: we consider ourselves to be at a "target" as long as we were called
 			// by the execution manager, and we're not a precompile or "dead" address.
-			evm.OriginalTargetAddress = &addr
-			evm.OriginalTargetReached = true
+			evm.Context.OriginalTargetAddress = &addr
+			evm.Context.OriginalTargetReached = true
 			isTarget = true
 		}
 	}
@@ -308,7 +308,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	var prevCode []byte
 	if UsingOVM {
 		// OVM_ENABLED
-		if evm.EthCallSender != nil && *evm.EthCallSender == addr {
+		if evm.Context.EthCallSender != nil && *evm.Context.EthCallSender == addr {
 			// We have to handle eth_call in a special manner as it doesn't stem from a signed
 			// transaction and therefore can't go through the standard EOA contract. When we detect
 			// this case, we temporarily insert some mock code that allows the user to pass through
@@ -327,7 +327,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 
 	if UsingOVM {
 		// OVM_ENABLED
-		if evm.EthCallSender != nil && *evm.EthCallSender == addr {
+		if evm.Context.EthCallSender != nil && *evm.Context.EthCallSender == addr {
 			// Reset the code once it's been loaded into the contract object.
 			evm.StateDB.SetCode(addr, prevCode)
 		}
@@ -363,32 +363,32 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		if isTarget {
 			// If this was our target contract, store the result so that it can be later re-inserted
 			// into the user-facing return data (as seen below).
-			evm.OriginalTargetResult = ret
+			evm.Context.OriginalTargetResult = ret
 		}
 
 		if evm.depth == 0 {
 			// We're back at the root-level message call, so we'll need to modify the return data
 			// sent to us by the OVM_ExecutionManager to instead be the intended return data.
 
-			if !evm.OriginalTargetReached {
+			if !evm.Context.OriginalTargetReached {
 				// If we didn't get to the target contract, then our execution somehow failed
 				// (perhaps due to insufficient gas). Just return an error that represents this.
-				ret = AbiBytesFalse
+				ret = common.FromHex("0x")
 				err = ErrOvmExecutionFailed
-			} else if len(evm.OriginalTargetResult) >= 96 {
+			} else if len(evm.Context.OriginalTargetResult) >= 96 {
 				// We expect that EOA contracts return at least 96 bytes of data, where the first
 				// 32 bytes are the boolean success value and the next 64 bytes are unnecessary
 				// ABI encoding data. The actual return data starts at the 96th byte and can be
 				// empty.
-				success := evm.OriginalTargetResult[:32]
-				ret = evm.OriginalTargetResult[96:]
+				success := evm.Context.OriginalTargetResult[:32]
+				ret = evm.Context.OriginalTargetResult[96:]
 
 				if !bytes.Equal(success, AbiBytesTrue) && !bytes.Equal(success, AbiBytesFalse) {
 					// If the first 32 bytes not either are the ABI encoding of "true" or "false",
-					// then the user hasn't correctly ABI encoded the result. We return the ABI
-					// encoding of "true" as a default here (an annoying default that would
-					// convince most people to just use the standard form).
-					ret = AbiBytesTrue
+					// then the user hasn't correctly ABI encoded the result. We return the null
+					// hex string as a default here (an annoying default that would convince most
+					// people to just use the standard form).
+					ret = common.FromHex("0x")
 				} else if bytes.Equal(success, AbiBytesFalse) {
 					// If the first 32 bytes are the ABI encoding of "false", then we need to add an
 					// artificial error that represents the revert.
@@ -406,9 +406,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 					ret = append(ret, make([]byte, 4)...)
 				}
 			} else {
-				// User hasn't conformed the standard format, just return "true" for the success
+				// User hasn't conformed the standard format, just return "null" for the success
 				// (with no return data) to convince them to use the standard.
-				ret = AbiBytesTrue
+				ret = common.FromHex("0x")
 			}
 
 			log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Error", err)
