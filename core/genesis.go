@@ -258,6 +258,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 func ApplyOvmStateToState(statedb *state.StateDB) {
 	for _, account := range vm.OvmStateDump.Accounts {
 		statedb.SetCode(account.Address, common.FromHex(account.Code))
+		statedb.SetNonce(account.Address, account.Nonce)
 		for key, val := range account.Storage {
 			statedb.SetState(account.Address, key, common.HexToHash(val))
 		}
