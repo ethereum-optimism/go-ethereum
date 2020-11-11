@@ -210,6 +210,9 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	istanbul := st.evm.ChainConfig().IsIstanbul(st.evm.BlockNumber)
 	contractCreation := msg.To() == nil
 
+	// OVM_ADDITION
+	initialNonce := st.state.GetNonce(msg.From())
+
 	// TODO(mark): pay intrinsic gas function needs to be updated
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
 	if err != nil {
@@ -246,12 +249,22 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			// OVM_DISABLED
 			st.state.SetNonce(msg.From(), st.state.GetNonce(msg.From())+1)
 		} else {
+			// OVM_ENABLED
 			if msg.From() == GodAddress {
 				st.state.SetNonce(msg.From(), st.state.GetNonce(msg.From())+1)
 			}
 		}
 
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
+
+		// OVM_NOTE: We have to set our account nonce if it wasn't changed or we'll
+		// get an annoying infinite loop in geth.
+		if vm.UsingOVM {
+			// OVM_ENABLED
+			if st.state.GetNonce(msg.From()) != initialNonce+1 {
+				st.state.SetNonce(msg.From(), initialNonce+1)
+			}
+		}
 	}
 
 	if vmerr != nil {
