@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -258,6 +259,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 func ApplyOvmStateToState(statedb *state.StateDB) {
 	for _, account := range vm.OvmStateDump.Accounts {
 		statedb.SetCode(account.Address, common.FromHex(account.Code))
+		statedb.SetNonce(account.Address, account.Nonce)
 		for key, val := range account.Storage {
 			statedb.SetState(account.Address, key, common.HexToHash(val))
 		}
@@ -272,7 +274,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 
-	ApplyOvmStateToState(statedb)
+	if os.Getenv("USING_OVM") == "true" {
+		// OVM_ENABLED
+		ApplyOvmStateToState(statedb)
+	}
 
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
