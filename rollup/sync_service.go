@@ -296,8 +296,7 @@ func (s *SyncService) Start() error {
 	}
 
 	gasLimit, err := s.mgrCaller.GetMaxTransactionGasLimit(&bind.CallOpts{
-		BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight),
-		Context:     s.ctx,
+		Context: s.ctx,
 	})
 	if err != nil {
 		return fmt.Errorf("Cannot fetch gas limit: %w", err)
