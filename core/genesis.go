@@ -23,6 +23,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -273,7 +274,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 
-	ApplyOvmStateToState(statedb)
+	if os.Getenv("USING_OVM") == "true" {
+		// OVM_ENABLED
+		ApplyOvmStateToState(statedb)
+	}
 
 	for addr, account := range g.Alloc {
 		statedb.AddBalance(addr, account.Balance)
