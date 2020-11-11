@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -1168,10 +1169,14 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.pendingNonces = newTxNoncer(statedb)
 	pool.currentMaxGas = newHead.GasLimit
 
-	// Inject any transactions discarded due to reorgs
-	log.Debug("Reinjecting stale transactions", "count", len(reinject))
-	senderCacher.recover(pool.signer, reinject)
-	pool.addTxsLocked(reinject, false)
+	// OVM Change. Do not reinject reorganized transactions
+	// into the mempool.
+	if os.Getenv("USING_OVM") != "true" {
+		// Inject any transactions discarded due to reorgs
+		log.Debug("Reinjecting stale transactions", "count", len(reinject))
+		senderCacher.recover(pool.signer, reinject)
+		pool.addTxsLocked(reinject, false)
+	}
 
 	// Update all fork indicator by next pending block number.
 	next := new(big.Int).Add(newHead.Number, big.NewInt(1))

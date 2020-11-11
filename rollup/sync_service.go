@@ -998,7 +998,7 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 		// due to nonces coming from the god key. Do an equality check using
 		// `to`, `data`, `l1TxOrigin` and `gasLimit`
 		if !isCtcTxEqual(tx, prev) {
-			log.Info("Different transaction detected, reorganizing", "new", tx.Hash().Hex(), "previous", prev.Hash().Hex())
+			log.Info("Different transaction detected, reorganizing", "new", tx.Hash().Hex(), "previous", prev.Hash().Hex(), "index", index)
 			// Set the sync status to true. This will grab a lock around
 			// the mempool such that transactions will no longer be able to come
 			// via RPC.
