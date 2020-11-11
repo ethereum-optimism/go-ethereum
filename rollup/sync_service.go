@@ -319,7 +319,7 @@ func (s *SyncService) Start() error {
 func (s *SyncService) getCommonAncestor(index *big.Int, list *[]*types.Header) (uint64, error) {
 	header, err := s.ethclient.HeaderByNumber(s.ctx, index)
 	if err != nil {
-		return 0, fmt.Errorf(":%w", err)
+		return 0, fmt.Errorf("Cannot fetch header: %w", err)
 	}
 	number := header.Number.Uint64()
 	// Do not allow for reorgs past the deployment height
@@ -791,7 +791,7 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	// Write to the database for term persistence
 	rawdb.WriteHeadEth1HeaderHash(s.db, header.Hash())
 	rawdb.WriteHeadEth1HeaderHeight(s.db, blockHeight)
-	s.HeaderCache[blockHeight%2018] = header
+	s.HeaderCache[blockHeight%2048] = header
 
 	return Eth1Data{
 		BlockHash:   blockHash,
