@@ -235,8 +235,8 @@ func (s *SyncService) Start() error {
 	if !s.enable {
 		return nil
 	}
-	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address)
-	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature), "confirmation-depth", s.confirmationDepth)
+	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address, "confirmation-depth", s.confirmationDepth)
+	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature))
 
 	// Always initialize syncing to true to start, the sequencer can toggle off
 	// syncing while the verifier is always syncing

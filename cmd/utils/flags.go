@@ -823,7 +823,7 @@ var (
 		Usage:  "HTTP endpoint of an eth 1 node",
 		EnvVar: "ETH1_HTTP",
 	}
-	Eth1ConfirmationDepth = cli.UintFlag{
+	Eth1ConfirmationDepth = cli.Uint64Flag{
 		Name:   "eth1.confirmationdepth",
 		Usage:  "Number of confirmations before ingesting L1 tx",
 		EnvVar: "ETH1_CONFIRMATION_DEPTH",
