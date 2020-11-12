@@ -1002,9 +1002,12 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 			s.setSyncStatus(true)
 			// Reorganize the chain
 			err := s.bc.SetHead(index - 1)
-			// TODO: need to iterate through the transactions in the txcache and
-			// set `rtx.executed = false` for ones that have a blockheight where:
-			// blockheight > index -1
+			s.txCache.Range(func(idx uint64, rtx *RollupTransaction) {
+				if rtx.blockHeight > index-1 {
+					rtx.executed = false
+					s.txCache.Store(rtx.index, rtx)
+				}
+			})
 			if err != nil {
 				return fmt.Errorf("Cannot reorganize to %d: %w", index-1, err)
 			}
