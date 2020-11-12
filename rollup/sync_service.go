@@ -166,6 +166,7 @@ type SyncService struct {
 	gasLimit                         uint64
 	syncing                          bool
 	Eth1Data                         Eth1Data
+	confirmationDepth                uint64
 	HeaderCache                      [2048]*types.Header
 	sequencerIngestTicker            *time.Ticker
 	ctcDeployHeight                  *big.Int
@@ -206,6 +207,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		AddressResolverAddress:           cfg.AddressResolverAddress,
 		CanonicalTransactionChainAddress: cfg.CanonicalTransactionChainAddress,
 		SequencerDecompressionAddress:    cfg.SequencerDecompressionAddress,
+		confirmationDepth:                cfg.Eth1ConfirmationDepth,
 		signer:                           types.NewOVMSigner(chainID),
 		key:                              *cfg.TxIngestionSignerKey,
 		address:                          address,
@@ -233,7 +235,7 @@ func (s *SyncService) Start() error {
 	if !s.enable {
 		return nil
 	}
-	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address)
+	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address, "confirmation-depth", s.confirmationDepth)
 	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature))
 
 	// Always initialize syncing to true to start, the sequencer can toggle off
@@ -474,10 +476,12 @@ func (s *SyncService) sequencerIngestQueue() {
 				// collect an array of pointers and then sort them by index.
 				txs := []*RollupTransaction{}
 				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-					// The transaction has not been executed
-					// TODO(mark): possibly add sufficiently old logic
-					if !rtx.executed {
+					// The transaction has not been executed and is
+					// sufficiently old.
+					if !rtx.executed && rtx.blockHeight <= tipHeight {
 						txs = append(txs, rtx)
+					} else if !rtx.executed {
+						log.Debug("Too early to execute tx", "enqueue-height", rtx.blockHeight, "tip-height", tipHeight, "queue-index", index)
 					}
 				})
 
@@ -1002,9 +1006,12 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 			s.setSyncStatus(true)
 			// Reorganize the chain
 			err := s.bc.SetHead(index - 1)
-			// TODO: need to iterate through the transactions in the txcache and
-			// set `rtx.executed = false` for ones that have a blockheight where:
-			// blockheight > index -1
+			s.txCache.Range(func(idx uint64, rtx *RollupTransaction) {
+				if rtx.blockHeight > index-1 {
+					rtx.executed = false
+					s.txCache.Store(rtx.index, rtx)
+				}
+			})
 			if err != nil {
 				return fmt.Errorf("Cannot reorganize to %d: %w", index-1, err)
 			}

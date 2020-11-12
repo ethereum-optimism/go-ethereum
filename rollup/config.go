@@ -18,6 +18,8 @@ type Config struct {
 	TxIngestionDBPassword   string
 	TxIngestionPollInterval time.Duration
 
+	// Number of confs before applying a L1 to L2 tx
+	Eth1ConfirmationDepth uint64
 	// Verifier mode
 	IsVerifier bool
 	// Enable the sync service
