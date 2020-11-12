@@ -1058,7 +1058,7 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 		return fmt.Errorf("Unable to parse queue batch appended log data: %w", err)
 	}
 
-	start := event.StartingQueueIndex.Uint64()
+	start := event.TotalElements.Uint64() - event.NumQueueElements.Uint64()
 	end := start + event.NumQueueElements.Uint64()
 
 	for i := start; i < end; i++ {
@@ -1074,8 +1074,6 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 			log.Error("Error applying transaction", "message", err.Error())
 			continue
 		}
-		// TODO: make sure that this mutates the item in the cache and not
-		// a copy of the item here.
 		rtx.executed = true
 		s.txCache.Store(rtx.index, rtx)
 	}
