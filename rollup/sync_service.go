@@ -218,7 +218,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		eth1NetworkId:                    cfg.Eth1NetworkId,
 		ctcDeployHeight:                  cfg.CanonicalTransactionChainDeployHeight,
 		db:                               db,
-		clearTransactionsAfter:           (5760 * 15), // 15 days worth of blocks
+		clearTransactionsAfter:           (5760 * 18), // 18 days worth of blocks
 		clearTransactionsTicker:          time.NewTicker(time.Hour),
 		sequencerIngestTicker:            time.NewTicker(15 * time.Second),
 		txCache:                          NewTransactionCache(),
@@ -556,10 +556,9 @@ func (s *SyncService) ClearTransactionLoop() {
 				continue
 			}
 			currentHeight := tip.Number.Uint64()
-
 			count := 0
 			s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-				if rtx.blockHeight+s.clearTransactionsAfter > currentHeight {
+				if rtx.executed && rtx.blockHeight+s.clearTransactionsAfter <= currentHeight {
 					log.Debug("Clearing transaction from transaction cache", "hash", rtx.tx.Hash(), "index", index)
 					s.txCache.Delete(index)
 					count++
