@@ -999,22 +999,7 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 		// due to nonces coming from the god key. Do an equality check using
 		// `to`, `data`, `l1TxOrigin` and `gasLimit`
 		if !isCtcTxEqual(tx, prev) {
-			log.Info("Different transaction detected, reorganizing", "new", tx.Hash().Hex(), "previous", prev.Hash().Hex(), "index", index)
-			// Set the sync status to true. This will grab a lock around
-			// the mempool such that transactions will no longer be able to come
-			// via RPC.
-			s.setSyncStatus(true)
-			// Reorganize the chain
-			err := s.bc.SetHead(index - 1)
-			s.txCache.Range(func(idx uint64, rtx *RollupTransaction) {
-				if rtx.blockHeight > index-1 {
-					rtx.executed = false
-					s.txCache.Store(rtx.index, rtx)
-				}
-			})
-			if err != nil {
-				return fmt.Errorf("Cannot reorganize to %d: %w", index-1, err)
-			}
+			log.Info("Different tx detected", "index", index, "new", tx.Hash().Hex(), "previous", prev.Hash().Hex())
 		}
 	}
 	return nil
@@ -1053,12 +1038,16 @@ func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction
 // emitted from the canonical transaction chain.
 func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
 	log.Debug("Processing queue batch appended")
+	// Disable the queue batch append logic for now
+	if true {
+		return nil
+	}
 	event, err := s.ctcFilterer.ParseQueueBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse queue batch appended log data: %w", err)
 	}
 
-	start := event.StartingQueueIndex.Uint64()
+	start := event.TotalElements.Uint64() - event.NumQueueElements.Uint64()
 	end := start + event.NumQueueElements.Uint64()
 
 	for i := start; i < end; i++ {
@@ -1074,8 +1063,6 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 			log.Error("Error applying transaction", "message", err.Error())
 			continue
 		}
-		// TODO: make sure that this mutates the item in the cache and not
-		// a copy of the item here.
 		rtx.executed = true
 		s.txCache.Store(rtx.index, rtx)
 	}
