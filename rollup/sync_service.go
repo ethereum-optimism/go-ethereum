@@ -1038,6 +1038,10 @@ func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction
 // emitted from the canonical transaction chain.
 func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
 	log.Debug("Processing queue batch appended")
+	// Disable the queue batch append logic for now
+	if true {
+		return nil
+	}
 	event, err := s.ctcFilterer.ParseQueueBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse queue batch appended log data: %w", err)
