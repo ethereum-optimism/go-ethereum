@@ -166,6 +166,7 @@ type SyncService struct {
 	gasLimit                         uint64
 	syncing                          bool
 	Eth1Data                         Eth1Data
+	confirmationDepth                uint64
 	HeaderCache                      [2048]*types.Header
 	sequencerIngestTicker            *time.Ticker
 	ctcDeployHeight                  *big.Int
@@ -206,6 +207,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		AddressResolverAddress:           cfg.AddressResolverAddress,
 		CanonicalTransactionChainAddress: cfg.CanonicalTransactionChainAddress,
 		SequencerDecompressionAddress:    cfg.SequencerDecompressionAddress,
+		confirmationDepth:                cfg.Eth1ConfirmationDepth,
 		signer:                           types.NewOVMSigner(chainID),
 		key:                              *cfg.TxIngestionSignerKey,
 		address:                          address,
@@ -234,7 +236,7 @@ func (s *SyncService) Start() error {
 		return nil
 	}
 	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address)
-	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature))
+	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature), "confirmation-depth", s.confirmationDepth)
 
 	// Always initialize syncing to true to start, the sequencer can toggle off
 	// syncing while the verifier is always syncing
@@ -476,7 +478,7 @@ func (s *SyncService) sequencerIngestQueue() {
 				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
 					// The transaction has not been executed
 					// TODO(mark): possibly add sufficiently old logic
-					if !rtx.executed {
+					if !rtx.executed && tipHeight < rtx.blockHeight+s.confirmationDepth {
 						txs = append(txs, rtx)
 					}
 				})

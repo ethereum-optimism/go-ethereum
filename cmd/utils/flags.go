@@ -823,6 +823,11 @@ var (
 		Usage:  "HTTP endpoint of an eth 1 node",
 		EnvVar: "ETH1_HTTP",
 	}
+	Eth1ConfirmationDepth = cli.UintFlag{
+		Name:   "eth1.confirmationdepth",
+		Usage:  "Number of confirmations before ingesting L1 tx",
+		EnvVar: "ETH1_CONFIRMATION_DEPTH",
+	}
 	// Flag to enable verifier mode
 	RollupEnableVerifierFlag = cli.BoolFlag{
 		Name:   "rollup.verifier",
@@ -1078,6 +1083,9 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(Eth1HTTPFlag.Name) {
 		cfg.Eth1HTTPEndpoint = ctx.GlobalString(Eth1HTTPFlag.Name)
+	}
+	if ctx.GlobalIsSet(Eth1ConfirmationDepth.Name) {
+		cfg.Eth1ConfirmationDepth = ctx.GlobalUint64(Eth1ConfirmationDepth.Name)
 	}
 	if ctx.GlobalIsSet(Eth1SyncServiceEnable.Name) {
 		cfg.Eth1SyncServiceEnable = ctx.GlobalBool(Eth1SyncServiceEnable.Name)
