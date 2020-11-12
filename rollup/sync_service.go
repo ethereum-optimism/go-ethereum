@@ -490,7 +490,7 @@ func (s *SyncService) sequencerIngestQueue() {
 					// set the timestamp
 					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 					// The god key needs to sign L1ToL2 transactions
-					err := s.maybeReorgAndApplyTx(rtx.index, rtx.tx, true)
+					err := s.applyTransaction(rtx.tx, true)
 					if err != nil {
 						log.Error("Sequencer ingest queue transaction failed: %w", err)
 					}
@@ -843,15 +843,12 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	// Nonce is set by god key at execution time
 	// Value and gasPrice are set to 0
 	tx := types.NewTransaction(uint64(0), event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, new(big.Int).SetUint64(ethlog.BlockNumber), types.QueueOriginL1ToL2, types.SighashEIP155)
-	// Set the index on the transaction so that it can be sorted by index.
-	tx.SetIndex(event.QueueIndex.Uint64())
-
 	// Timestamp is used to update the blockchains clocktime
 	timestamp := time.Unix(event.Timestamp.Int64(), 0)
 	rtx := RollupTransaction{tx: tx, timestamp: timestamp, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
 	// In the case of a reorg, the rtx at a certain index can be overwritten
 	s.txCache.Store(event.QueueIndex.Uint64(), &rtx)
-	log.Debug("Transaction enqueued", "index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1-blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
+	log.Debug("Transaction enqueued", "queue-index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1-blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
 
 	return nil
 }
@@ -1024,35 +1021,10 @@ func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, 
 	if err != nil {
 		return fmt.Errorf("Cannot reorganize before applying tx: %w", err)
 	}
-
-	if godKeyShouldSign {
-		tx, err = s.signTransaction(tx)
-		if err != nil {
-			return fmt.Errorf("Cannot sign transaction with god key: %w", err)
-		}
-	}
-
-	err = s.applyTransaction(tx)
+	err = s.applyTransaction(tx, godKeyShouldSign)
 	if err != nil {
 		return fmt.Errorf("Cannot apply tx: %w", err)
 	}
-	return nil
-}
-
-// maybeApplyTransaction will look at the tips height and apply the transaction
-// if the transaction is at the next index. This allows the codepath to work for
-// the verifier as it syncs as well as the sequencer for reorgs.
-// This is currently subject to race conditions because the block production
-// goes through the miner. Cannot use.
-func (s *SyncService) maybeApplyTransaction(index uint64, tx *types.Transaction) error {
-	block := s.bc.CurrentBlock()
-	// Special case for the transaction at index 0
-	blockNumber := block.Number().Uint64()
-	if blockNumber+1 == index || index == 0 {
-		log.Debug("Can apply transaction", "index", index)
-		return s.applyTransaction(tx)
-	}
-	log.Debug("Skipping application of transaction", "index", index, "hash", tx.Hash().Hex(), "to", tx.To().Hex(), "local-tip-height", blockNumber)
 	return nil
 }
 
@@ -1106,8 +1078,15 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 // Adds the transaction to the mempool so that downstream services
 // can apply it to the state. This should directly play against
 // the state eventually, skipping the mempool.
-func (s *SyncService) applyTransaction(tx *types.Transaction) error {
-	err := s.txpool.AddLocal(tx)
+func (s *SyncService) applyTransaction(tx *types.Transaction, godKeyShouldSign bool) error {
+	var err error
+	if godKeyShouldSign {
+		tx, err = s.signTransaction(tx)
+		if err != nil {
+			return fmt.Errorf("Cannot sign transaction with god key: %w", err)
+		}
+	}
+	err = s.txpool.AddLocal(tx)
 	if err != nil {
 		return fmt.Errorf("Cannot add tx to mempool: %w", err)
 	}
