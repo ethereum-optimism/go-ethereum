@@ -999,22 +999,7 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 		// due to nonces coming from the god key. Do an equality check using
 		// `to`, `data`, `l1TxOrigin` and `gasLimit`
 		if !isCtcTxEqual(tx, prev) {
-			log.Info("Different transaction detected, reorganizing", "new", tx.Hash().Hex(), "previous", prev.Hash().Hex(), "index", index)
-			// Set the sync status to true. This will grab a lock around
-			// the mempool such that transactions will no longer be able to come
-			// via RPC.
-			s.setSyncStatus(true)
-			// Reorganize the chain
-			err := s.bc.SetHead(index - 1)
-			s.txCache.Range(func(idx uint64, rtx *RollupTransaction) {
-				if rtx.blockHeight > index-1 {
-					rtx.executed = false
-					s.txCache.Store(rtx.index, rtx)
-				}
-			})
-			if err != nil {
-				return fmt.Errorf("Cannot reorganize to %d: %w", index-1, err)
-			}
+			log.Info("Different tx detected", "index", index, "new", tx.Hash().Hex(), "previous", prev.Hash().Hex())
 		}
 	}
 	return nil
