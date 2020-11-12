@@ -476,8 +476,8 @@ func (s *SyncService) sequencerIngestQueue() {
 				// collect an array of pointers and then sort them by index.
 				txs := []*RollupTransaction{}
 				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-					// The transaction has not been executed
-					// TODO(mark): possibly add sufficiently old logic
+					// The transaction has not been executed and is
+					// sufficiently old.
 					if !rtx.executed && tipHeight <= rtx.blockHeight+s.confirmationDepth {
 						txs = append(txs, rtx)
 					}
