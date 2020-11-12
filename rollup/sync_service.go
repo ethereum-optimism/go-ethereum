@@ -478,7 +478,7 @@ func (s *SyncService) sequencerIngestQueue() {
 				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
 					// The transaction has not been executed
 					// TODO(mark): possibly add sufficiently old logic
-					if !rtx.executed && tipHeight < rtx.blockHeight+s.confirmationDepth {
+					if !rtx.executed && tipHeight <= rtx.blockHeight+s.confirmationDepth {
 						txs = append(txs, rtx)
 					}
 				})
