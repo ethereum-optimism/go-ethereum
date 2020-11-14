@@ -510,6 +510,12 @@ func (s *SyncService) sequencerIngestQueue() {
 				isAtTip := tip.Number().Uint64() == totalElements.Uint64()
 
 				pending, err := s.ctcCaller.GetNumPendingQueueElements(&opts)
+				// For now always disable sync service
+				if true {
+					// TODO: Remove this
+					s.setSyncStatus(false)
+					continue
+				}
 				if pending.Uint64() == 0 && isAtTip {
 					s.setSyncStatus(false)
 					continue
