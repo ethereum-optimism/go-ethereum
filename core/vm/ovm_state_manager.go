@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 type stateManagerFunction func(*EVM, *Contract, map[string]interface{}) ([]interface{}, error)
@@ -111,6 +112,7 @@ func getContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 	}
 	key := toHash(_key)
 	val := evm.StateDB.GetState(address, key)
+	log.Debug("Got contract storage:", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
 	return []interface{}{val}, nil
 }
 
@@ -130,6 +132,7 @@ func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 	}
 	val := toHash(_value)
 	evm.StateDB.SetState(address, key, val)
+	log.Debug("Put contract storage:", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
 	return []interface{}{}, nil
 }
 
