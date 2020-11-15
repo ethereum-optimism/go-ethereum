@@ -160,6 +160,7 @@ var (
 		utils.Eth1ChainIdFlag,
 		utils.Eth1NetworkIdFlag,
 		utils.Eth1HTTPFlag,
+		utils.Eth1ConfirmationDepth,
 		// Enable verifier mode
 		utils.RollupEnableVerifierFlag,
 	}
