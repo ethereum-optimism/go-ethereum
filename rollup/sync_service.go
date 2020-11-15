@@ -513,6 +513,11 @@ func (s *SyncService) sequencerIngestQueue() {
 				// For now always disable sync service
 				if true {
 					// TODO: Remove this
+					// Set all txs found during sync to executed
+					s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
+						rtx.executed = true
+						s.txCache.Store(rtx.index, rtx)
+					})
 					s.setSyncStatus(false)
 					continue
 				}
