@@ -808,6 +808,12 @@ var (
 		Value:  "0x0000000000000000000000000000000000000000",
 		EnvVar: "ETH1_ADDRESS_RESOLVER_ADDRESS",
 	}
+	Eth1L1CrossDomainMessengerAddressFlag = cli.StringFlag{
+		Name:   "eth1.l1crossdomainmessengeraddress",
+		Usage:  "Deployment address of the L1 cross domain messenger",
+		Value:  "0x0000000000000000000000000000000000000000",
+		EnvVar: "ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS",
+	}
 	Eth1ChainIdFlag = cli.Uint64Flag{
 		Name:   "eth1.chainid",
 		Usage:  "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
@@ -1074,6 +1080,10 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(Eth1SequencerDecompressionAddressFlag.Name) {
 		addr := ctx.GlobalString(Eth1SequencerDecompressionAddressFlag.Name)
 		cfg.SequencerDecompressionAddress = common.HexToAddress(addr)
+	}
+	if ctx.GlobalIsSet(Eth1L1CrossDomainMessengerAddressFlag.Name) {
+		addr := ctx.GlobalString(Eth1L1CrossDomainMessengerAddressFlag.Name)
+		cfg.L1CrossDomainMessengerAddress = common.HexToAddress(addr)
 	}
 	if ctx.GlobalIsSet(Eth1ChainIdFlag.Name) {
 		cfg.Eth1ChainId = ctx.GlobalUint64(Eth1ChainIdFlag.Name)
@@ -1670,7 +1680,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		}
 		log.Info("Using developer account", "address", developer.Address)
 
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address)
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), cfg.Rollup.L1CrossDomainMessengerAddress)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}

@@ -63,6 +63,10 @@ type Genesis struct {
 	Number     uint64      `json:"number"`
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
+
+	// OVM Specific, used to initialize the xDomainMessengerAddress
+	// in the genesis state
+	L1CrossDomainMessengerAddress common.Address `json:"-"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -256,7 +260,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 }
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
-func ApplyOvmStateToState(statedb *state.StateDB) {
+func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress common.Address) {
 	for _, account := range vm.OvmStateDump.Accounts {
 		statedb.SetCode(account.Address, common.FromHex(account.Code))
 		statedb.SetNonce(account.Address, account.Nonce)
@@ -264,6 +268,12 @@ func ApplyOvmStateToState(statedb *state.StateDB) {
 			statedb.SetState(account.Address, key, common.HexToHash(val))
 		}
 	}
+	// Set the storage slot associated with the cross domain messenger
+	// to the cross domain messenger address.
+	AddressManager := vm.OvmStateDump.Accounts["Lib_AddressManager"]
+	slot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
+	value := common.BytesToHash(xDomainMessengerAddress.Bytes())
+	statedb.SetState(AddressManager.Address, slot, value)
 }
 
 // ToBlock creates the genesis block and writes state of a genesis specification
@@ -276,7 +286,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 
 	if os.Getenv("USING_OVM") == "true" {
 		// OVM_ENABLED
-		ApplyOvmStateToState(statedb)
+		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress)
 	}
 
 	for addr, account := range g.Alloc {
@@ -403,7 +413,7 @@ func DefaultGoerliGenesisBlock() *Genesis {
 }
 
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
-func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
+func DeveloperGenesisBlock(period uint64, xDomainMessengerAddress common.Address) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
@@ -411,7 +421,7 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 	// Assemble and return the genesis with the precompiles and faucet pre-funded
 	return &Genesis{
 		Config:     &config,
-		ExtraData:  append(append(make([]byte, 32), faucet[:]...), make([]byte, crypto.SignatureLength)...),
+		ExtraData:  append(append(make([]byte, 32), xDomainMessengerAddress[:]...), make([]byte, crypto.SignatureLength)...),
 		GasLimit:   12000000,
 		Difficulty: big.NewInt(1),
 		Alloc: map[common.Address]GenesisAccount{
@@ -424,6 +434,7 @@ func DeveloperGenesisBlock(period uint64, faucet common.Address) *Genesis {
 			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)}, // ECScalarMul
 			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)}, // ECPairing
 		},
+		L1CrossDomainMessengerAddress: xDomainMessengerAddress,
 	}
 }
 

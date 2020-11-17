@@ -68,10 +68,11 @@ func (b *EthAPIBackend) GetLatestEth1Data() (common.Hash, uint64) {
 
 func (b *EthAPIBackend) GetRollupContractAddresses() map[string]*common.Address {
 	return map[string]*common.Address{
-		"addressResolver":           &b.eth.syncService.AddressResolverAddress,
-		"canonicalTransactionChain": &b.eth.syncService.CanonicalTransactionChainAddress,
-		"sequencerDecompression":    &b.eth.syncService.SequencerDecompressionAddress,
-		"stateCommitmentChain":      &b.eth.syncService.StateCommitmentChainAddress,
+		"addressResolver":               &b.eth.syncService.AddressResolverAddress,
+		"canonicalTransactionChain":     &b.eth.syncService.CanonicalTransactionChainAddress,
+		"sequencerDecompression":        &b.eth.syncService.SequencerDecompressionAddress,
+		"stateCommitmentChain":          &b.eth.syncService.StateCommitmentChainAddress,
+		"l1CrossDomainMessengerAddress": &b.eth.syncService.L1CrossDomainMessengerAddress,
 	}
 }
 
