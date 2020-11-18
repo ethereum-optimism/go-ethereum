@@ -840,7 +840,7 @@ var (
 		Usage:  "Enable the verifier",
 		EnvVar: "ROLLUP_VERIFIER_ENABLE",
 	}
-	AddressManagerOwnerAddressFlag = cli.StringFlag{
+	RollupAddressManagerOwnerAddressFlag = cli.StringFlag{
 		Name:   "rollup.addressmanagerowneraddress",
 		Usage:  "Owner address of the address manager",
 		Value:  "0x0000000000000000000000000000000000000000",
@@ -1114,8 +1114,8 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
 		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
 	}
-	if ctx.GlobalIsSet(AddressManagerOwnerAddressFlag.Name) {
-		addr := ctx.GlobalString(AddressManagerOwnerAddressFlag.Name)
+	if ctx.GlobalIsSet(RollupAddressManagerOwnerAddressFlag.Name) {
+		addr := ctx.GlobalString(RollupAddressManagerOwnerAddressFlag.Name)
 		cfg.AddressManagerOwnerAddress = common.HexToAddress(addr)
 	}
 	if ctx.GlobalIsSet(RollupEnableVerifierFlag.Name) {

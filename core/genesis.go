@@ -274,11 +274,13 @@ func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrM
 	ownerSlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 	ownerValue := common.BytesToHash(addrManagerOwnerAddress.Bytes())
 	statedb.SetState(AddressManager.Address, ownerSlot, ownerValue)
+	log.Info("Setting AddressManager Owner", "owner", addrManagerOwnerAddress.Hex())
 	// Set the storage slot associated with the cross domain messenger
 	// to the cross domain messenger address.
 	slot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
 	value := common.BytesToHash(xDomainMessengerAddress.Bytes())
 	statedb.SetState(AddressManager.Address, slot, value)
+	log.Info("Setting CrossDomainMessenger in AddressManager", "address", xDomainMessengerAddress.Hex())
 }
 
 // ToBlock creates the genesis block and writes state of a genesis specification
