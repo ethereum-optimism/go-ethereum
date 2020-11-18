@@ -840,6 +840,12 @@ var (
 		Usage:  "Enable the verifier",
 		EnvVar: "ROLLUP_VERIFIER_ENABLE",
 	}
+	AddressManagerOwnerAddressFlag = cli.StringFlag{
+		Name:   "rollup.addressmanagerowneraddress",
+		Usage:  "Owner address of the address manager",
+		Value:  "0x0000000000000000000000000000000000000000",
+		EnvVar: "ROLLUP_ADDRESS_MANAGER_OWNER_ADDRESS",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1107,6 +1113,10 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
 		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
+	}
+	if ctx.GlobalIsSet(AddressManagerOwnerAddressFlag.Name) {
+		addr := ctx.GlobalString(AddressManagerOwnerAddressFlag.Name)
+		cfg.AddressManagerOwnerAddress = common.HexToAddress(addr)
 	}
 	if ctx.GlobalIsSet(RollupEnableVerifierFlag.Name) {
 		cfg.IsVerifier = true
@@ -1680,7 +1690,9 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		}
 		log.Info("Using developer account", "address", developer.Address)
 
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, cfg.Rollup.L1CrossDomainMessengerAddress)
+		xdomainAddress := cfg.Rollup.L1CrossDomainMessengerAddress
+		addrManagerOwnerAddress := cfg.Rollup.AddressManagerOwnerAddress
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}
