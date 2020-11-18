@@ -338,6 +338,17 @@ func TestCTCTransactionSerialization(t *testing.T) {
 			},
 		},
 		{
+			typ: CTCTransactionTypeEthSign,
+			tx: &CTCTxEthSign{
+				Signature: sig,
+				gasLimit:  (1 << 22) + 15,
+				gasPrice:  999,
+				nonce:     (1 << 8) + 16,
+				target:    common.HexToAddress("0x5769785087b1b64e4cbd9a38d48a1ca35a2fd75cf5cd941d75b2e2fbc6018e8a"),
+				data:      []byte("foobarbaz"),
+			},
+		},
+		{
 			typ: CTCTransactionTypeEOA,
 			tx: &CTCTxCreateEOA{
 				Signature: sig,
@@ -375,6 +386,37 @@ func TestCTCTransactionSerialization(t *testing.T) {
 				t.Fatal("Cannot type cast")
 			}
 			got, ok := decoded.tx.(*CTCTxEIP155)
+			if !ok {
+				t.Fatal("Cannot type cast")
+			}
+
+			if !bytes.Equal(typ.Signature[:], got.Signature[:]) {
+				t.Fatalf("Signature Serialization mismatch\ngot:\n%x\nexpected:\n%x\n", got.Signature, typ.Signature)
+			}
+			if typ.gasLimit != got.gasLimit {
+				t.Fatalf("Gas limit mismatch\ngot:\n%d\nexpected:\n%d\n", got.gasLimit, typ.gasLimit)
+			}
+			if typ.gasPrice != got.gasPrice {
+				t.Fatalf("Gas price mismatch\ngot:\n%d\nexpected:\n%d\n", got.gasPrice, typ.gasPrice)
+			}
+			if typ.nonce != got.nonce {
+				t.Fatalf("Nonce mismatch\ngot:\n%d\nexpected:\n%d\n", got.nonce, typ.nonce)
+			}
+			if !bytes.Equal(typ.target.Bytes(), got.target.Bytes()) {
+				t.Fatalf("Target mismatch\ngot:\n%x\nexpected:\n%x\n", got.target, typ.target)
+			}
+			if !bytes.Equal(typ.data, got.data) {
+				t.Fatalf("Data mismatch\ngot:\n%x\nexpected:\n%x\n", got.data, typ.data)
+			}
+		} else if tx.typ == CTCTransactionTypeEthSign {
+			if rt != reflect.TypeOf(&CTCTxEthSign{}) {
+				t.Fatal("Invalid type")
+			}
+			typ, ok := tx.tx.(*CTCTxEthSign)
+			if !ok {
+				t.Fatal("Cannot type cast")
+			}
+			got, ok := decoded.tx.(*CTCTxEthSign)
 			if !ok {
 				t.Fatal("Cannot type cast")
 			}
