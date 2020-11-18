@@ -255,7 +255,7 @@ func TestCTCTransactionSerialization(t *testing.T) {
 			tx: &CTCTxEIP155{
 				Signature: sig,
 				gasLimit:  620,
-				gasPrice:  8,
+				gasPrice:  (1 << 16) + 8,
 				nonce:     (1 << 18) + 32,
 				target:    common.Address{},
 				data:      []byte("abcdef"),
@@ -270,6 +270,17 @@ func TestCTCTransactionSerialization(t *testing.T) {
 				nonce:     (1 << 21) + 14,
 				target:    common.HexToAddress("0x5769785087b1b64e4cbd9a38d48a1ca35a2fd75cf5cd941d75b2e2fbc6018e8a"),
 				data:      raw,
+			},
+		},
+		{
+			typ: CTCTransactionTypeEIP155,
+			tx: &CTCTxEIP155{
+				Signature: sig,
+				gasLimit:  (1 << 20) + 45,
+				gasPrice:  20,
+				nonce:     (1 << 12) + 99,
+				target:    common.HexToAddress("0x5769785087b1b64e4cbd9a38d48a1ca35a2fd75cf5cd941d75b2e2fbc6018e8a"),
+				data:      []byte("foobarbazlolololololololol"),
 			},
 		},
 		{
