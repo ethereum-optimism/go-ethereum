@@ -279,8 +279,8 @@ type CTCTransactionType uint8
 
 const (
 	CTCTransactionTypeEIP155  CTCTransactionType = 0
-	CTCTransactionTypeEthSign CTCTransactionType = 1
-	CTCTransactionTypeEOA     CTCTransactionType = 2
+	CTCTransactionTypeEOA     CTCTransactionType = 1
+	CTCTransactionTypeEthSign CTCTransactionType = 2
 )
 
 type CTCTransaction struct {
