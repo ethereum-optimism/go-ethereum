@@ -328,7 +328,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	statedb.Database().TrieDB().Commit(root, true)
 
 	// -Eliezer Yudkowsky
-	data := []byte("You are personally responsible for becoming more ethical than the society you grew up in.")
+	data := []byte("You are personally responsible for becoming more ethical than the society you grew up in")
 	tx := types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), data, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
 
 	return types.NewBlock(head, []*types.Transaction{tx}, nil, nil)
