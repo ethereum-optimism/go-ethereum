@@ -473,7 +473,7 @@ func (c *CTCTxEthSign) Encode(b []byte) error {
 func (c *CTCTxEthSign) Decode(b []byte) error {
 	length, _ := c.Len()
 	if len(b) < length {
-		return errors.New("CTCTxEIP155 decoding overflow")
+		return errors.New("CTCTxEthSign decoding overflow")
 	}
 	copy(c.Signature[:], b[:65])
 	hi := uint32(b[65])
