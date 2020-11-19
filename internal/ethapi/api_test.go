@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"testing"
 
 	"github.com/aws/aws-sdk-go/awstesting"
 	"github.com/ethereum/go-ethereum/accounts"
@@ -74,68 +73,6 @@ func getTestCases(pk *ecdsa.PrivateKey) []testCase {
 	}
 }
 
-func TestSendRollupTransactions(t *testing.T) {
-	rollupTransactionsSender, _ := crypto.GenerateKey()
-	txSignerPrivKey, _ := crypto.GenerateKey()
-
-	for testNum, testCase := range getTestCases(rollupTransactionsSender) {
-		backendTimestamp = 0
-		api := getTestPublicTransactionPoolAPI(txSignerPrivKey, rollupTransactionsSender, testCase.backendContext)
-		res := api.SendRollupTransactions(testCase.inputCtx, testCase.inputMessageAndSig)
-		h := func(r []error) bool {
-			for _, e := range r {
-				if e != nil {
-					return true
-				}
-			}
-			return false
-		}
-		hasErrors := h(res)
-
-		// For debugging and verification:
-		fmt.Printf("test case %d had output errors: %v\n", testNum, res)
-		if testCase.hasErrors && !hasErrors {
-			t.Fatalf("test case %d expected output errors but did not result in any. Errors: %v", testNum, res)
-		}
-		if !testCase.hasErrors && hasErrors {
-			t.Fatalf("test case %d did not expect output errors but resulted in %d. Errors: %v", testNum, len(res), res)
-		}
-		if hasErrors && len(testCase.backendContext.sendTxsErrors) > 0 {
-			// Note: Cannot handle test cases with multiple batches the same way because errors are aggregated from the endpoint and not from sendTxsErrors
-			if testCase.multipleBatches {
-				errorCount := func(r []error) int {
-					c := 0
-					for _, e := range r {
-						if e != nil {
-							c++
-						}
-					}
-					return c
-				}
-				if errorCount(res) != errorCount(testCase.backendContext.sendTxsErrors) {
-					t.Fatalf("test case %d expected %d errors but resulted in %d", testNum, errorCount(res), errorCount(testCase.backendContext.sendTxsErrors))
-				}
-
-			} else {
-				if len(res) != len(testCase.backendContext.sendTxsErrors) {
-					t.Fatalf("test case %d expected %d output errors but received %d. Errors: %v", testNum, len(testCase.backendContext.sendTxsErrors), len(res), res)
-				}
-				for i, err := range res {
-					if err != nil && testCase.backendContext.sendTxsErrors[i] == nil {
-						t.Fatalf("test case %d had an error output mismatch. Received error at index %d when one wasn't expected. Expected output: %v, output: %v", testNum, i, testCase.backendContext.sendTxsErrors, res)
-					}
-					if err == nil && testCase.backendContext.sendTxsErrors[i] != nil {
-						t.Fatalf("test case %d had an error output mismatch. Did not receive an error at index %d when one was expected. Expected output: %v, output: %v", testNum, i, testCase.backendContext.sendTxsErrors, res)
-					}
-				}
-			}
-		}
-		if backendTimestamp != testCase.resultingTimestamp {
-			t.Fatalf("test case %d should have updated timestamp to %d but it was %d after execution.", testNum, testCase.resultingTimestamp, backendTimestamp)
-		}
-	}
-}
-
 func getDummyErrors(errorIndicies []int, outputSize int) []error {
 	errs := make([]error, outputSize)
 	for _, i := range errorIndicies {
@@ -190,7 +127,7 @@ func getFakeContext() context.Context {
 func getTestPublicTransactionPoolAPI(txSignerPrivKey *ecdsa.PrivateKey, rollupTransactionsSender *ecdsa.PrivateKey, backendContext backendContext) *PublicTransactionPoolAPI {
 	address := crypto.PubkeyToAddress(rollupTransactionsSender.PublicKey)
 	backend := newMockBackend(&address, backendContext)
-	return NewPublicTransactionPoolAPI(backend, nil, txSignerPrivKey)
+	return NewPublicTransactionPoolAPI(backend, nil)
 }
 
 type backendContext struct {
@@ -225,6 +162,14 @@ func (m mockBackend) IsSyncing() bool {
 }
 
 func (m mockBackend) GetLatestEth1Data() (common.Hash, uint64) {
+	panic("not implemented")
+}
+
+func (m mockBackend) GetLatestL1BlockNumber() uint64 {
+	panic("not implemented")
+}
+
+func (m mockBackend) GetLatestL1Timestamp() uint64 {
 	panic("not implemented")
 }
 

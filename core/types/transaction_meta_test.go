@@ -15,42 +15,49 @@ var (
 
 	txMetaSerializationTests = []struct {
 		l1BlockNumber *big.Int
+		l1Timestamp   uint64
 		msgSender     *common.Address
 		sighashType   SignatureHashType
 		queueOrigin   QueueOrigin
 	}{
 		{
 			l1BlockNumber: l1BlockNumber,
+			l1Timestamp:   100,
 			msgSender:     &addr,
 			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: nil,
+			l1Timestamp:   45,
 			msgSender:     &addr,
 			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
+			l1Timestamp:   0,
 			msgSender:     nil,
 			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginSequencer,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
+			l1Timestamp:   0,
 			msgSender:     &addr,
 			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginSequencer,
 		},
 		{
 			l1BlockNumber: nil,
+			l1Timestamp:   0,
 			msgSender:     nil,
 			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
+			l1Timestamp:   0,
 			msgSender:     &addr,
 			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginL1ToL2,
@@ -74,7 +81,7 @@ var (
 
 func TestTransactionMetaEncode(t *testing.T) {
 	for _, test := range txMetaSerializationTests {
-		txmeta := NewTransactionMeta(test.l1BlockNumber, test.msgSender, test.sighashType, test.queueOrigin)
+		txmeta := NewTransactionMeta(test.l1BlockNumber, test.l1Timestamp, test.msgSender, test.sighashType, test.queueOrigin)
 
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
@@ -91,7 +98,7 @@ func TestTransactionMetaEncode(t *testing.T) {
 
 func TestTransactionSighashEncode(t *testing.T) {
 	for _, test := range txMetaSighashEncodeTests {
-		txmeta := NewTransactionMeta(l1BlockNumber, &addr, test.input, QueueOriginSequencer)
+		txmeta := NewTransactionMeta(l1BlockNumber, 0, &addr, test.input, QueueOriginSequencer)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 
@@ -108,6 +115,10 @@ func TestTransactionSighashEncode(t *testing.T) {
 func isTxMetaEqual(meta1 *TransactionMeta, meta2 *TransactionMeta) bool {
 	// Maybe can just return this
 	if !reflect.DeepEqual(meta1, meta2) {
+		return false
+	}
+
+	if meta1.L1Timestamp != meta2.L1Timestamp {
 		return false
 	}
 

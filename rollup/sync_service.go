@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -65,7 +66,6 @@ func (l RollupTxsByIndex) Less(i, j int) bool { return l[i].index < l[j].index }
 // Consider adding a processed bool for sanity check
 type RollupTransaction struct {
 	tx          *types.Transaction
-	timestamp   time.Time
 	blockHeight uint64
 	index       uint64
 	executed    bool
@@ -128,10 +128,22 @@ var (
 	sequencerBatchAppendedEventSignature = crypto.Keccak256([]byte("SequencerBatchAppended(uint256,uint256,uint256)"))
 )
 
-// Eth1Data represents the last processed ethereum 1 data.
+// Eth1Data represents the last processed ethereum 1 data
+// The sync service updates this as it syncs blocks.
 type Eth1Data struct {
 	BlockHeight uint64
 	BlockHash   common.Hash
+}
+
+// LatestL1ToL2 represents the latest blocknumber and timestamp.
+// This must be separate than Eth1Data because it is only updated
+// each time that there is a L1 to L2 transaction.
+// TODO(mark): smarter initialization logic around this would involve
+// fetching this information from L1 to set to prevent the case where
+// it is initialized to 0 on a restart.
+type LatestL1ToL2 struct {
+	blockNumber uint64
+	timestamp   uint64
 }
 
 // SyncService implements the verifier functionality as well as the reorg
@@ -166,6 +178,7 @@ type SyncService struct {
 	gasLimit                         uint64
 	syncing                          bool
 	Eth1Data                         Eth1Data
+	LatestL1ToL2                     LatestL1ToL2
 	confirmationDepth                uint64
 	HeaderCache                      [2048]*types.Header
 	sequencerIngestTicker            *time.Ticker
@@ -493,8 +506,6 @@ func (s *SyncService) sequencerIngestQueue() {
 				for i := 0; i < len(txs); i++ {
 					rtx := txs[i]
 					log.Debug("Sequencer ingesting", "local-index", i, "rtx-index", rtx.index)
-					// set the timestamp
-					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 					// The god key needs to sign L1ToL2 transactions
 					err := s.applyTransaction(rtx.tx, true)
 					if err != nil {
@@ -826,6 +837,24 @@ func (s *SyncService) GetLastProcessedEth1Data() Eth1Data {
 	}
 }
 
+// Methods for safely accessing and storing the latest
+// L1 blocknumber and timestamp
+func (s *SyncService) GetLatestL1Timestamp() uint64 {
+	return atomic.LoadUint64(&s.LatestL1ToL2.timestamp)
+}
+
+func (s *SyncService) GetLatestL1BlockNumber() uint64 {
+	return atomic.LoadUint64(&s.LatestL1ToL2.blockNumber)
+}
+
+func (s *SyncService) SetLatestL1Timestamp(ts uint64) {
+	atomic.StoreUint64(&s.LatestL1ToL2.timestamp, ts)
+}
+
+func (s *SyncService) SetLatestL1BlockNumber(bn uint64) {
+	atomic.StoreUint64(&s.LatestL1ToL2.blockNumber, bn)
+}
+
 // ProcessLog will process a single log and handle it depending on its source.
 // It assumes that the log came from the ctc contract, so be sure to filter out
 // other logs before calling this method.
@@ -859,12 +888,20 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	// Nonce is set by god key at execution time
 	// Value and gasPrice are set to 0
 	tx := types.NewTransaction(uint64(0), event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, new(big.Int).SetUint64(ethlog.BlockNumber), types.QueueOriginL1ToL2, types.SighashEIP155)
-	// Timestamp is used to update the blockchains clocktime
-	timestamp := time.Unix(event.Timestamp.Int64(), 0)
-	rtx := RollupTransaction{tx: tx, timestamp: timestamp, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
+
+	// TODO
+	timestamp := uint64(event.Timestamp.Int64())
+	// tx.setTimestamp(timestamp)
+
+	rtx := RollupTransaction{tx: tx, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
 	// In the case of a reorg, the rtx at a certain index can be overwritten
 	s.txCache.Store(event.QueueIndex.Uint64(), &rtx)
 	log.Debug("Transaction enqueued", "queue-index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1-blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
+
+	// Set the timestamp and blocknumber so that transactions from
+	// queue origin sequencer can access this information
+	s.SetLatestL1Timestamp(timestamp)
+	s.SetLatestL1BlockNumber(ethlog.BlockNumber)
 
 	return nil
 }
@@ -976,8 +1013,6 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				log.Error("Cannot find transaction in transaction cache", "index", index)
 				continue
 			}
-			s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
-			log.Debug("Setting timestamp", "timestamp", rtx.timestamp.Unix())
 			rtx.executed = true
 			s.txCache.Store(rtx.index, rtx)
 		}
@@ -1068,7 +1103,6 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 			log.Error("Cannot find transaction in transaction cache", "index", i)
 			continue
 		}
-		s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 		// The god key needs to sign in this case
 		err = s.maybeReorgAndApplyTx(i, rtx.tx, true)
 		if err != nil {

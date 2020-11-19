@@ -19,8 +19,6 @@ package ethapi
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -1168,19 +1166,13 @@ func newRPCTransactionFromBlockHash(b *types.Block, hash common.Hash) *RPCTransa
 
 // PublicTransactionPoolAPI exposes methods for the RPC interface
 type PublicTransactionPoolAPI struct {
-	b                        Backend
-	nonceLock                *AddrLocker
-	rollupTransactionsSigner *ecdsa.PrivateKey
+	b         Backend
+	nonceLock *AddrLocker
 }
 
 // NewPublicTransactionPoolAPI creates a new RPC service with methods specific for the transaction pool.
-func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker, rollupTransactionsSigner *ecdsa.PrivateKey) *PublicTransactionPoolAPI {
-	if rollupTransactionsSigner == nil {
-		// should only be the case in unused code and some unit tests
-		key, _ := crypto.GenerateKey()
-		return &PublicTransactionPoolAPI{b, nonceLock, key}
-	}
-	return &PublicTransactionPoolAPI{b, nonceLock, rollupTransactionsSigner}
+func NewPublicTransactionPoolAPI(b Backend, nonceLock *AddrLocker) *PublicTransactionPoolAPI {
+	return &PublicTransactionPoolAPI{b, nonceLock}
 }
 
 // GetBlockTransactionCountByNumber returns the number of transactions in the block with the given block number.
@@ -1555,7 +1547,12 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	meta := types.NewTransactionMeta(nil, nil, types.SighashEIP155, types.QueueOriginSequencer)
+
+	timestamp := s.b.GetLatestL1Timestamp()
+	bn := s.b.GetLatestL1BlockNumber()
+	blockNumber := new(big.Int).SetUint64(bn)
+
+	meta := types.NewTransactionMeta(blockNumber, timestamp, nil, types.SighashEIP155, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
@@ -1573,53 +1570,14 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-	meta := types.NewTransactionMeta(nil, nil, types.SighashEthSign, types.QueueOriginSequencer)
+
+	timestamp := s.b.GetLatestL1Timestamp()
+	bn := s.b.GetLatestL1BlockNumber()
+	blockNumber := new(big.Int).SetUint64(bn)
+
+	meta := types.NewTransactionMeta(blockNumber, timestamp, nil, types.SighashEthSign, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
-}
-
-// SendRollupTransactions will:
-// * Verify the batches are signed by the RollupTransaction sender.
-// * Update the Geth timestamp to the provided timestamp
-// * handle the provided batch of RollupTransactions atomically
-func (s *PublicTransactionPoolAPI) SendRollupTransactions(ctx context.Context, messageAndSig []hexutil.Bytes) []error {
-	if len(messageAndSig) != 2 {
-		return []error{fmt.Errorf("incorrect number of arguments. Expected 2, got %d", len(messageAndSig))}
-	}
-
-	// TODO: Ignoring signature because we'll move this logic into geth shortly.
-
-	var submission GethSubmission
-	if err := json.Unmarshal(messageAndSig[0], &submission); err != nil {
-		return []error{fmt.Errorf("incorrect format for RollupTransactions type. Received: %s", messageAndSig[0])}
-	}
-
-	txCount := 0
-	signer := types.MakeSigner(s.b.ChainConfig(), s.b.CurrentBlock().Number())
-
-	wrappedTxNonce, _ := s.b.GetPoolNonce(ctx, crypto.PubkeyToAddress(s.rollupTransactionsSigner.PublicKey))
-	signedTransactions := make([]*types.Transaction, len(submission.RollupTransactions))
-	for i, rollupTx := range submission.RollupTransactions {
-		tx := rollupTx.toTransaction(wrappedTxNonce)
-		wrappedTxNonce++
-		tx, err := types.SignTx(tx, signer, s.rollupTransactionsSigner)
-		if err != nil {
-			return []error{fmt.Errorf("error signing transaction in batch %d, index %d", submission.SubmissionNumber, i)}
-		}
-		signedTransactions[i] = tx
-		txCount++
-	}
-
-	s.b.SetTimestamp(int64(*submission.Timestamp))
-
-	i := 0
-	errs := make([]error, txCount)
-	// TODO: Eventually make sure each batch is handled atomically
-	for _, e := range s.b.SendTxs(ctx, signedTransactions) {
-		errs[i] = e
-		i++
-	}
-	return errs
 }
 
 // Sign calculates an ECDSA signature for:

@@ -24,6 +24,7 @@ const (
 
 type TransactionMeta struct {
 	L1BlockNumber     *big.Int          `json:"l1BlockNumber"`
+	L1Timestamp       uint64            `json:"l1timestamp"`
 	L1MessageSender   *common.Address   `json:"l1MessageSender" gencodec:"required"`
 	SignatureHashType SignatureHashType `json:"signatureHashType" gencodec:"required"`
 	QueueOrigin       *big.Int          `json:"queueOrigin" gencodec:"required"`
@@ -31,9 +32,10 @@ type TransactionMeta struct {
 }
 
 // NewTransactionMeta creates a TransactionMeta
-func NewTransactionMeta(l1BlockNumber *big.Int, l1MessageSender *common.Address, sighashType SignatureHashType, queueOrigin QueueOrigin) *TransactionMeta {
+func NewTransactionMeta(l1BlockNumber *big.Int, l1timestamp uint64, l1MessageSender *common.Address, sighashType SignatureHashType, queueOrigin QueueOrigin) *TransactionMeta {
 	return &TransactionMeta{
 		L1BlockNumber:     l1BlockNumber,
+		L1Timestamp:       l1timestamp,
 		L1MessageSender:   l1MessageSender,
 		SignatureHashType: sighashType,
 		QueueOrigin:       big.NewInt(int64(queueOrigin)),
@@ -55,7 +57,6 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var sighashType SignatureHashType
 	binary.Read(bytes.NewReader(sb), binary.LittleEndian, &sighashType)
 	meta.SignatureHashType = sighashType
@@ -87,6 +88,14 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 		queueOrigin := new(big.Int).SetBytes(qo)
 		meta.QueueOrigin = queueOrigin
 	}
+
+	l, err := common.ReadVarBytes(b, 0, 1024, "L1Timestamp")
+	if err != nil {
+		return nil, err
+	}
+	var l1Timestamp uint64
+	binary.Read(bytes.NewReader(l), binary.LittleEndian, &l1Timestamp)
+	meta.L1Timestamp = l1Timestamp
 
 	return &meta, nil
 }
@@ -125,6 +134,10 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 		binary.Write(q, binary.LittleEndian, queueOrigin.Bytes())
 		common.WriteVarBytes(b, 0, q.Bytes())
 	}
+
+	l := new(bytes.Buffer)
+	binary.Write(l, binary.LittleEndian, &meta.L1Timestamp)
+	common.WriteVarBytes(b, 0, l.Bytes())
 
 	return b.Bytes()
 }

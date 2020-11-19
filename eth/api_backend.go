@@ -76,6 +76,14 @@ func (b *EthAPIBackend) GetRollupContractAddresses() map[string]*common.Address 
 	}
 }
 
+func (b *EthAPIBackend) GetLatestL1BlockNumber() uint64 {
+	return b.eth.syncService.GetLatestL1BlockNumber()
+}
+
+func (b *EthAPIBackend) GetLatestL1Timestamp() uint64 {
+	return b.eth.syncService.GetLatestL1Timestamp()
+}
+
 // ChainConfig returns the active chain configuration.
 func (b *EthAPIBackend) ChainConfig() *params.ChainConfig {
 	return b.eth.blockchain.Config()
