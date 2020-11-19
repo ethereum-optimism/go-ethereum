@@ -1770,7 +1770,7 @@ type rollupAddresses struct {
 	CanonicalTransactionChain string `json:"canonicalTransactionChain"`
 	SequencerDecompression    string `json:"sequencerDecompression"`
 	StateCommitmentChain      string `json:"stateCommitmentChain"`
-	L1CrossDomainMessenger    string `json:"crossDomainMessenger"`
+	L1CrossDomainMessenger    string `json:"l1CrossDomainMessenger"`
 }
 
 type rollupInfo struct {
@@ -1810,7 +1810,7 @@ func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
 	if scc != nil {
 		rollupAddrs.StateCommitmentChain = scc.Hex()
 	}
-	xdomain := addrs["l1CrossDomainMesenger"]
+	xdomain := addrs["l1CrossDomainMessengerAddress"]
 	if xdomain != nil {
 		rollupAddrs.L1CrossDomainMessenger = xdomain.Hex()
 	}
