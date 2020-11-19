@@ -174,6 +174,7 @@ type SyncService struct {
 	CanonicalTransactionChainAddress common.Address
 	SequencerDecompressionAddress    common.Address
 	StateCommitmentChainAddress      common.Address
+	L1CrossDomainMessengerAddress    common.Address
 	ExecutionManagerAddress          common.Address
 }
 
@@ -207,6 +208,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		AddressResolverAddress:           cfg.AddressResolverAddress,
 		CanonicalTransactionChainAddress: cfg.CanonicalTransactionChainAddress,
 		SequencerDecompressionAddress:    cfg.SequencerDecompressionAddress,
+		L1CrossDomainMessengerAddress:    cfg.L1CrossDomainMessengerAddress,
 		confirmationDepth:                cfg.Eth1ConfirmationDepth,
 		signer:                           types.NewOVMSigner(chainID),
 		key:                              *cfg.TxIngestionSignerKey,
