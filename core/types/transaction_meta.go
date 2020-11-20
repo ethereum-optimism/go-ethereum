@@ -24,7 +24,7 @@ const (
 
 type TransactionMeta struct {
 	L1BlockNumber     *big.Int          `json:"l1BlockNumber"`
-	L1Timestamp       uint64            `json:"l1timestamp"`
+	L1Timestamp       uint64            `json:"l1Timestamp"`
 	L1MessageSender   *common.Address   `json:"l1MessageSender" gencodec:"required"`
 	SignatureHashType SignatureHashType `json:"signatureHashType" gencodec:"required"`
 	QueueOrigin       *big.Int          `json:"queueOrigin" gencodec:"required"`
