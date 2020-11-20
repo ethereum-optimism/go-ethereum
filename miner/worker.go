@@ -74,9 +74,6 @@ const (
 
 	// staleThreshold is the maximum depth of the acceptable stale block.
 	staleThreshold = 7
-
-	maxClockSkewSeconds   = 600 // 10 mins for now
-	timestampDelaySeconds = 300 // 5 mins for now
 )
 
 // environment is the worker's current environment and holds all of the current state information.
