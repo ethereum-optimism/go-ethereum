@@ -964,22 +964,8 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				return fmt.Errorf("Cannot deserialize txdata at index %d: %w", index, err)
 			}
 
-			// TODO: QueueOriginSequencer transactions need to include the last
-			// L1BlockNumber of a L1ToL2 transaction, not `nil`.
 			// TODO: need to add typ EthSign
 			switch ctcTx.typ {
-			case CTCTransactionTypeEOA:
-				// The god key needs to sign in this case
-				godKeyShouldSign = true
-				nonce := uint64(0)
-				to := s.SequencerDecompressionAddress
-				// TEMP: replacement of s.gasLimit, which is fetched from
-				// the contracts, it breaks things
-				gasLimit := uint64(8000000)
-
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, big.NewInt(0), element.TxData, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
-				tx.SetIndex(index)
-				log.Debug("Deserialized CTC EOA transaction", "index", index, "to", tx.To().Hex(), "data", hexutil.Encode(element.TxData))
 			case CTCTransactionTypeEIP155:
 				// The signature is deserialized so the god key does not need to
 				// sign in this case.
@@ -991,7 +977,8 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				to, l1TxOrigin := eip155.target, common.Address{}
 				gasPrice := new(big.Int).SetUint64(uint64(eip155.gasPrice))
 				data := eip155.data
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, &l1TxOrigin, nil, types.QueueOriginSequencer, types.SighashEIP155)
+				l1BlockNumber := element.BlockNumber
+				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, &l1TxOrigin, l1BlockNumber, types.QueueOriginSequencer, types.SighashEIP155)
 				tx.SetIndex(index)
 				tx.SetL1Timestamp(element.Timestamp.Uint64())
 				// `WithSignature` accepts:

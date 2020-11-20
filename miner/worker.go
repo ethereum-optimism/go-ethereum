@@ -790,7 +790,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		// OVM Change - set the timestamp on the header to the
 		// timestamp of the transaction.
 		// TODO: Need to be sure that the timestamp is not 0 here
-		w.current.header.Time = tx.GetL1Timestamp()
+		w.current.header.Time = tx.L1Timestamp()
 
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.

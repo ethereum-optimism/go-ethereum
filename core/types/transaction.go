@@ -151,7 +151,7 @@ func (t *Transaction) SetL1Timestamp(ts uint64) {
 	t.meta.L1Timestamp = ts
 }
 
-func (t *Transaction) GetL1Timestamp() uint64 {
+func (t *Transaction) L1Timestamp() uint64 {
 	if &t.meta == nil {
 		return 0
 	}
