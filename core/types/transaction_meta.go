@@ -47,7 +47,8 @@ func NewTransactionMeta(l1BlockNumber *big.Int, l1timestamp uint64, l1MessageSen
 //   varbytes(SignatureHashType) ||
 //   varbytes(L1BlockNumber) ||
 //   varbytes(L1MessageSender) ||
-//   varbytes(QueueOrigin)
+//   varbytes(QueueOrigin) ||
+//   varbytes(L1Timestamp)
 func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 	var err error
 	meta := TransactionMeta{}
