@@ -1520,18 +1520,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 
-	var timestamp uint64
-	prev := uint64(time.Now().Add(-5 * time.Minute).Unix())
-	ts := s.b.GetLatestL1Timestamp()
-	if prev > ts {
-		timestamp = prev
-	} else {
-		timestamp = ts
-	}
 	bn := s.b.GetLatestL1BlockNumber()
 	blockNumber := new(big.Int).SetUint64(bn)
-
-	meta := types.NewTransactionMeta(blockNumber, timestamp, nil, types.SighashEIP155, types.QueueOriginSequencer)
+	// L1Timestamp will be set by the miner
+	meta := types.NewTransactionMeta(blockNumber, 0, nil, types.SighashEIP155, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
@@ -1550,18 +1542,10 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 		return common.Hash{}, err
 	}
 
-	var timestamp uint64
-	prev := uint64(time.Now().Add(-5 * time.Minute).Unix())
-	ts := s.b.GetLatestL1Timestamp()
-	if prev > ts {
-		timestamp = prev
-	} else {
-		timestamp = ts
-	}
 	bn := s.b.GetLatestL1BlockNumber()
 	blockNumber := new(big.Int).SetUint64(bn)
-
-	meta := types.NewTransactionMeta(blockNumber, timestamp, nil, types.SighashEthSign, types.QueueOriginSequencer)
+	// L1Timestamp will be set by the miner
+	meta := types.NewTransactionMeta(blockNumber, 0, nil, types.SighashEthSign, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
