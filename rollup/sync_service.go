@@ -993,10 +993,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				data := eip155.data
 				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, &l1TxOrigin, nil, types.QueueOriginSequencer, types.SighashEIP155)
 				tx.SetIndex(index)
-
-				// TODO(mark): need to set the timestamp here
-				// how to get it in a deterministic way?
-
+				tx.SetL1Timestamp(element.Timestamp.Uint64())
 				// `WithSignature` accepts:
 				// r || s || v where v is normalized to 0 or 1
 				tx, err = tx.WithSignature(s.signer, eip155.Signature[:])
