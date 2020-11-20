@@ -63,7 +63,7 @@ func (l RollupTxsByIndex) Len() int           { return len(l) }
 func (l RollupTxsByIndex) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l RollupTxsByIndex) Less(i, j int) bool { return l[i].index < l[j].index }
 
-// Consider adding a processed bool for sanity check
+// RollupTransaction represents a transaction parsed from L1
 type RollupTransaction struct {
 	tx          *types.Transaction
 	blockHeight uint64
