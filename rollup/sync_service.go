@@ -485,6 +485,10 @@ func (s *SyncService) sequencerIngestQueue() {
 					log.Error("Sequencer ingest queue cannot get tip", "message", err.Error())
 					continue
 				}
+
+				// Update the LatestL1ToL2 info if it is too old
+				s.maybeUpdateLatestL1ToL2(tip)
+
 				tipHeight := tip.Number.Uint64()
 				// The transactions need to be played in order and there is no
 				// guarantee of order when it comes to the txcache iteration, so
@@ -853,6 +857,19 @@ func (s *SyncService) SetLatestL1Timestamp(ts uint64) {
 
 func (s *SyncService) SetLatestL1BlockNumber(bn uint64) {
 	atomic.StoreUint64(&s.LatestL1ToL2.blockNumber, bn)
+}
+
+// maybeUpdateLatestL1ToL2 updates the latest L1 block information
+// if the timestamp is greater than 5 minutes old. Based on the
+// simple equation: now - 5 < prev, where now is the timestamp
+// of the L1 tip and prev is the previous latest L1 timestamp.
+func (s *SyncService) maybeUpdateLatestL1ToL2(tip *types.Header) {
+	prev := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
+	now := time.Unix(int64(tip.Time), 0).Add(-5 * time.Minute)
+	if now.Before(prev) {
+		s.SetLatestL1Timestamp(tip.Time)
+		s.SetLatestL1BlockNumber(tip.Number.Uint64())
+	}
 }
 
 // ProcessLog will process a single log and handle it depending on its source.
