@@ -650,7 +650,7 @@ func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 		return err
 	}
 	env := &environment{
-		signer:    types.NewEIP155Signer(w.chainConfig.ChainID),
+		signer:    types.NewOVMSigner(w.chainConfig.ChainID),
 		state:     state,
 		ancestors: mapset.NewSet(),
 		family:    mapset.NewSet(),
@@ -786,6 +786,12 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		if tx == nil {
 			break
 		}
+
+		// OVM Change - set the timestamp on the header to the
+		// timestamp of the transaction.
+		// TODO: Need to be sure that the timestamp is not 0 here
+		w.current.header.Time = tx.GetL1Timestamp()
+
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
@@ -863,17 +869,6 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 
 	tstart := time.Now()
 	parent := w.chain.CurrentBlock()
-
-	// TODO: Is there some other sensible check that we can do in place of the below code with timestamps set from L1?
-	//if parent.Time() >= uint64(timestamp) {
-	//	timestamp = int64(parent.Time() + 1)
-	//}
-	// this will ensure we're not going off too far in the future
-	//if now := time.Now().Unix(); timestamp > now+1 {
-	//	wait := time.Duration(timestamp-now) * time.Second
-	//	log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
-	//	time.Sleep(wait)
-	//}
 
 	num := parent.Number()
 	header := &types.Header{
