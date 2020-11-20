@@ -165,12 +165,10 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	}
 
 	// The timestamps should be equal
-	/* TODO(mark):
-	meta := tx.GetMeta()
-	if new(big.Int).SetInt64(meta.timestamp).Cmp(timestamp) != 0 {
+	meta := rtx.tx.GetMeta()
+	if new(big.Int).SetUint64(meta.L1Timestamp).Cmp(timestamp) != 0 {
 		t.Fatal("Incorrect time recovered")
 	}
-	*/
 
 	// The target from the calldata should be the `to` in the transaction
 	if !bytes.Equal(rtx.tx.To().Bytes(), target.Bytes()) {
