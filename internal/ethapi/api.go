@@ -1437,36 +1437,6 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1BlockNumber, types.QueueOriginSequencer, args.SignatureHashType)
 }
 
-type RollupTransaction struct {
-	L1BlockNumber *big.Int        `json:"l1BlockNumber"`
-	Nonce         *hexutil.Uint64 `json:"nonce"`
-	GasLimit      *hexutil.Uint64 `json:"gasLimit"`
-	Sender        *common.Address `json:"sender"`
-	Target        *common.Address `json:"target"`
-	Calldata      *hexutil.Bytes  `json:"calldata"`
-}
-
-// Creates a wrapped tx (internal tx that wraps an OVM tx) from the RollupTransaction.
-// The only part of the wrapped tx that has anything to do with the RollupTransaction is the calldata.
-func (r *RollupTransaction) toTransaction(txNonce uint64) *types.Transaction {
-	var tx *types.Transaction
-	c, _ := r.Calldata.MarshalText()
-	if r.Target == nil {
-		tx = types.NewContractCreation(txNonce, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1BlockNumber, types.QueueOriginSequencer)
-	} else {
-		tx = types.NewTransaction(txNonce, *r.Target, big.NewInt(0), uint64(*r.GasLimit), big.NewInt(0), c, r.Sender, r.L1BlockNumber, types.QueueOriginSequencer, types.SighashEIP155)
-	}
-	tx.AddNonceToWrappedTransaction(uint64(*r.Nonce))
-	return tx
-}
-
-// SendTxArgs represents the arguments to sumbit a new transaction into the transaction pool.
-type GethSubmission struct {
-	Timestamp          *hexutil.Uint64      `json:"timestamp"`
-	SubmissionNumber   *hexutil.Uint64      `json:"submissionNumber"`
-	RollupTransactions []*RollupTransaction `json:"rollupTransactions"`
-}
-
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
 	if err := b.SendTx(ctx, tx); err != nil {
