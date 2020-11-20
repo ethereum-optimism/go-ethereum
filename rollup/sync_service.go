@@ -888,10 +888,9 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	// Nonce is set by god key at execution time
 	// Value and gasPrice are set to 0
 	tx := types.NewTransaction(uint64(0), event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, new(big.Int).SetUint64(ethlog.BlockNumber), types.QueueOriginL1ToL2, types.SighashEIP155)
-
-	// TODO
+	// Set the timestamp in the txmeta
 	timestamp := uint64(event.Timestamp.Int64())
-	// tx.setTimestamp(timestamp)
+	tx.SetL1Timestamp(timestamp)
 
 	rtx := RollupTransaction{tx: tx, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
 	// In the case of a reorg, the rtx at a certain index can be overwritten
@@ -967,6 +966,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 
 			// TODO: QueueOriginSequencer transactions need to include the last
 			// L1BlockNumber of a L1ToL2 transaction, not `nil`.
+			// TODO: need to add typ EthSign
 			switch ctcTx.typ {
 			case CTCTransactionTypeEOA:
 				// The god key needs to sign in this case
@@ -993,6 +993,10 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				data := eip155.data
 				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, &l1TxOrigin, nil, types.QueueOriginSequencer, types.SighashEIP155)
 				tx.SetIndex(index)
+
+				// TODO(mark): need to set the timestamp here
+				// how to get it in a deterministic way?
+
 				// `WithSignature` accepts:
 				// r || s || v where v is normalized to 0 or 1
 				tx, err = tx.WithSignature(s.signer, eip155.Signature[:])
