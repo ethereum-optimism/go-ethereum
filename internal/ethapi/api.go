@@ -1755,6 +1755,17 @@ func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
 	}
 }
 
+type latestCrossDomainInfo struct {
+	Timestamp   uint64 `json:"timestamp"`
+	BlockNumber uint64 `json:"blockNumber"`
+}
+
+func (api *PublicRollupAPI) GetLatestCrossDomainInfo(ctx context.Context) latestCrossDomainInfo {
+	timestamp := api.b.GetLatestL1Timestamp()
+	blockNumber := api.b.GetLatestL1BlockNumber()
+	return latestCrossDomainInfo{timestamp, blockNumber}
+}
+
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public
 // debugging endpoint.
 type PublicDebugAPI struct {
