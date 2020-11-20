@@ -136,7 +136,6 @@ func (t *Transaction) GetMeta() *TransactionMeta {
 	}
 	return &t.meta
 }
-
 func (t *Transaction) SetIndex(index uint64) {
 	if &t.meta == nil {
 		return
