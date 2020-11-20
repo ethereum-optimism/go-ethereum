@@ -1520,7 +1520,14 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 
-	timestamp := s.b.GetLatestL1Timestamp()
+	var timestamp uint64
+	prev := uint64(time.Now().Add(-5 * time.Minute).Unix())
+	ts := s.b.GetLatestL1Timestamp()
+	if prev > ts {
+		timestamp = prev
+	} else {
+		timestamp = ts
+	}
 	bn := s.b.GetLatestL1BlockNumber()
 	blockNumber := new(big.Int).SetUint64(bn)
 
@@ -1543,7 +1550,14 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 		return common.Hash{}, err
 	}
 
-	timestamp := s.b.GetLatestL1Timestamp()
+	var timestamp uint64
+	prev := uint64(time.Now().Add(-5 * time.Minute).Unix())
+	ts := s.b.GetLatestL1Timestamp()
+	if prev > ts {
+		timestamp = prev
+	} else {
+		timestamp = ts
+	}
 	bn := s.b.GetLatestL1BlockNumber()
 	blockNumber := new(big.Int).SetUint64(bn)
 
