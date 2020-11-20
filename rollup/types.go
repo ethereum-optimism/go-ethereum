@@ -278,8 +278,9 @@ func (a *appendSequencerBatchCallData) Decode(r io.ReaderAt) error {
 type CTCTransactionType uint8
 
 const (
-	CTCTransactionTypeEIP155 CTCTransactionType = 0
-	CTCTransactionTypeEOA    CTCTransactionType = 1
+	CTCTransactionTypeEIP155  CTCTransactionType = 0
+	CTCTransactionTypeEOA     CTCTransactionType = 1
+	CTCTransactionTypeEthSign CTCTransactionType = 2
 )
 
 type CTCTransaction struct {
@@ -292,7 +293,10 @@ func (c *CTCTransaction) Len() (int, error) {
 		return int(^uint(0) >> 1), errors.New("Cannot compute length")
 	}
 	length, err := c.tx.Len()
-	return 1 + length, err
+	if err != nil {
+		return 0, fmt.Errorf("Unable to compute length: %w", err)
+	}
+	return 1 + length, nil
 }
 
 func (c *CTCTransaction) Encode(b []byte) error {
@@ -331,7 +335,15 @@ func (c *CTCTransaction) Decode(b []byte) error {
 			return fmt.Errorf("Cannot decode EIP155 ctc tx %x: %w", b, err)
 		}
 		c.tx = &tx
+	case CTCTransactionTypeEthSign:
+		tx := CTCTxEthSign{}
+		err := tx.Decode(b[1:])
+		if err != nil {
+			return fmt.Errorf("Cannot decode EthSign ctc tx %x: %w", b, err)
+		}
+		c.tx = &tx
 	}
+
 	return nil
 }
 
@@ -368,33 +380,37 @@ func (c *CTCTxCreateEOA) Decode(b []byte) error {
 
 type CTCTxEIP155 struct {
 	Signature [65]byte
-	gasLimit  uint16 // uint16
-	gasPrice  uint8  // uint8
+	gasLimit  uint32 // uint24
+	gasPrice  uint32 // uint24
 	nonce     uint32 // uint24
 	target    common.Address
 	data      []byte
 }
 
 func (c *CTCTxEIP155) Len() (int, error) {
-	return 65 + 2 + 1 + 3 + 20 + len(c.data), nil
+	return 65 + 3 + 3 + 3 + 20 + len(c.data), nil
 }
 
-// TODO(mark): this serialization has fallen out of sync
-// with what is actually being submitted by the batch submitter
 func (c *CTCTxEIP155) Encode(b []byte) error {
 	length, _ := c.Len()
 	if len(b) < length {
 		return errors.New("CTCTxEIP155 encoding overflow")
 	}
 	copy(b[:65], c.Signature[:])
-	binary.BigEndian.PutUint16(b[65:65+2], c.gasLimit)
-	b[67] = c.gasPrice
-	hi := c.nonce & 0x00FF0000 >> 16
-	lo := c.nonce & 0x0000FFFF
+	hi := c.gasLimit & 0x00FF0000 >> 16
+	lo := c.gasLimit & 0x0000FFFF
+	b[65] = uint8(hi)
+	binary.BigEndian.PutUint16(b[66:68], uint16(lo))
+	hi = c.gasPrice & 0x00FF0000 >> 16
+	lo = c.gasPrice & 0x0000FFFF
 	b[68] = uint8(hi)
-	binary.BigEndian.PutUint16(b[69:69+2], uint16(lo))
-	copy(b[71:71+20], c.target.Bytes())
-	copy(b[91:], c.data)
+	binary.BigEndian.PutUint16(b[69:71], uint16(lo))
+	hi = c.nonce & 0x00FF0000 >> 16
+	lo = c.nonce & 0x0000FFFF
+	b[71] = uint8(hi)
+	binary.BigEndian.PutUint16(b[72:74], uint16(lo))
+	copy(b[74:94], c.target.Bytes())
+	copy(b[94:], c.data)
 	return nil
 }
 
@@ -404,13 +420,73 @@ func (c *CTCTxEIP155) Decode(b []byte) error {
 		return errors.New("CTCTxEIP155 decoding overflow")
 	}
 	copy(c.Signature[:], b[:65])
-	c.gasLimit = binary.BigEndian.Uint16(b[65 : 65+2])
-	c.gasPrice = b[67]
-	hi := uint32(b[68])
-	lo := uint32(binary.BigEndian.Uint16(b[69 : 69+2]))
+	hi := uint32(b[65])
+	lo := uint32(binary.BigEndian.Uint16(b[66:68]))
+	c.gasLimit = (hi << 16) | lo
+	hi = uint32(b[68])
+	lo = uint32(binary.BigEndian.Uint16(b[69:71]))
+	c.gasPrice = (hi << 16) | lo
+	hi = uint32(b[71])
+	lo = uint32(binary.BigEndian.Uint16(b[72:74]))
 	c.nonce = (hi << 16) | lo
-	c.target = common.BytesToAddress(b[71 : 71+20])
-	c.data = b[91:]
+	c.target = common.BytesToAddress(b[74:94])
+	c.data = b[94:]
+	return nil
+}
+
+type CTCTxEthSign struct {
+	Signature [65]byte
+	gasLimit  uint32 // uint24
+	gasPrice  uint32 // uint24
+	nonce     uint32 // uint24
+	target    common.Address
+	data      []byte
+}
+
+func (c *CTCTxEthSign) Len() (int, error) {
+	return 65 + 3 + 3 + 3 + 20 + len(c.data), nil
+}
+
+func (c *CTCTxEthSign) Encode(b []byte) error {
+	length, _ := c.Len()
+	if len(b) < length {
+		return errors.New("CTCTxEthSign encoding overflow")
+	}
+	copy(b[:65], c.Signature[:])
+	hi := c.gasLimit & 0x00FF0000 >> 16
+	lo := c.gasLimit & 0x0000FFFF
+	b[65] = uint8(hi)
+	binary.BigEndian.PutUint16(b[66:68], uint16(lo))
+	hi = c.gasPrice & 0x00FF0000 >> 16
+	lo = c.gasPrice & 0x0000FFFF
+	b[68] = uint8(hi)
+	binary.BigEndian.PutUint16(b[69:71], uint16(lo))
+	hi = c.nonce & 0x00FF0000 >> 16
+	lo = c.nonce & 0x0000FFFF
+	b[71] = uint8(hi)
+	binary.BigEndian.PutUint16(b[72:74], uint16(lo))
+	copy(b[74:94], c.target.Bytes())
+	copy(b[94:], c.data)
+	return nil
+}
+
+func (c *CTCTxEthSign) Decode(b []byte) error {
+	length, _ := c.Len()
+	if len(b) < length {
+		return errors.New("CTCTxEthSign decoding overflow")
+	}
+	copy(c.Signature[:], b[:65])
+	hi := uint32(b[65])
+	lo := uint32(binary.BigEndian.Uint16(b[66:68]))
+	c.gasLimit = (hi << 16) | lo
+	hi = uint32(b[68])
+	lo = uint32(binary.BigEndian.Uint16(b[69:71]))
+	c.gasPrice = (hi << 16) | lo
+	hi = uint32(b[71])
+	lo = uint32(binary.BigEndian.Uint16(b[72:74]))
+	c.nonce = (hi << 16) | lo
+	c.target = common.BytesToAddress(b[74:94])
+	c.data = b[94:]
 	return nil
 }
 
