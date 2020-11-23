@@ -997,11 +997,12 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 					return fmt.Errorf("Unexpected type when parsing ctc tx eip155: %T", ctcTx.tx)
 				}
 				nonce, gasLimit := uint64(eip155.nonce), uint64(eip155.gasLimit)
-				to, l1TxOrigin := eip155.target, common.Address{}
+				to := eip155.target
 				gasPrice := new(big.Int).SetUint64(uint64(eip155.gasPrice))
 				data := eip155.data
 				l1BlockNumber := element.BlockNumber
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, &l1TxOrigin, l1BlockNumber, types.QueueOriginSequencer, types.SighashEIP155)
+				// Set the L1TxOrigin to `nil`
+				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer, types.SighashEIP155)
 				tx.SetIndex(index)
 				tx.SetL1Timestamp(element.Timestamp.Uint64())
 				// `WithSignature` accepts:
