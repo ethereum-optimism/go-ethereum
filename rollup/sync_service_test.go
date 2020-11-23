@@ -191,7 +191,6 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 // Tests that a queue batch append results in the transaction
 // from the cache is played against the state.
 func TestSyncServiceQueueBatchAppend(t *testing.T) {
-	t.Skip("Disabling test until verifier is ready")
 	service, err := newTestSyncService()
 	if err != nil {
 		t.Fatal(err)
@@ -298,7 +297,7 @@ func txProcessed(t *testing.T, rtx *RollupTransaction, service *SyncService) (bo
 }
 
 func TestSyncServiceSequencerBatchAppend(t *testing.T) {
-	t.Skip("Disabling test until verifier is ready")
+	t.Skip("Disabled for now")
 	service, err := newTestSyncService()
 	if err != nil {
 		t.Fatal(err)
@@ -379,18 +378,22 @@ func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	<-service.doneProcessing
 
 	// The god key should be a key containing the transaction in queued
-	_, queued := service.txpool.Content()
+	pending, queued := service.txpool.Content()
 
 	// queued should only have 1 key/value pair
 	count := 0
 	for _, transactions := range queued {
-		// This stuff should match ctcTx.tx
+		for range transactions {
+			count++
+		}
+	}
+	for _, transactions := range pending {
 		for range transactions {
 			count++
 		}
 	}
 	if count != 1 {
-		t.Fatal("")
+		t.Fatalf("Transaction count mismatch. Got %d, expected %d", count, 1)
 	}
 }
 
