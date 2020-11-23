@@ -1519,11 +1519,8 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-
-	bn := s.b.GetLatestL1BlockNumber()
-	blockNumber := new(big.Int).SetUint64(bn)
-	// L1Timestamp will be set by the miner
-	meta := types.NewTransactionMeta(blockNumber, 0, nil, types.SighashEIP155, types.QueueOriginSequencer)
+	// L1Timestamp and L1BlockNumber will be set by the miner
+	meta := types.NewTransactionMeta(nil, 0, nil, types.SighashEIP155, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
@@ -1541,11 +1538,8 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
-
-	bn := s.b.GetLatestL1BlockNumber()
-	blockNumber := new(big.Int).SetUint64(bn)
-	// L1Timestamp will be set by the miner
-	meta := types.NewTransactionMeta(blockNumber, 0, nil, types.SighashEthSign, types.QueueOriginSequencer)
+	// L1Timestamp and L1BlockNumber will be set by the miner
+	meta := types.NewTransactionMeta(nil, 0, nil, types.SighashEthSign, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
