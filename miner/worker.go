@@ -762,9 +762,8 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		// timestamp of the transaction. Since there is an assumption
 		// of only 1 transaction, only do this for the first tx.
 		if len(w.current.txs) == 0 {
-			ts := tx.L1Timestamp()
-			if ts == 0 {
-				ts = w.eth.SyncService().GetLatestL1Timestamp()
+			if tx.L1Timestamp() == 0 {
+				ts := w.eth.SyncService().GetLatestL1Timestamp()
 				bn := w.eth.SyncService().GetLatestL1BlockNumber()
 				tx.SetL1Timestamp(ts)
 				tx.SetL1BlockNumber(bn)
