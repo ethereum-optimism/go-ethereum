@@ -1023,8 +1023,32 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 					return fmt.Errorf("Cannot add signature to eip155 tx: %w", err)
 				}
 				log.Debug("Deserialized CTC EIP155 transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
+			case CTCTransactionTypeEthSign:
+				// The signature is deserialized so the god key does not need to
+				// sign in this case.
+				ethsign, ok := ctcTx.tx.(*CTCTxEthSign)
+				if !ok {
+					return fmt.Errorf("Unexpected type when parsing ctc tx eip155: %T", ctcTx.tx)
+				}
+				nonce, gasLimit := uint64(ethsign.nonce), uint64(ethsign.gasLimit)
+				to := ethsign.target
+				gasPrice := new(big.Int).SetUint64(uint64(ethsign.gasPrice))
+				data := ethsign.data
+				l1BlockNumber := element.BlockNumber
+				// Set the L1TxOrigin to `nil`
+				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer, types.SighashEthSign)
+				tx.SetIndex(index)
+				tx.SetL1Timestamp(element.Timestamp.Uint64())
+				// `WithSignature` accepts:
+				// r || s || v where v is normalized to 0 or 1
+				tx, err = tx.WithSignature(s.signer, ethsign.Signature[:])
+				if err != nil {
+					return fmt.Errorf("Cannot add signature to ethsign tx: %w", err)
+				}
+				log.Debug("Deserialized CTC EthSign transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
 			default:
-				// This should never happen
+				// This should never happen, the contract will never
+				// allow an unknown type to be in a valid transaction.
 				return fmt.Errorf("Unknown tx type: %x", element.TxData)
 			}
 		} else {
