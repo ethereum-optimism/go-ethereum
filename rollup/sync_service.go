@@ -622,7 +622,9 @@ func (s *SyncService) Loop() {
 				continue
 			}
 			s.Eth1Data = eth1data
-			s.ApplyLogs(header)
+			if !s.verifier {
+				s.ApplyLogs(header)
+			}
 			s.doneProcessing <- blockHeight
 		case <-s.ctx.Done():
 			break
@@ -811,13 +813,9 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	}, nil
 }
 
-// ApplyLogs will apply cached transactions from logs. It allows
-// a confirmation depth to be used before applying a transaction.
+// ApplyLogs will apply cached transactions from `enqueue` logs.
+// This function should only be called in the case of sequencer.
 func (s *SyncService) ApplyLogs(tip *types.Header) error {
-	if s.verifier {
-		return nil
-	}
-
 	// Handle the enqueue'd transactions. This codepath is only useful
 	// for the sequencer, as the verifier should only handle transactions
 	// from sequencer batch append and queue batch append.
