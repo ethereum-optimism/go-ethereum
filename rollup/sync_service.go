@@ -998,7 +998,6 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				return fmt.Errorf("Cannot deserialize txdata at index %d: %w", index, err)
 			}
 
-			// TODO: need to add typ EthSign
 			switch ctcTx.typ {
 			case CTCTransactionTypeEIP155:
 				// The signature is deserialized so the god key does not need to
@@ -1141,10 +1140,6 @@ func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction
 // emitted from the canonical transaction chain.
 func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
 	log.Debug("Processing queue batch appended")
-	// Disable the queue batch append logic for now
-	if true {
-		return nil
-	}
 	event, err := s.ctcFilterer.ParseQueueBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse queue batch appended log data: %w", err)
