@@ -208,6 +208,10 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 	}
 	address := crypto.PubkeyToAddress(cfg.TxIngestionSignerKey.PublicKey)
 
+	if cfg.IsVerifier {
+		log.Info("Running in verifier mode")
+	}
+
 	// Layer 2 chainid to use for signing
 	chainID := bc.Config().ChainID
 	service := SyncService{
@@ -511,6 +515,9 @@ func (s *SyncService) sequencerIngestQueue() {
 					rtx := txs[i]
 					log.Debug("Sequencer ingesting", "local-index", i, "rtx-index", rtx.index)
 					// The god key needs to sign L1ToL2 transactions
+					// The reorg code is no longer used here, after it is better
+					// tested we should move back to using it here and remove
+					// the verifier check in maybeReorgAndApplyTx
 					err := s.applyTransaction(rtx.tx, true)
 					if err != nil {
 						log.Error("Sequencer ingest queue transaction failed: %w", err)
@@ -926,15 +933,11 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 // from the canonical transaction chain contract.
 func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
 	log.Debug("Processing sequencer batch appended")
-	// TODO(mark): temporary fix to disable sequencer batch append
-	if true {
-		return nil
-	}
-
 	event, err := s.ctcFilterer.ParseSequencerBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse sequencer batch appended log data: %w", err)
 	}
+	log.Debug("Sequencer Batch Appended Event Log", "startingQueueIndex", event.StartingQueueIndex.Uint64(), "numQueueElements", event.NumQueueElements.Uint64(), "totalElements", event.TotalElements.Uint64())
 
 	tx, pending, err := s.ethclient.TransactionByHash(ctx, ethlog.TxHash)
 	if err == ethereum.NotFound {
@@ -962,9 +965,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 	log.Debug("Decoded chain elements", "count", len(cd.ChainElements))
 	for i, element := range cd.ChainElements {
 		var tx *types.Transaction
-		// The number of queue elements must be the number *after* all of the
-		// operations for this to work properly.
-		index := event.TotalElements.Uint64() - (uint64(i) + event.NumQueueElements.Uint64())
+		index := (event.TotalElements.Uint64() - uint64(len(cd.ChainElements))) + uint64(i)
 		// Certain types of transactions require a signature from the god key.
 		// Keep track of this so that the god key can sign after reorganizing,
 		// to ensure that nonces are correct.
@@ -1018,6 +1019,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				log.Error("Cannot find transaction in transaction cache", "index", index)
 				continue
 			}
+			tx = rtx.tx
 			rtx.executed = true
 			s.txCache.Store(rtx.index, rtx)
 		}
@@ -1035,16 +1037,19 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 // maybeReorg will check to see if the transaction at the index is different
 // and then reorg the chain to `index-1` if it is.
 func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
-	// Handle the special case of never reorging the genesis block
-	if index == 0 {
+	// Handle the special case of never reorging the genesis block and the off
+	// by one case that exists between the CTC and geth 2 state.
+	if index == 0 || index == 1 {
 		return nil
 	}
 	// Check if there is already a transaction at the index
-	if block := s.bc.GetBlockByNumber(index); block != nil {
+	if block := s.bc.GetBlockByNumber(index - 1); block != nil {
 		// A transaction exists at the current index
-		// Sanity check that there is a transaction in the block
 		if count := len(block.Transactions()); count != 1 {
-			return fmt.Errorf("Unexpected number of transactions in a block %d", count)
+			// Don't return an error here to handle the case of the genesis
+			// block not having a transaction, until the genesis tx is included
+			log.Debug("Unexpected number of transactions in block", "count", count)
+			return nil
 		}
 		prev := block.Transactions()[0]
 		// The transaction hash is not the canonical identifier of a transaction
@@ -1065,9 +1070,14 @@ func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, 
 	if err != nil {
 		return fmt.Errorf("Cannot reorganize before applying tx: %w", err)
 	}
-	err = s.applyTransaction(tx, godKeyShouldSign)
-	if err != nil {
-		return fmt.Errorf("Cannot apply tx: %w", err)
+	// Only apply transactions in the case where it is the verifier.
+	// This is here so that we can observe the behavior of `maybeReorg`
+	// to make sure that it is operating as expected.
+	if s.verifier {
+		err = s.applyTransaction(tx, godKeyShouldSign)
+		if err != nil {
+			return fmt.Errorf("Cannot apply tx: %w", err)
+		}
 	}
 	return nil
 }
@@ -1098,10 +1108,10 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 	if err != nil {
 		return fmt.Errorf("Unable to parse queue batch appended log data: %w", err)
 	}
+	log.Debug("Queue Batch Appended Event Log", "startingQueueIndex", event.StartingQueueIndex.Uint64(), "numQueueElements", event.NumQueueElements.Uint64(), "totalElements", event.TotalElements.Uint64())
 
 	start := event.TotalElements.Uint64() - event.NumQueueElements.Uint64()
 	end := start + event.NumQueueElements.Uint64()
-
 	for i := start; i < end; i++ {
 		rtx, ok := s.txCache.Load(i)
 		if !ok {
