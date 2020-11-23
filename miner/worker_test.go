@@ -141,11 +141,12 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	})
 
 	return &testWorkerBackend{
-		db:         db,
-		chain:      chain,
-		txPool:     txpool,
-		genesis:    &gspec,
-		uncleBlock: blocks[0],
+		db:          db,
+		chain:       chain,
+		txPool:      txpool,
+		syncService: &rollup.SyncService{},
+		genesis:     &gspec,
+		uncleBlock:  blocks[0],
 	}
 }
 

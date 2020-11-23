@@ -761,18 +761,13 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		// OVM Change - set the timestamp on the header to the
 		// timestamp of the transaction. Since there is an assumption
 		// of only 1 transaction, only do this for the first tx.
-		// The only case where the sync service is nil is during tests.
 		if len(w.current.txs) == 0 {
 			ts := tx.L1Timestamp()
-			ss := w.eth.SyncService()
-			if ts == 0 && ss != nil {
-				latest := time.Unix(int64(ss.GetLatestL1Timestamp()), 0)
-				now := time.Now().Add(-5 * time.Minute)
-				if now.Before(latest) {
-					tx.SetL1Timestamp(uint64(now.Unix()))
-					ts = tx.L1Timestamp()
-				}
-
+			if ts == 0 {
+				ts = w.eth.SyncService().GetLatestL1Timestamp()
+				bn := w.eth.SyncService().GetLatestL1BlockNumber()
+				tx.SetL1Timestamp(ts)
+				tx.SetL1BlockNumber(bn)
 			}
 			w.current.header.Time = tx.L1Timestamp()
 		}
