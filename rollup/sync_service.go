@@ -642,14 +642,14 @@ func (s *SyncService) verifyNetwork() error {
 		return fmt.Errorf("Cannot fetch chain id: %w", err)
 	}
 	if cid.Uint64() != s.eth1ChainId {
-		return fmt.Errorf("Received incorrect chain id %d", cid.Uint64())
+		return fmt.Errorf("Received incorrect chain id %d, expected %d", cid.Uint64(), s.eth1ChainId)
 	}
 	nid, err := s.ethclient.NetworkID(s.ctx)
 	if err != nil {
 		return fmt.Errorf("Cannot fetch network id: %w", err)
 	}
 	if nid.Uint64() != s.eth1NetworkId {
-		return fmt.Errorf("Received incorrect network id %d", nid.Uint64())
+		return fmt.Errorf("Received incorrect network id %d, expected %d", nid.Uint64(), s.eth1NetworkId)
 	}
 	return nil
 }
