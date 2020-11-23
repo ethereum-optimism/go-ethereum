@@ -361,15 +361,30 @@ func (s *SyncService) pollHead() {
 	for {
 		select {
 		case <-headTicker.C:
+			// Fetch the tip by passing `nil`. We want to consume the
+			// blockNumber, but we need to cherry-pick in support for
+			// `eth_blockNumber` from upstream geth. For now, just fetch
+			// the tip and use the blockNumber from there.
 			head, err := s.ethclient.HeaderByNumber(s.ctx, nil)
 			if err != nil {
-				log.Error("Cannot fetch tip")
+				log.Error("Cannot fetch tip", "height", "tip")
 				continue
 			}
-			// The tip is the same
+			// We want to trail the tip by a confirmation number of blocks, so
+			// subtract the confirmationDepth from the tip height and fetch the
+			// block header that will be consumed.
+			blockNumber := head.Number.Sub(head.Number, new(big.Int).SetUint64(s.confirmationDepth))
+			head, err = s.ethclient.HeaderByNumber(s.ctx, blockNumber)
+			if err != nil {
+				log.Error("Cannot fetch tip", "height", blockNumber.Uint64())
+				continue
+			}
+			// The tip is the same, do not ingest the block.
 			if bytes.Equal(head.Hash().Bytes(), s.Eth1Data.BlockHash.Bytes()) {
 				continue
 			}
+			// It is possible that multiple blocks have passed since this
+			// function last polled, so recursively fetch them.
 			process := new([]*types.Header)
 			index, err := s.getCommonAncestor(head.Number, process)
 			if err != nil {
@@ -806,18 +821,16 @@ func (s *SyncService) ApplyLogs(tip *types.Header) error {
 	// Handle the enqueue'd transactions. This codepath is only useful
 	// for the sequencer, as the verifier should only handle transactions
 	// from sequencer batch append and queue batch append.
-	tipHeight := tip.Number.Uint64()
 	// The transactions need to be played in order and there is no
 	// guarantee of order when it comes to the txcache iteration, so
 	// collect an array of pointers and then sort them by index.
 	txs := []*RollupTransaction{}
 	s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-		// The transaction has not been executed and is
+		// The transaction has not been executed. We know that it is
+		// sufficiently old because we only ingest blocks that are
 		// sufficiently old.
-		if !rtx.executed && rtx.blockHeight+s.confirmationDepth <= tipHeight {
+		if !rtx.executed {
 			txs = append(txs, rtx)
-		} else if !rtx.executed {
-			log.Debug("Too early to execute tx", "enqueue-height", rtx.blockHeight, "tip-height", tipHeight, "queue-index", index)
 		}
 	})
 
