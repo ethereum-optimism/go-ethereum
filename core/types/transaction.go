@@ -157,6 +157,13 @@ func (t *Transaction) L1Timestamp() uint64 {
 	return t.meta.L1Timestamp
 }
 
+func (t *Transaction) SetL1BlockNumber(bn uint64) {
+	if &t.meta == nil {
+		return
+	}
+	t.meta.L1BlockNumber = new(big.Int).SetUint64(bn)
+}
+
 // ChainId returns which chain id this transaction was signed for (if at all)
 func (tx *Transaction) ChainId() *big.Int {
 	return deriveChainId(tx.data.V)

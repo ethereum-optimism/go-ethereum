@@ -478,54 +478,11 @@ func (s *SyncService) sequencerIngestQueue() {
 		panic("Cannot run sequencer ingestion in verifier mode")
 	}
 
+	// For now, only handle the case where syncing is true
 	for {
 		select {
 		case <-s.sequencerIngestTicker.C:
 			switch s.syncing {
-			case false:
-				// Get the tip
-				tip, err := s.ethclient.HeaderByNumber(s.ctx, nil)
-				if err != nil {
-					log.Error("Sequencer ingest queue cannot get tip", "message", err.Error())
-					continue
-				}
-
-				// Update the LatestL1ToL2 info if it is too old
-				s.maybeUpdateLatestL1ToL2(tip)
-
-				tipHeight := tip.Number.Uint64()
-				// The transactions need to be played in order and there is no
-				// guarantee of order when it comes to the txcache iteration, so
-				// collect an array of pointers and then sort them by index.
-				txs := []*RollupTransaction{}
-				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-					// The transaction has not been executed and is
-					// sufficiently old.
-					if !rtx.executed && rtx.blockHeight+s.confirmationDepth <= tipHeight {
-						txs = append(txs, rtx)
-					} else if !rtx.executed {
-						log.Debug("Too early to execute tx", "enqueue-height", rtx.blockHeight, "tip-height", tipHeight, "queue-index", index)
-					}
-				})
-
-				// Sort in ascending order
-				sort.Sort(RollupTxsByIndex(txs))
-				log.Info("Ingesting transactions from L1", "count", len(txs))
-				for i := 0; i < len(txs); i++ {
-					rtx := txs[i]
-					log.Debug("Sequencer ingesting", "local-index", i, "rtx-index", rtx.index)
-					// The god key needs to sign L1ToL2 transactions
-					// The reorg code is no longer used here, after it is better
-					// tested we should move back to using it here and remove
-					// the verifier check in maybeReorgAndApplyTx
-					err := s.applyTransaction(rtx.tx, true)
-					if err != nil {
-						log.Error("Sequencer ingest queue transaction failed: %w", err)
-					}
-					rtx.executed = true
-					s.txCache.Store(rtx.index, rtx)
-				}
-				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "tip-height", tipHeight)
 			case true:
 				opts := bind.CallOpts{Pending: false, Context: s.ctx}
 				totalElements, err := s.ctcCaller.GetTotalElements(&opts)
@@ -637,17 +594,20 @@ func (s *SyncService) Loop() {
 			if header == nil {
 				continue
 			}
+			// Update the LatestL1ToL2 info if it is too old.
+			// This does not impact the verifier, as all timestamps
+			// are set by information that comes in the calldata.
+			s.maybeUpdateLatestL1ToL2(header)
+
 			blockHeight := header.Number.Uint64()
 			eth1data, err := s.ProcessETHBlock(s.ctx, header)
 			if err != nil {
 				log.Error("Error processing eth block", "message", err.Error(), "height", blockHeight)
 				s.doneProcessing <- blockHeight
-				// TODO(mark): consider checking the error type here and calling
-				// syncHistoricalBlocks in case the eth_subscribe starts to
-				// return blocks in the future relative to what is known locally.
 				continue
 			}
 			s.Eth1Data = eth1data
+			s.ApplyLogs(header)
 			s.doneProcessing <- blockHeight
 		case <-s.ctx.Done():
 			break
@@ -834,6 +794,51 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 		BlockHash:   blockHash,
 		BlockHeight: blockHeight,
 	}, nil
+}
+
+// ApplyLogs will apply cached transactions from logs. It allows
+// a confirmation depth to be used before applying a transaction.
+func (s *SyncService) ApplyLogs(tip *types.Header) error {
+	if s.verifier {
+		return nil
+	}
+
+	// Handle the enqueue'd transactions. This codepath is only useful
+	// for the sequencer, as the verifier should only handle transactions
+	// from sequencer batch append and queue batch append.
+	tipHeight := tip.Number.Uint64()
+	// The transactions need to be played in order and there is no
+	// guarantee of order when it comes to the txcache iteration, so
+	// collect an array of pointers and then sort them by index.
+	txs := []*RollupTransaction{}
+	s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
+		// The transaction has not been executed and is
+		// sufficiently old.
+		if !rtx.executed && rtx.blockHeight+s.confirmationDepth <= tipHeight {
+			txs = append(txs, rtx)
+		} else if !rtx.executed {
+			log.Debug("Too early to execute tx", "enqueue-height", rtx.blockHeight, "tip-height", tipHeight, "queue-index", index)
+		}
+	})
+
+	// Sort in ascending order
+	sort.Sort(RollupTxsByIndex(txs))
+	log.Info("Ingesting transactions from L1", "count", len(txs))
+	for i := 0; i < len(txs); i++ {
+		rtx := txs[i]
+		log.Debug("Sequencer ingesting", "local-index", i, "rtx-index", rtx.index)
+		// The god key needs to sign L1ToL2 transactions
+		// The reorg code is no longer used here, after it is better
+		// tested we should move back to using it here and remove
+		// the verifier check in maybeReorgAndApplyTx
+		err := s.applyTransaction(rtx.tx, true)
+		if err != nil {
+			log.Error("Sequencer ingest queue transaction failed: %w", err)
+		}
+		rtx.executed = true
+		s.txCache.Store(rtx.index, rtx)
+	}
+	return nil
 }
 
 // GetLastProcessedEth1Data will read the last processed information from the
