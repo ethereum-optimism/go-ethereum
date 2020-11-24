@@ -1065,9 +1065,12 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				}
 				log.Debug("Deserialized CTC EthSign transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
 			default:
-				// This should never happen, the contract will never
-				// allow an unknown type to be in a valid transaction.
-				return fmt.Errorf("Unknown tx type: %x", element.TxData)
+				// TODO(mark): still need to pass along this transaction and
+				// execute it. The `to` should be the sequencer entrypoint,
+				// the calldata should be the all the data, max gas limit,
+				// gas price of 0.
+				log.Info("Unknown tx type", "data", hexutil.Encode(element.TxData))
+				continue
 			}
 		} else {
 			// Queue transaction
