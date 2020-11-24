@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -215,7 +214,7 @@ func (it *nodeIterator) do(fn func() error) {
 			return
 		}
 		lasthash = missing.NodeHash
-		r := &TrieRequest{Id: it.t.id, Key: binaryKeyToKeyBytes(missing.Path)}
+		r := &TrieRequest{Id: it.t.id, Key: nibblesToKey(missing.Path)}
 		if it.err = it.t.db.backend.Retrieve(it.t.db.ctx, r); it.err != nil {
 			return
 		}
@@ -229,31 +228,16 @@ func (it *nodeIterator) Error() error {
 	return it.NodeIterator.Error()
 }
 
-// Copied from trie/encoding.go
-// Converts the provided key from BINARY encoding to KEYBYTES encoding (both listed above).
-func binaryKeyToKeyBytes(binaryKey []byte) (keyBytes []byte) {
-	// Remove binary key terminator if it exists
-	if len(binaryKey) > 0 && binaryKey[len(binaryKey)-1] == 2 {
-		binaryKey = binaryKey[:len(binaryKey)-1]
+func nibblesToKey(nib []byte) []byte {
+	if len(nib) > 0 && nib[len(nib)-1] == 0x10 {
+		nib = nib[:len(nib)-1] // drop terminator
 	}
-	if len(binaryKey) == 0 {
-		return make([]byte, 0)
+	if len(nib)&1 == 1 {
+		nib = append(nib, 0) // make even
 	}
-
-	keyLength := int(math.Ceil(float64(len(binaryKey)) / 8.0))
-	keyBytes = make([]byte, keyLength)
-
-	byteInt := uint8(0)
-	for bit := 0; bit < len(binaryKey); bit++ {
-		byteBit := bit % 8
-		if byteBit == 0 && bit != 0 {
-			keyBytes[(bit/8)-1] = byteInt
-			byteInt = 0
-		}
-		byteInt += (1 << (7 - byteBit)) * binaryKey[bit]
+	key := make([]byte, len(nib)/2)
+	for bi, ni := 0, 0; ni < len(nib); bi, ni = bi+1, ni+2 {
+		key[bi] = nib[ni]<<4 | nib[ni+1]
 	}
-
-	keyBytes[keyLength-1] = byteInt
-
-	return keyBytes
+	return key
 }
