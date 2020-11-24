@@ -138,9 +138,6 @@ type Eth1Data struct {
 // LatestL1ToL2 represents the latest blocknumber and timestamp.
 // This must be separate than Eth1Data because it is only updated
 // each time that there is a L1 to L2 transaction.
-// TODO(mark): smarter initialization logic around this would involve
-// fetching this information from L1 to set to prevent the case where
-// it is initialized to 0 on a restart.
 type LatestL1ToL2 struct {
 	blockNumber uint64
 	timestamp   uint64
@@ -262,19 +259,15 @@ func (s *SyncService) Start() error {
 	s.setSyncStatus(true)
 
 	blockHeight := rawdb.ReadHeadEth1HeaderHeight(s.db)
+	blockHash := rawdb.ReadHeadEth1HeaderHash(s.db)
 	if blockHeight == 0 {
 		if s.ctcDeployHeight == nil {
 			return errors.New("Must configure with canonical transaction chain deploy height")
 		}
-		cfgHeight := s.ctcDeployHeight.Uint64()
-		// Do not underflow in the case where the ctc contract is in the genesis state
-		if cfgHeight == 0 {
-			blockHeight = cfgHeight
-		} else {
-			blockHeight = cfgHeight - 1
-		}
+		blockHeight = s.ctcDeployHeight.Uint64()
+		// TODO: need to fetch the correct blockHash in this case
 	}
-	blockHash := rawdb.ReadHeadEth1HeaderHash(s.db)
+	log.Info("Starting Eth1 sync heights", "height", blockHeight, "hash", blockHash.Hex())
 	eth1Data := Eth1Data{
 		BlockHeight: blockHeight,
 		BlockHash:   blockHash,
@@ -674,8 +667,34 @@ func (s *SyncService) checkSyncStatus() error {
 // processHistoricalLogs will sync block by block of the eth1 chain, looking for
 // events it can process.
 func (s *SyncService) processHistoricalLogs() error {
-	errCh := make(chan error)
+	// Fetch the state of the LatestL1ToL2 data based on the last processed
+	// ETH1Data. There is no way to directly get the queue length, so get the
+	// next queue index and the number of pending queue elements. If there are
+	// pending queue elements, add them to the next queue index to get the
+	// length of the queue. Get the queue element at that index and set its
+	// block number and timestamp as the LatestL1ToL2 data
+	opts := bind.CallOpts{Context: s.ctx, BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight)}
+	index, err := s.ctcCaller.GetNextQueueIndex(&opts)
+	if err != nil {
+		return fmt.Errorf("Cannot fetch next queue index from ctc contract at height %d: %w", s.Eth1Data.BlockHeight, err)
+	}
+	if index.Uint64() > 0 {
+		pending, err := s.ctcCaller.GetNumPendingQueueElements(&opts)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch num pending queue elements from ctc contract at height %d: %w", s.Eth1Data.BlockHeight, err)
+		}
+		if pending.Uint64() > 0 {
+			index = index.Add(index, pending)
+		}
+		element, err := s.ctcCaller.GetQueueElement(&opts, index)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch queue element from ctc contract at height %d: %w", s.Eth1Data.BlockHeight, err)
+		}
+		s.SetLatestL1Timestamp(element.Timestamp.Uint64())
+		s.SetLatestL1BlockNumber(element.BlockNumber.Uint64())
+	}
 
+	errCh := make(chan error)
 	go func(c chan error) {
 		log.Info("Processing historical logs")
 		defer func() { close(c) }()
