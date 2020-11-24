@@ -956,10 +956,16 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	s.txCache.Store(event.QueueIndex.Uint64(), &rtx)
 	log.Debug("Transaction enqueued", "queue-index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1-blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
 
-	// Set the timestamp and blocknumber so that transactions from
-	// queue origin sequencer can access this information
-	s.SetLatestL1Timestamp(timestamp)
-	s.SetLatestL1BlockNumber(ethlog.BlockNumber)
+	// Ensure monotonicity
+	latest := s.GetLatestL1Timestamp()
+	if timestamp < latest {
+		log.Error("Timestamp unexpectedly early", "latest", latest, "new", timestamp)
+	} else {
+		// Set the timestamp and blocknumber so that transactions from
+		// queue origin sequencer can access this information
+		s.SetLatestL1Timestamp(timestamp)
+		s.SetLatestL1BlockNumber(ethlog.BlockNumber)
+	}
 
 	return nil
 }
