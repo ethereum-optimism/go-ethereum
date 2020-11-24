@@ -231,7 +231,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 
-	eth.APIDiffDb = diffdb.NewDiffDb("eth/db/diffs")
+	apiDiffDb, err := diffdb.NewDiffDb("eth/db/diffs")
+	if err != nil {
+		return nil, err
+	}
+	eth.APIDiffDb = apiDiffDb
 
 	return eth, nil
 }
