@@ -40,6 +40,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/diffdb"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
@@ -90,6 +91,7 @@ type Ethereum struct {
 	bloomIndexer  *core.ChainIndexer             // Bloom indexer operating during block imports
 
 	APIBackend *EthAPIBackend
+	APIDiffDb  *diffdb.DiffDb
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
@@ -229,6 +231,8 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 
+	eth.APIDiffDb = diffdb.NewDiffDb("eth/db/diffs")
+
 	return eth, nil
 }
 
@@ -283,7 +287,7 @@ func CreateConsensusEngine(ctx *node.ServiceContext, chainConfig *params.ChainCo
 // APIs return the collection of RPC services the ethereum package offers.
 // NOTE, some of these services probably need to be moved to somewhere else.
 func (s *Ethereum) APIs() []rpc.API {
-	apis := ethapi.GetAPIs(s.APIBackend)
+	apis := ethapi.GetAPIs(s.APIBackend, s.APIDiffDb)
 
 	// Append any APIs exposed explicitly by the les server
 	if s.lesServer != nil {

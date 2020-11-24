@@ -39,6 +39,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/diffdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
@@ -508,12 +509,13 @@ func (s *PrivateAccountAPI) Unpair(ctx context.Context, url string, pin string) 
 // PublicBlockChainAPI provides an API to access the Ethereum blockchain.
 // It offers only methods that operate on public data that is freely available to anyone.
 type PublicBlockChainAPI struct {
-	b Backend
+	b    Backend
+	diff *diffdb.DiffDb
 }
 
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
-func NewPublicBlockChainAPI(b Backend) *PublicBlockChainAPI {
-	return &PublicBlockChainAPI{b}
+func NewPublicBlockChainAPI(b Backend, diff *diffdb.DiffDb) *PublicBlockChainAPI {
+	return &PublicBlockChainAPI{b, diff}
 }
 
 // ChainId returns the chainID value for transaction replay protection.
@@ -552,6 +554,65 @@ type StorageResult struct {
 	Key   string       `json:"key"`
 	Value *hexutil.Big `json:"value"`
 	Proof []string     `json:"proof"`
+}
+
+// Result structs for GetStateDiffProof
+type StateDiffProof struct {
+	header   *HeaderMeta
+	accounts []AccountResult
+}
+type HeaderMeta struct {
+	Number    *big.Int
+	Hash      common.Hash
+	StateRoot common.Hash
+	Timestamp uint64
+}
+
+func (s *PublicBlockChainAPI) GetStateDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) ([]diffdb.Diff, error) {
+	if s.diff == nil {
+		return nil, errors.New("diffDb not set. This method is not supported in light clients")
+	}
+
+	_, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	return s.diff.GetDiff(header.Number)
+}
+
+// GetStateDiffProof returns the Merkle-proofs corresponding to all the accounts and
+// storage slots which were touched for a given block number or hash.
+func (s *PublicBlockChainAPI) GetStateDiffProof(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*StateDiffProof, error) {
+	state, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if state == nil || header == nil || err != nil {
+		return nil, err
+	}
+
+	// get the changed accounts for this block
+	diffs, err := s.GetStateDiff(ctx, blockNrOrHash)
+
+	// for each changed account, get their proof
+	accounts := make([]AccountResult, len(diffs))
+	for i, diff := range diffs {
+		res, err := s.GetProof(ctx, diff.Address, diff.Keys, blockNrOrHash)
+		if err != nil {
+			return nil, err
+		}
+		accounts[i] = *res
+	}
+
+	// add some metadata
+	stateDiffProof := &StateDiffProof{
+		header: &HeaderMeta{
+			Number:    header.Number,
+			Hash:      header.Hash(),
+			StateRoot: header.Root,
+			Timestamp: header.Time,
+		},
+		accounts: accounts,
+	}
+
+	return stateDiffProof, nil
 }
 
 // GetProof returns the Merkle-proof for a given account and optionally some storage keys.
