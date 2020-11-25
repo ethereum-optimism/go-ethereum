@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rollup"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
@@ -182,11 +180,8 @@ func TestForkIDSplit(t *testing.T) {
 		blocksNoFork, _  = core.GenerateChain(configNoFork, genesisNoFork, engine, dbNoFork, 2, nil)
 		blocksProFork, _ = core.GenerateChain(configProFork, genesisProFork, engine, dbProFork, 2, nil)
 
-		rollupTransitionBatchBuilderNoFork  = rollup.NewDummyBatchBuilder()
-		rollupTransitionBatchBuilderProFork = rollup.NewDummyBatchBuilder()
-
-		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil, rollupTransitionBatchBuilderNoFork)
-		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil, rollupTransitionBatchBuilderProFork)
+		ethNoFork, _  = NewProtocolManager(configNoFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainNoFork, dbNoFork, 1, nil)
+		ethProFork, _ = NewProtocolManager(configProFork, nil, downloader.FullSync, 1, new(event.TypeMux), new(testTxPool), engine, chainProFork, dbProFork, 1, nil)
 	)
 	ethNoFork.Start(1000)
 	ethProFork.Start(1000)

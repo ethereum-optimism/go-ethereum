@@ -42,7 +42,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rollup"
 )
 
 var (
@@ -69,8 +68,7 @@ func newTestProtocolManager(mode downloader.SyncMode, blocks int, generator func
 	if _, err := blockchain.InsertChain(chain); err != nil {
 		panic(err)
 	}
-	rollupTransitionBatchBuilder := rollup.NewDummyBatchBuilder()
-	pm, err := NewProtocolManager(gspec.Config, nil, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db, 1, nil, rollupTransitionBatchBuilder)
+	pm, err := NewProtocolManager(gspec.Config, nil, mode, DefaultConfig.NetworkId, evmux, &testTxPool{added: newtx}, engine, blockchain, db, 1, nil)
 	if err != nil {
 		return nil, nil, err
 	}
