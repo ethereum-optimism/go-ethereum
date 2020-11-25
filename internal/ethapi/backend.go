@@ -96,9 +96,11 @@ type Backend interface {
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
+
+	GetDiff(*big.Int) (diffdb.Diff, error)
 }
 
-func GetAPIs(apiBackend Backend, diffDb *diffdb.DiffDb) []rpc.API {
+func GetAPIs(apiBackend Backend) []rpc.API {
 	nonceLock := new(AddrLocker)
 	return []rpc.API{
 		{
@@ -109,7 +111,7 @@ func GetAPIs(apiBackend Backend, diffDb *diffdb.DiffDb) []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   NewPublicBlockChainAPI(apiBackend, diffDb),
+			Service:   NewPublicBlockChainAPI(apiBackend),
 			Public:    true,
 		}, {
 			Namespace: "eth",
