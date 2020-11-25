@@ -274,16 +274,7 @@ func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrM
 		account := vm.OvmStateDump.Accounts[acctKey]
 		statedb.SetCode(account.Address, common.FromHex(account.Code))
 		statedb.SetNonce(account.Address, account.Nonce)
-		storageKeys := make([]string, len(account.Storage))
-		i := 0
-		for k := range account.Storage {
-			storageKeys[i] = k.Hex()
-			i++
-		}
-		sort.Strings(storageKeys)
-		for _, storageKeyStr := range acctKeys {
-			key := common.HexToHash(storageKeyStr)
-			val := account.Storage[key]
+		for key, val := range account.Storage {
 			statedb.SetState(account.Address, key, common.HexToHash(val))
 		}
 	}
