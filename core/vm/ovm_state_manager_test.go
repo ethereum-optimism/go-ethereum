@@ -12,12 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-// Test contract addrs
-var (
-	contract1 = common.HexToAddress("0x000000000000000000000000000000000001")
-	contract2 = common.HexToAddress("0x000000000000000000000000000000000002")
-)
-
 type TestData map[*big.Int]BlockData
 
 // per-block test data are an address + a bunch of k/v pairs
@@ -29,17 +23,44 @@ type ContractData struct {
 	value [32]uint8
 }
 
+// Test contract addrs
+var (
+	contract1 = common.HexToAddress("0x000000000000000000000000000000000001")
+	contract2 = common.HexToAddress("0x000000000000000000000000000000000002")
+	env       *EVM
+	contract  *Contract
+	db        *diffdb.DiffDb
+	mock      *mockDb
+	testData  TestData
+)
+
+func init() {
+	db, _ = diffdb.NewDiffDb("test")
+	mock = &mockDb{db: *db}
+	env = NewEVM(Context{}, mock, params.TestChainConfig, Config{})
+	// re-use `dummyContractRef` from `logger_test.go`
+	contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
+	testData = make(TestData)
+}
+
+func TestEthCallNoop(t *testing.T) {
+	env.Context.EthCallSender = &common.Address{0}
+	env.Context.BlockNumber = big.NewInt(1)
+	args := map[string]interface{}{
+		"_contract": contract1,
+		"_key":      [32]uint8{1},
+		"_value":    [32]uint8{2},
+	}
+	putContractStorage(env, contract, args)
+	diff, _ := db.GetDiff(env.Context.BlockNumber)
+	if len(diff) > 0 {
+		t.Fatalf("map must be empty since it was an eth call")
+	}
+}
+
 func TestSetDiffs(t *testing.T) {
-	db, _ := diffdb.NewDiffDb("test")
-	mock := mockDb{db: *db}
-	var (
-		env = NewEVM(Context{}, &mock, params.TestChainConfig, Config{})
-		// re-use `dummyContractRef` from `logger_test.go`
-		contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
-	)
-
-	var testData TestData = make(TestData)
-
+	// not an eth-call
+	env.Context.EthCallSender = nil
 	// in block 1 both contracts get touched
 	blockNumber := big.NewInt(5)
 	testData.addRandomData(blockNumber, contract1, 5)
