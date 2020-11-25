@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -262,7 +263,15 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
 func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrManagerOwnerAddress common.Address) {
-	for _, account := range vm.OvmStateDump.Accounts {
+	acctKeys := make([]string, len(vm.OvmStateDump.Accounts))
+	i := 0
+	for k := range vm.OvmStateDump.Accounts {
+		acctKeys[i] = k
+		i++
+	}
+	sort.Strings(acctKeys)
+	for _, acctKey := range acctKeys {
+		account := vm.OvmStateDump.Accounts[acctKey]
 		statedb.SetCode(account.Address, common.FromHex(account.Code))
 		statedb.SetNonce(account.Address, account.Nonce)
 		for key, val := range account.Storage {
