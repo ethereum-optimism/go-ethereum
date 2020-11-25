@@ -132,8 +132,10 @@ func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 	}
 	val := toHash(_value)
 	evm.StateDB.SetState(address, key, val)
-	// save the block number and address with modified key
-	evm.StateDB.SetDiffKey(evm.Context.BlockNumber, address, key)
+	// save the block number and address with modified key if it's not an eth_call
+	if evm.Context.EthCallSender == nil {
+		evm.StateDB.SetDiffKey(evm.Context.BlockNumber, address, key)
+	}
 
 	log.Debug("Put contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
 	return []interface{}{}, nil
