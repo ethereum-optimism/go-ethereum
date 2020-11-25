@@ -509,13 +509,12 @@ func (s *PrivateAccountAPI) Unpair(ctx context.Context, url string, pin string) 
 // PublicBlockChainAPI provides an API to access the Ethereum blockchain.
 // It offers only methods that operate on public data that is freely available to anyone.
 type PublicBlockChainAPI struct {
-	b    Backend
-	diff *diffdb.DiffDb
+	b Backend
 }
 
 // NewPublicBlockChainAPI creates a new Ethereum blockchain API.
-func NewPublicBlockChainAPI(b Backend, diff *diffdb.DiffDb) *PublicBlockChainAPI {
-	return &PublicBlockChainAPI{b, diff}
+func NewPublicBlockChainAPI(b Backend) *PublicBlockChainAPI {
+	return &PublicBlockChainAPI{b}
 }
 
 // ChainId returns the chainID value for transaction replay protection.
@@ -568,16 +567,12 @@ type HeaderMeta struct {
 	Timestamp uint64
 }
 
-func (s *PublicBlockChainAPI) GetStateDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) ([]diffdb.Diff, error) {
-	if s.diff == nil {
-		return nil, errors.New("diffDb not set. This method is not supported in light clients")
-	}
-
+func (s *PublicBlockChainAPI) GetStateDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (diffdb.Diff, error) {
 	_, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
 	if err != nil {
 		return nil, err
 	}
-	return s.diff.GetDiff(header.Number)
+	return s.b.GetDiff(header.Number)
 }
 
 // GetStateDiffProof returns the Merkle-proofs corresponding to all the accounts and
@@ -592,13 +587,17 @@ func (s *PublicBlockChainAPI) GetStateDiffProof(ctx context.Context, blockNrOrHa
 	diffs, err := s.GetStateDiff(ctx, blockNrOrHash)
 
 	// for each changed account, get their proof
-	accounts := make([]AccountResult, len(diffs))
-	for i, diff := range diffs {
-		res, err := s.GetProof(ctx, diff.Address, diff.Keys, blockNrOrHash)
+	var accounts []AccountResult
+	for address, keys := range diffs {
+		keyStrings := make([]string, len(keys))
+		for i, key := range keys {
+			keyStrings[i] = key.String()
+		}
+		res, err := s.GetProof(ctx, address, keyStrings, blockNrOrHash)
 		if err != nil {
 			return nil, err
 		}
-		accounts[i] = *res
+		accounts = append(accounts, *res)
 	}
 
 	// add some metadata

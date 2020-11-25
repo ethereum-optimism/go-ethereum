@@ -3,13 +3,12 @@ package diffdb
 import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/diffdb"
 	"math/big"
 	"testing"
 )
 
 func TestInMemoryDb(t *testing.T) {
-	db, err := diffdb.NewDiffDb("whatever")
+	db, err := NewDiffDb("whatever")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,13 +26,13 @@ func TestInMemoryDb(t *testing.T) {
 	db.SetDiffKey(big.NewInt(1), common.Address{0x2}, common.Hash{0x99})
 	db.SetDiffKey(big.NewInt(2), common.Address{0x2}, common.Hash{0x98})
 
-	diff := db.GetDiff2(big.NewInt(1))
+	diff, _ := db.GetDiff(big.NewInt(1))
 	for i := range hashes {
 		if hashes[i] != diff[addr][i] {
 			t.Fatalf("Did not match")
 		}
 	}
 
-	diff = db.GetDiff2(big.NewInt(5))
+	diff, _ = db.GetDiff(big.NewInt(5))
 	fmt.Println(diff)
 }
