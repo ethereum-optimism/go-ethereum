@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rollup"
 )
 
 const (
@@ -91,12 +92,13 @@ func init() {
 
 // testWorkerBackend implements worker.Backend interfaces and wraps all information needed during the testing.
 type testWorkerBackend struct {
-	db         ethdb.Database
-	txPool     *core.TxPool
-	chain      *core.BlockChain
-	testTxFeed event.Feed
-	genesis    *core.Genesis
-	uncleBlock *types.Block
+	db          ethdb.Database
+	txPool      *core.TxPool
+	chain       *core.BlockChain
+	syncService *rollup.SyncService
+	testTxFeed  event.Feed
+	genesis     *core.Genesis
+	uncleBlock  *types.Block
 }
 
 func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine, db ethdb.Database, n int) *testWorkerBackend {
@@ -139,16 +141,18 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	})
 
 	return &testWorkerBackend{
-		db:         db,
-		chain:      chain,
-		txPool:     txpool,
-		genesis:    &gspec,
-		uncleBlock: blocks[0],
+		db:          db,
+		chain:       chain,
+		txPool:      txpool,
+		syncService: &rollup.SyncService{},
+		genesis:     &gspec,
+		uncleBlock:  blocks[0],
 	}
 }
 
-func (b *testWorkerBackend) BlockChain() *core.BlockChain { return b.chain }
-func (b *testWorkerBackend) TxPool() *core.TxPool         { return b.txPool }
+func (b *testWorkerBackend) BlockChain() *core.BlockChain     { return b.chain }
+func (b *testWorkerBackend) TxPool() *core.TxPool             { return b.txPool }
+func (b *testWorkerBackend) SyncService() *rollup.SyncService { return b.syncService }
 
 func (b *testWorkerBackend) newRandomUncle() *types.Block {
 	var parent *types.Block

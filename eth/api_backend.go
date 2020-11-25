@@ -17,9 +17,11 @@
 package eth
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"math/big"
+	"os"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -74,6 +76,14 @@ func (b *EthAPIBackend) GetRollupContractAddresses() map[string]*common.Address 
 		"stateCommitmentChain":          &b.eth.syncService.StateCommitmentChainAddress,
 		"l1CrossDomainMessengerAddress": &b.eth.syncService.L1CrossDomainMessengerAddress,
 	}
+}
+
+func (b *EthAPIBackend) GetLatestL1BlockNumber() uint64 {
+	return b.eth.syncService.GetLatestL1BlockNumber()
+}
+
+func (b *EthAPIBackend) GetLatestL1Timestamp() uint64 {
+	return b.eth.syncService.GetLatestL1Timestamp()
 }
 
 // ChainConfig returns the active chain configuration.
@@ -256,10 +266,30 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 // Transactions originating from the RPC endpoints are added to remotes so that
 // a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+	if os.Getenv("USING_OVM") == "true" {
+		to := signedTx.To()
+		if to != nil && bytes.Equal(to.Bytes(), common.Address{}.Bytes()) {
+			return errors.New("Cannot send transaction to zero address")
+		}
+	}
 	return b.eth.txPool.AddRemote(signedTx)
 }
 
 func (b *EthAPIBackend) SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error {
+	if os.Getenv("USING_OVM") == "true" {
+		errs := make([]error, len(signedTxs))
+		err := false
+		for i, tx := range signedTxs {
+			to := tx.To()
+			if to != nil && bytes.Equal(to.Bytes(), common.Address{}.Bytes()) {
+				err = true
+				errs[i] = errors.New("Cannot send transaction to zero address")
+			}
+		}
+		if err {
+			return errs
+		}
+	}
 	return b.eth.txPool.AddRemotes(signedTxs)
 }
 
