@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -62,10 +63,9 @@ func (l RollupTxsByIndex) Len() int           { return len(l) }
 func (l RollupTxsByIndex) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l RollupTxsByIndex) Less(i, j int) bool { return l[i].index < l[j].index }
 
-// Consider adding a processed bool for sanity check
+// RollupTransaction represents a transaction parsed from L1
 type RollupTransaction struct {
 	tx          *types.Transaction
-	timestamp   time.Time
 	blockHeight uint64
 	index       uint64
 	executed    bool
@@ -128,10 +128,19 @@ var (
 	sequencerBatchAppendedEventSignature = crypto.Keccak256([]byte("SequencerBatchAppended(uint256,uint256,uint256)"))
 )
 
-// Eth1Data represents the last processed ethereum 1 data.
+// Eth1Data represents the last processed ethereum 1 data
+// The sync service updates this as it syncs blocks.
 type Eth1Data struct {
 	BlockHeight uint64
 	BlockHash   common.Hash
+}
+
+// LatestL1ToL2 represents the latest blocknumber and timestamp.
+// This must be separate than Eth1Data because it is only updated
+// each time that there is a L1 to L2 transaction.
+type LatestL1ToL2 struct {
+	blockNumber uint64
+	timestamp   uint64
 }
 
 // SyncService implements the verifier functionality as well as the reorg
@@ -166,6 +175,7 @@ type SyncService struct {
 	gasLimit                         uint64
 	syncing                          bool
 	Eth1Data                         Eth1Data
+	LatestL1ToL2                     LatestL1ToL2
 	confirmationDepth                uint64
 	HeaderCache                      [2048]*types.Header
 	sequencerIngestTicker            *time.Ticker
@@ -194,6 +204,10 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		cfg.TxIngestionSignerKey, _ = crypto.GenerateKey()
 	}
 	address := crypto.PubkeyToAddress(cfg.TxIngestionSignerKey.PublicKey)
+
+	if cfg.IsVerifier {
+		log.Info("Running in verifier mode")
+	}
 
 	// Layer 2 chainid to use for signing
 	chainID := bc.Config().ChainID
@@ -245,19 +259,15 @@ func (s *SyncService) Start() error {
 	s.setSyncStatus(true)
 
 	blockHeight := rawdb.ReadHeadEth1HeaderHeight(s.db)
+	blockHash := rawdb.ReadHeadEth1HeaderHash(s.db)
 	if blockHeight == 0 {
 		if s.ctcDeployHeight == nil {
 			return errors.New("Must configure with canonical transaction chain deploy height")
 		}
-		cfgHeight := s.ctcDeployHeight.Uint64()
-		// Do not underflow in the case where the ctc contract is in the genesis state
-		if cfgHeight == 0 {
-			blockHeight = cfgHeight
-		} else {
-			blockHeight = cfgHeight - 1
-		}
+		blockHeight = s.ctcDeployHeight.Uint64()
+		// TODO: need to fetch the correct blockHash in this case
 	}
-	blockHash := rawdb.ReadHeadEth1HeaderHash(s.db)
+	log.Info("Starting Eth1 sync heights", "height", blockHeight, "hash", blockHash.Hex())
 	eth1Data := Eth1Data{
 		BlockHeight: blockHeight,
 		BlockHash:   blockHash,
@@ -344,15 +354,30 @@ func (s *SyncService) pollHead() {
 	for {
 		select {
 		case <-headTicker.C:
+			// Fetch the tip by passing `nil`. We want to consume the
+			// blockNumber, but we need to cherry-pick in support for
+			// `eth_blockNumber` from upstream geth. For now, just fetch
+			// the tip and use the blockNumber from there.
 			head, err := s.ethclient.HeaderByNumber(s.ctx, nil)
 			if err != nil {
-				log.Error("Cannot fetch tip")
+				log.Error("Cannot fetch tip", "height", "tip")
 				continue
 			}
-			// The tip is the same
+			// We want to trail the tip by a confirmation number of blocks, so
+			// subtract the confirmationDepth from the tip height and fetch the
+			// block header that will be consumed.
+			blockNumber := head.Number.Sub(head.Number, new(big.Int).SetUint64(s.confirmationDepth))
+			head, err = s.ethclient.HeaderByNumber(s.ctx, blockNumber)
+			if err != nil {
+				log.Error("Cannot fetch tip", "height", blockNumber.Uint64())
+				continue
+			}
+			// The tip is the same, do not ingest the block.
 			if bytes.Equal(head.Hash().Bytes(), s.Eth1Data.BlockHash.Bytes()) {
 				continue
 			}
+			// It is possible that multiple blocks have passed since this
+			// function last polled, so recursively fetch them.
 			process := new([]*types.Header)
 			index, err := s.getCommonAncestor(head.Number, process)
 			if err != nil {
@@ -461,49 +486,11 @@ func (s *SyncService) sequencerIngestQueue() {
 		panic("Cannot run sequencer ingestion in verifier mode")
 	}
 
+	// For now, only handle the case where syncing is true
 	for {
 		select {
 		case <-s.sequencerIngestTicker.C:
 			switch s.syncing {
-			case false:
-				// Get the tip
-				tip, err := s.ethclient.HeaderByNumber(s.ctx, nil)
-				if err != nil {
-					log.Error("Sequencer ingest queue cannot get tip", "message", err.Error())
-					continue
-				}
-				tipHeight := tip.Number.Uint64()
-				// The transactions need to be played in order and there is no
-				// guarantee of order when it comes to the txcache iteration, so
-				// collect an array of pointers and then sort them by index.
-				txs := []*RollupTransaction{}
-				s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-					// The transaction has not been executed and is
-					// sufficiently old.
-					if !rtx.executed && rtx.blockHeight+s.confirmationDepth <= tipHeight {
-						txs = append(txs, rtx)
-					} else if !rtx.executed {
-						log.Debug("Too early to execute tx", "enqueue-height", rtx.blockHeight, "tip-height", tipHeight, "queue-index", index)
-					}
-				})
-
-				// Sort in ascending order
-				sort.Sort(RollupTxsByIndex(txs))
-				log.Info("Ingesting transactions from L1", "count", len(txs))
-				for i := 0; i < len(txs); i++ {
-					rtx := txs[i]
-					log.Debug("Sequencer ingesting", "local-index", i, "rtx-index", rtx.index)
-					// set the timestamp
-					s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
-					// The god key needs to sign L1ToL2 transactions
-					err := s.applyTransaction(rtx.tx, true)
-					if err != nil {
-						log.Error("Sequencer ingest queue transaction failed: %w", err)
-					}
-					rtx.executed = true
-					s.txCache.Store(rtx.index, rtx)
-				}
-				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "tip-height", tipHeight)
 			case true:
 				opts := bind.CallOpts{Pending: false, Context: s.ctx}
 				totalElements, err := s.ctcCaller.GetTotalElements(&opts)
@@ -615,17 +602,22 @@ func (s *SyncService) Loop() {
 			if header == nil {
 				continue
 			}
+			// Update the LatestL1ToL2 info if it is too old.
+			// This does not impact the verifier, as all timestamps
+			// are set by information that comes in the calldata.
+			s.maybeUpdateLatestL1ToL2(header)
+
 			blockHeight := header.Number.Uint64()
 			eth1data, err := s.ProcessETHBlock(s.ctx, header)
 			if err != nil {
 				log.Error("Error processing eth block", "message", err.Error(), "height", blockHeight)
 				s.doneProcessing <- blockHeight
-				// TODO(mark): consider checking the error type here and calling
-				// syncHistoricalBlocks in case the eth_subscribe starts to
-				// return blocks in the future relative to what is known locally.
 				continue
 			}
 			s.Eth1Data = eth1data
+			if !s.verifier {
+				s.ApplyLogs(header)
+			}
 			s.doneProcessing <- blockHeight
 		case <-s.ctx.Done():
 			break
@@ -675,8 +667,34 @@ func (s *SyncService) checkSyncStatus() error {
 // processHistoricalLogs will sync block by block of the eth1 chain, looking for
 // events it can process.
 func (s *SyncService) processHistoricalLogs() error {
-	errCh := make(chan error)
+	// Fetch the state of the LatestL1ToL2 data based on the last processed
+	// ETH1Data. There is no way to directly get the queue length, so get the
+	// next queue index and the number of pending queue elements. If there are
+	// pending queue elements, add them to the next queue index to get the
+	// length of the queue. Get the queue element at that index and set its
+	// block number and timestamp as the LatestL1ToL2 data
+	opts := bind.CallOpts{Context: s.ctx, BlockNumber: new(big.Int).SetUint64(s.Eth1Data.BlockHeight)}
+	index, err := s.ctcCaller.GetNextQueueIndex(&opts)
+	if err != nil {
+		return fmt.Errorf("Cannot fetch next queue index from ctc contract at height %d: %w", s.Eth1Data.BlockHeight, err)
+	}
+	if index.Uint64() > 0 {
+		pending, err := s.ctcCaller.GetNumPendingQueueElements(&opts)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch num pending queue elements from ctc contract at height %d: %w", s.Eth1Data.BlockHeight, err)
+		}
+		if pending.Uint64() > 0 {
+			index = index.Add(index, pending)
+		}
+		element, err := s.ctcCaller.GetQueueElement(&opts, index)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch queue element from ctc contract at height %d: %w", s.Eth1Data.BlockHeight, err)
+		}
+		s.SetLatestL1Timestamp(element.Timestamp.Uint64())
+		s.SetLatestL1BlockNumber(element.BlockNumber.Uint64())
+	}
 
+	errCh := make(chan error)
 	go func(c chan error) {
 		log.Info("Processing historical logs")
 		defer func() { close(c) }()
@@ -814,6 +832,45 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	}, nil
 }
 
+// ApplyLogs will apply cached transactions from `enqueue` logs.
+// This function should only be called in the case of sequencer.
+func (s *SyncService) ApplyLogs(tip *types.Header) error {
+	// Handle the enqueue'd transactions. This codepath is only useful
+	// for the sequencer, as the verifier should only handle transactions
+	// from sequencer batch append and queue batch append.
+	// The transactions need to be played in order and there is no
+	// guarantee of order when it comes to the txcache iteration, so
+	// collect an array of pointers and then sort them by index.
+	txs := []*RollupTransaction{}
+	s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
+		// The transaction has not been executed. We know that it is
+		// sufficiently old because we only ingest blocks that are
+		// sufficiently old.
+		if !rtx.executed {
+			txs = append(txs, rtx)
+		}
+	})
+
+	// Sort in ascending order
+	sort.Sort(RollupTxsByIndex(txs))
+	log.Info("Ingesting transactions from L1", "count", len(txs))
+	for i := 0; i < len(txs); i++ {
+		rtx := txs[i]
+		log.Debug("Sequencer ingesting", "local-index", i, "rtx-index", rtx.index)
+		// The god key needs to sign L1ToL2 transactions
+		// The reorg code is no longer used here, after it is better
+		// tested we should move back to using it here and remove
+		// the verifier check in maybeReorgAndApplyTx
+		err := s.applyTransaction(rtx.tx, true)
+		if err != nil {
+			log.Error("Sequencer ingest queue transaction failed: %w", err)
+		}
+		rtx.executed = true
+		s.txCache.Store(rtx.index, rtx)
+	}
+	return nil
+}
+
 // GetLastProcessedEth1Data will read the last processed information from the
 // database and return it in an Eth1Data struct.
 func (s *SyncService) GetLastProcessedEth1Data() Eth1Data {
@@ -823,6 +880,37 @@ func (s *SyncService) GetLastProcessedEth1Data() Eth1Data {
 	return Eth1Data{
 		BlockHash:   hash,
 		BlockHeight: height,
+	}
+}
+
+// Methods for safely accessing and storing the latest
+// L1 blocknumber and timestamp
+func (s *SyncService) GetLatestL1Timestamp() uint64 {
+	return atomic.LoadUint64(&s.LatestL1ToL2.timestamp)
+}
+
+func (s *SyncService) GetLatestL1BlockNumber() uint64 {
+	return atomic.LoadUint64(&s.LatestL1ToL2.blockNumber)
+}
+
+func (s *SyncService) SetLatestL1Timestamp(ts uint64) {
+	atomic.StoreUint64(&s.LatestL1ToL2.timestamp, ts)
+}
+
+func (s *SyncService) SetLatestL1BlockNumber(bn uint64) {
+	atomic.StoreUint64(&s.LatestL1ToL2.blockNumber, bn)
+}
+
+// maybeUpdateLatestL1ToL2 updates the latest L1 block information
+// if the timestamp is greater than 5 minutes old. Based on the
+// simple equation: now - 5 < prev, where now is the timestamp
+// of the L1 tip and prev is the previous latest L1 timestamp.
+func (s *SyncService) maybeUpdateLatestL1ToL2(tip *types.Header) {
+	prev := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
+	now := time.Unix(int64(tip.Time), 0).Add(-5 * time.Minute)
+	if now.Before(prev) {
+		s.SetLatestL1Timestamp(tip.Time)
+		s.SetLatestL1BlockNumber(tip.Number.Uint64())
 	}
 }
 
@@ -859,12 +947,25 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 	// Nonce is set by god key at execution time
 	// Value and gasPrice are set to 0
 	tx := types.NewTransaction(uint64(0), event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, new(big.Int).SetUint64(ethlog.BlockNumber), types.QueueOriginL1ToL2, types.SighashEIP155)
-	// Timestamp is used to update the blockchains clocktime
-	timestamp := time.Unix(event.Timestamp.Int64(), 0)
-	rtx := RollupTransaction{tx: tx, timestamp: timestamp, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
+	// Set the timestamp in the txmeta
+	timestamp := uint64(event.Timestamp.Int64())
+	tx.SetL1Timestamp(timestamp)
+
+	rtx := RollupTransaction{tx: tx, blockHeight: ethlog.BlockNumber, executed: false, index: event.QueueIndex.Uint64()}
 	// In the case of a reorg, the rtx at a certain index can be overwritten
 	s.txCache.Store(event.QueueIndex.Uint64(), &rtx)
 	log.Debug("Transaction enqueued", "queue-index", event.QueueIndex.Uint64(), "timestamp", timestamp, "l1-blocknumber", ethlog.BlockNumber, "to", event.Target.Hex())
+
+	// Ensure monotonicity
+	latest := s.GetLatestL1Timestamp()
+	if timestamp < latest {
+		log.Error("Timestamp unexpectedly early", "latest", latest, "new", timestamp)
+	} else {
+		// Set the timestamp and blocknumber so that transactions from
+		// queue origin sequencer can access this information
+		s.SetLatestL1Timestamp(timestamp)
+		s.SetLatestL1BlockNumber(ethlog.BlockNumber)
+	}
 
 	return nil
 }
@@ -873,15 +974,11 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 // from the canonical transaction chain contract.
 func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
 	log.Debug("Processing sequencer batch appended")
-	// TODO(mark): temporary fix to disable sequencer batch append
-	if true {
-		return nil
-	}
-
 	event, err := s.ctcFilterer.ParseSequencerBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse sequencer batch appended log data: %w", err)
 	}
+	log.Debug("Sequencer Batch Appended Event Log", "startingQueueIndex", event.StartingQueueIndex.Uint64(), "numQueueElements", event.NumQueueElements.Uint64(), "totalElements", event.TotalElements.Uint64())
 
 	tx, pending, err := s.ethclient.TransactionByHash(ctx, ethlog.TxHash)
 	if err == ethereum.NotFound {
@@ -909,9 +1006,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 	log.Debug("Decoded chain elements", "count", len(cd.ChainElements))
 	for i, element := range cd.ChainElements {
 		var tx *types.Transaction
-		// The number of queue elements must be the number *after* all of the
-		// operations for this to work properly.
-		index := event.TotalElements.Uint64() - (uint64(i) + event.NumQueueElements.Uint64())
+		index := (event.TotalElements.Uint64() - uint64(len(cd.ChainElements))) + uint64(i)
 		// Certain types of transactions require a signature from the god key.
 		// Keep track of this so that the god key can sign after reorganizing,
 		// to ensure that nonces are correct.
@@ -928,21 +1023,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				return fmt.Errorf("Cannot deserialize txdata at index %d: %w", index, err)
 			}
 
-			// TODO: QueueOriginSequencer transactions need to include the last
-			// L1BlockNumber of a L1ToL2 transaction, not `nil`.
 			switch ctcTx.typ {
-			case CTCTransactionTypeEOA:
-				// The god key needs to sign in this case
-				godKeyShouldSign = true
-				nonce := uint64(0)
-				to := s.SequencerDecompressionAddress
-				// TEMP: replacement of s.gasLimit, which is fetched from
-				// the contracts, it breaks things
-				gasLimit := uint64(8000000)
-
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, big.NewInt(0), element.TxData, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
-				tx.SetIndex(index)
-				log.Debug("Deserialized CTC EOA transaction", "index", index, "to", tx.To().Hex(), "data", hexutil.Encode(element.TxData))
 			case CTCTransactionTypeEIP155:
 				// The signature is deserialized so the god key does not need to
 				// sign in this case.
@@ -951,11 +1032,14 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 					return fmt.Errorf("Unexpected type when parsing ctc tx eip155: %T", ctcTx.tx)
 				}
 				nonce, gasLimit := uint64(eip155.nonce), uint64(eip155.gasLimit)
-				to, l1TxOrigin := eip155.target, common.Address{}
+				to := eip155.target
 				gasPrice := new(big.Int).SetUint64(uint64(eip155.gasPrice))
 				data := eip155.data
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, &l1TxOrigin, nil, types.QueueOriginSequencer, types.SighashEIP155)
+				l1BlockNumber := element.BlockNumber
+				// Set the L1TxOrigin to `nil`
+				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer, types.SighashEIP155)
 				tx.SetIndex(index)
+				tx.SetL1Timestamp(element.Timestamp.Uint64())
 				// `WithSignature` accepts:
 				// r || s || v where v is normalized to 0 or 1
 				tx, err = tx.WithSignature(s.signer, eip155.Signature[:])
@@ -963,9 +1047,36 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 					return fmt.Errorf("Cannot add signature to eip155 tx: %w", err)
 				}
 				log.Debug("Deserialized CTC EIP155 transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
+			case CTCTransactionTypeEthSign:
+				// The signature is deserialized so the god key does not need to
+				// sign in this case.
+				ethsign, ok := ctcTx.tx.(*CTCTxEthSign)
+				if !ok {
+					return fmt.Errorf("Unexpected type when parsing ctc tx eip155: %T", ctcTx.tx)
+				}
+				nonce, gasLimit := uint64(ethsign.nonce), uint64(ethsign.gasLimit)
+				to := ethsign.target
+				gasPrice := new(big.Int).SetUint64(uint64(ethsign.gasPrice))
+				data := ethsign.data
+				l1BlockNumber := element.BlockNumber
+				// Set the L1TxOrigin to `nil`
+				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer, types.SighashEthSign)
+				tx.SetIndex(index)
+				tx.SetL1Timestamp(element.Timestamp.Uint64())
+				// `WithSignature` accepts:
+				// r || s || v where v is normalized to 0 or 1
+				tx, err = tx.WithSignature(s.signer, ethsign.Signature[:])
+				if err != nil {
+					return fmt.Errorf("Cannot add signature to ethsign tx: %w", err)
+				}
+				log.Debug("Deserialized CTC EthSign transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
 			default:
-				// This should never happen
-				return fmt.Errorf("Unknown tx type: %x", element.TxData)
+				// TODO(mark): still need to pass along this transaction and
+				// execute it. The `to` should be the sequencer entrypoint,
+				// the calldata should be the all the data, max gas limit,
+				// gas price of 0.
+				log.Info("Unknown tx type", "data", hexutil.Encode(element.TxData))
+				continue
 			}
 		} else {
 			// Queue transaction
@@ -976,8 +1087,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				log.Error("Cannot find transaction in transaction cache", "index", index)
 				continue
 			}
-			s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
-			log.Debug("Setting timestamp", "timestamp", rtx.timestamp.Unix())
+			tx = rtx.tx
 			rtx.executed = true
 			s.txCache.Store(rtx.index, rtx)
 		}
@@ -995,16 +1105,19 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 // maybeReorg will check to see if the transaction at the index is different
 // and then reorg the chain to `index-1` if it is.
 func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
-	// Handle the special case of never reorging the genesis block
-	if index == 0 {
+	// Handle the special case of never reorging the genesis block and the off
+	// by one case that exists between the CTC and geth 2 state.
+	if index == 0 || index == 1 {
 		return nil
 	}
 	// Check if there is already a transaction at the index
-	if block := s.bc.GetBlockByNumber(index); block != nil {
+	if block := s.bc.GetBlockByNumber(index - 1); block != nil {
 		// A transaction exists at the current index
-		// Sanity check that there is a transaction in the block
 		if count := len(block.Transactions()); count != 1 {
-			return fmt.Errorf("Unexpected number of transactions in a block %d", count)
+			// Don't return an error here to handle the case of the genesis
+			// block not having a transaction, until the genesis tx is included
+			log.Debug("Unexpected number of transactions in block", "count", count)
+			return nil
 		}
 		prev := block.Transactions()[0]
 		// The transaction hash is not the canonical identifier of a transaction
@@ -1025,9 +1138,14 @@ func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, 
 	if err != nil {
 		return fmt.Errorf("Cannot reorganize before applying tx: %w", err)
 	}
-	err = s.applyTransaction(tx, godKeyShouldSign)
-	if err != nil {
-		return fmt.Errorf("Cannot apply tx: %w", err)
+	// Only apply transactions in the case where it is the verifier.
+	// This is here so that we can observe the behavior of `maybeReorg`
+	// to make sure that it is operating as expected.
+	if s.verifier {
+		err = s.applyTransaction(tx, godKeyShouldSign)
+		if err != nil {
+			return fmt.Errorf("Cannot apply tx: %w", err)
+		}
 	}
 	return nil
 }
@@ -1050,25 +1168,20 @@ func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction
 // emitted from the canonical transaction chain.
 func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog types.Log) error {
 	log.Debug("Processing queue batch appended")
-	// Disable the queue batch append logic for now
-	if true {
-		return nil
-	}
 	event, err := s.ctcFilterer.ParseQueueBatchAppended(ethlog)
 	if err != nil {
 		return fmt.Errorf("Unable to parse queue batch appended log data: %w", err)
 	}
+	log.Debug("Queue Batch Appended Event Log", "startingQueueIndex", event.StartingQueueIndex.Uint64(), "numQueueElements", event.NumQueueElements.Uint64(), "totalElements", event.TotalElements.Uint64())
 
 	start := event.TotalElements.Uint64() - event.NumQueueElements.Uint64()
 	end := start + event.NumQueueElements.Uint64()
-
 	for i := start; i < end; i++ {
 		rtx, ok := s.txCache.Load(i)
 		if !ok {
 			log.Error("Cannot find transaction in transaction cache", "index", i)
 			continue
 		}
-		s.bc.SetCurrentTimestamp(rtx.timestamp.Unix())
 		// The god key needs to sign in this case
 		err = s.maybeReorgAndApplyTx(i, rtx.tx, true)
 		if err != nil {

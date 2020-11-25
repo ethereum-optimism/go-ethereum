@@ -90,6 +90,8 @@ type Backend interface {
 	IsSyncing() bool
 	GetLatestEth1Data() (common.Hash, uint64)
 	GetRollupContractAddresses() map[string]*common.Address
+	GetLatestL1BlockNumber() uint64
+	GetLatestL1Timestamp() uint64
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
@@ -111,7 +113,7 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 		}, {
 			Namespace: "eth",
 			Version:   "1.0",
-			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock, nil),
+			Service:   NewPublicTransactionPoolAPI(apiBackend, nonceLock),
 			Public:    true,
 		}, {
 			Namespace: "rollup",

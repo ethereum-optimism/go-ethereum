@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -74,9 +75,6 @@ const (
 
 	// staleThreshold is the maximum depth of the acceptable stale block.
 	staleThreshold = 7
-
-	maxClockSkewSeconds   = 600 // 10 mins for now
-	timestampDelaySeconds = 300 // 5 mins for now
 )
 
 // environment is the worker's current environment and holds all of the current state information.
@@ -223,7 +221,6 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	go worker.newWorkLoop(recommit)
 	go worker.resultLoop()
 	go worker.taskLoop()
-	go worker.timestampLoop()
 
 	// Submit first work to initialize pending state.
 	if init {
@@ -618,31 +615,6 @@ func (w *worker) resultLoop() {
 	}
 }
 
-// timestampLoop is a loop that updates the timestamp used for blocks when it
-// is stale by more than a certain threshold.
-// TODO: Re-think this as everything comes together more.
-func (w *worker) timestampLoop() {
-	timer := time.NewTimer(0)
-
-	for {
-		select {
-		case <-timer.C:
-			currentTime := time.Now().Unix()
-			skew := currentTime - w.chain.CurrentTimestamp()
-			if skew > maxClockSkewSeconds {
-				newTime := currentTime - timestampDelaySeconds
-				w.chain.SetCurrentTimestamp(newTime)
-				timer.Reset((maxClockSkewSeconds - timestampDelaySeconds) * time.Second)
-				log.Debug("timestamp above max clock skew", "maxSkew", maxClockSkewSeconds, "overBy", timestampDelaySeconds, "newTime", newTime)
-			} else {
-				timer.Reset(time.Duration(maxClockSkewSeconds-skew) * time.Second)
-			}
-		case <-w.exitCh:
-			return
-		}
-	}
-}
-
 // makeCurrent creates a new environment for the current cycle.
 func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 	state, err := w.chain.StateAt(parent.Root())
@@ -650,7 +622,7 @@ func (w *worker) makeCurrent(parent *types.Block, header *types.Header) error {
 		return err
 	}
 	env := &environment{
-		signer:    types.NewEIP155Signer(w.chainConfig.ChainID),
+		signer:    types.NewOVMSigner(w.chainConfig.ChainID),
 		state:     state,
 		ancestors: mapset.NewSet(),
 		family:    mapset.NewSet(),
@@ -786,6 +758,22 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		if tx == nil {
 			break
 		}
+
+		// OVM Change - set the timestamp on the header to the
+		// timestamp of the transaction. Since there is an assumption
+		// of only 1 transaction, only do this for the first tx.
+		if os.Getenv("USING_OVM") == "true" {
+			if len(w.current.txs) == 0 {
+				if tx.L1Timestamp() == 0 {
+					ts := w.eth.SyncService().GetLatestL1Timestamp()
+					bn := w.eth.SyncService().GetLatestL1BlockNumber()
+					tx.SetL1Timestamp(ts)
+					tx.SetL1BlockNumber(bn)
+				}
+				w.current.header.Time = tx.L1Timestamp()
+			}
+		}
+
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
@@ -863,17 +851,6 @@ func (w *worker) commitNewWork(interrupt *int32, noempty bool, timestamp int64) 
 
 	tstart := time.Now()
 	parent := w.chain.CurrentBlock()
-
-	// TODO: Is there some other sensible check that we can do in place of the below code with timestamps set from L1?
-	//if parent.Time() >= uint64(timestamp) {
-	//	timestamp = int64(parent.Time() + 1)
-	//}
-	// this will ensure we're not going off too far in the future
-	//if now := time.Now().Unix(); timestamp > now+1 {
-	//	wait := time.Duration(timestamp-now) * time.Second
-	//	log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
-	//	time.Sleep(wait)
-	//}
 
 	num := parent.Number()
 	header := &types.Header{
