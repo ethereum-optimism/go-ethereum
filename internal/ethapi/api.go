@@ -585,6 +585,9 @@ func (s *PublicBlockChainAPI) GetStateDiffProof(ctx context.Context, blockNrOrHa
 
 	// get the changed accounts for this block
 	diffs, err := s.GetStateDiff(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
 
 	// for each changed account, get their proof
 	var accounts []AccountResult
