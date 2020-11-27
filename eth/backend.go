@@ -40,7 +40,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/diffdb"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
@@ -91,7 +90,6 @@ type Ethereum struct {
 	bloomIndexer  *core.ChainIndexer             // Bloom indexer operating during block imports
 
 	APIBackend *EthAPIBackend
-	APIDiffDb  *diffdb.DiffDb
 
 	miner     *miner.Miner
 	gasPrice  *big.Int
@@ -230,13 +228,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		gpoParams.Default = config.Miner.GasPrice
 	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
-
-	apiDiffDb, err := diffdb.NewDiffDb("eth/db/diffs")
-	if err != nil {
-		return nil, err
-	}
-	eth.APIDiffDb = apiDiffDb
-
 	return eth, nil
 }
 

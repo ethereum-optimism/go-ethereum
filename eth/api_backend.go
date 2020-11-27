@@ -96,7 +96,7 @@ func (b *EthAPIBackend) CurrentBlock() *types.Block {
 }
 
 func (b *EthAPIBackend) GetDiff(block *big.Int) (diffdb.Diff, error) {
-	return b.eth.APIDiffDb.GetDiff(block)
+	return b.eth.blockchain.GetDiff(block)
 }
 
 func (b *EthAPIBackend) SetHead(number uint64) {

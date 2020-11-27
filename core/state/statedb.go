@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/diffdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -60,6 +61,7 @@ func (n *proofList) Delete(key []byte) error {
 // DiffDb is a database for storing state diffs per block
 type DiffDB interface {
 	SetDiffKey(*big.Int, common.Address, common.Hash)
+	GetDiff(*big.Int) (diffdb.Diff, error)
 }
 
 // StateDBs within the ethereum protocol are used to store anything
