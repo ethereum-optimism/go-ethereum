@@ -358,7 +358,7 @@ func (bc *BlockChain) loadLastState() error {
 		return bc.Reset()
 	}
 	// Make sure the state associated with the block is available
-	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
+	if _, err := state.NewWithDiffDb(currentBlock.Root(), bc.stateCache, bc.diffdb); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 		if err := bc.repair(&currentBlock); err != nil {
@@ -420,7 +420,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 			if newHeadBlock == nil {
 				newHeadBlock = bc.genesisBlock
 			} else {
-				if _, err := state.New(newHeadBlock.Root(), bc.stateCache); err != nil {
+				if _, err := state.NewWithDiffDb(newHeadBlock.Root(), bc.stateCache, bc.diffdb); err != nil {
 					// Rewound state missing, rolled back to before pivot, reset to genesis
 					newHeadBlock = bc.genesisBlock
 				}
@@ -531,6 +531,10 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 	return bc.currentBlock.Load().(*types.Block)
 }
 
+func (bc *BlockChain) GetDiff(block *big.Int) (diffdb.Diff, error) {
+	return bc.diffdb.GetDiff(block)
+}
+
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentFastBlock() *types.Block {
@@ -554,7 +558,7 @@ func (bc *BlockChain) State() (*state.StateDB, error) {
 
 // StateAt returns a new mutable state based on a particular point in time.
 func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
-	return state.New(root, bc.stateCache)
+	return state.NewWithDiffDb(root, bc.stateCache, bc.diffdb)
 }
 
 // StateCache returns the caching database underpinning the blockchain instance.
@@ -606,7 +610,7 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 func (bc *BlockChain) repair(head **types.Block) error {
 	for {
 		// Abort if we've rewound to a head block that does have associated state
-		if _, err := state.New((*head).Root(), bc.stateCache); err == nil {
+		if _, err := state.NewWithDiffDb((*head).Root(), bc.stateCache, bc.diffdb); err == nil {
 			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
 			return nil
 		}
