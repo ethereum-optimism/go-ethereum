@@ -557,14 +557,14 @@ type StorageResult struct {
 
 // Result structs for GetStateDiffProof
 type StateDiffProof struct {
-	header   *HeaderMeta
-	accounts []AccountResult
+	Header   *HeaderMeta     `json:"header"`
+	Accounts []AccountResult `json:"accounts"`
 }
 type HeaderMeta struct {
-	Number    *big.Int
-	Hash      common.Hash
-	StateRoot common.Hash
-	Timestamp uint64
+	Number    *big.Int    `json:"number"`
+	Hash      common.Hash `json:"hash"`
+	StateRoot common.Hash `json:"stateRoot"`
+	Timestamp uint64      `json:"timestamp"`
 }
 
 func (s *PublicBlockChainAPI) GetStateDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (diffdb.Diff, error) {
@@ -605,16 +605,16 @@ func (s *PublicBlockChainAPI) GetStateDiffProof(ctx context.Context, blockNrOrHa
 
 	// add some metadata
 	stateDiffProof := &StateDiffProof{
-		header: &HeaderMeta{
+		Header: &HeaderMeta{
 			Number:    header.Number,
 			Hash:      header.Hash(),
 			StateRoot: header.Root,
 			Timestamp: header.Time,
 		},
-		accounts: accounts,
+		Accounts: accounts,
 	}
 
-	return stateDiffProof, nil
+	return stateDiffProof, state.Error()
 }
 
 // GetProof returns the Merkle-proof for a given account and optionally some storage keys.
