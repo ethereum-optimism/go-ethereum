@@ -19,8 +19,9 @@ type BlockData map[common.Address][]ContractData
 
 // keys and values are bytes32 in solidity
 type ContractData struct {
-	key   [32]uint8
-	value [32]uint8
+	key     [32]uint8
+	value   [32]uint8
+	mutated bool
 }
 
 // Test contract addrs
@@ -77,7 +78,7 @@ func TestSetDiffs(t *testing.T) {
 	diff, _ := db.GetDiff(blockNumber)
 	expected := getExpected(testData[blockNumber])
 	if !reflect.DeepEqual(diff, expected) {
-		t.Fatalf("Diff did not match. Got %x, expected %x", diff, expected)
+		t.Fatalf("Diff did not match.")
 	}
 
 	// empty diff for the next block
@@ -92,7 +93,7 @@ func TestSetDiffs(t *testing.T) {
 	expected2 := getExpected(testData[blockNumber2])
 	diff2, _ = db.GetDiff(blockNumber2)
 	if !reflect.DeepEqual(diff2, expected2) {
-		t.Fatalf("Diff did not match. Got %x, expected %x", diff2, expected2)
+		t.Fatalf("Diff2 did not match.")
 	}
 }
 
@@ -119,8 +120,9 @@ func putTestData(t *testing.T, env *EVM, contract *Contract, blockNumber *big.In
 func (data TestData) addRandomData(blockNumber *big.Int, contract common.Address, num int) {
 	for i := 0; i < num; i++ {
 		val := ContractData{
-			key:   randBytes(),
-			value: randBytes(),
+			key:     randBytes(),
+			value:   randBytes(),
+			mutated: true,
 		}
 
 		// alloc empty blockdata
@@ -137,7 +139,11 @@ func getExpected(testData BlockData) diffdb.Diff {
 	res := make(diffdb.Diff)
 	for address, data := range testData {
 		for _, contractData := range data {
-			res[address] = append(res[address], contractData.key)
+			key := diffdb.Key{
+				Key:     contractData.key,
+				Mutated: contractData.mutated,
+			}
+			res[address] = append(res[address], key)
 		}
 	}
 	return res
@@ -157,8 +163,8 @@ type mockDb struct {
 	db diffdb.DiffDb
 }
 
-func (mock *mockDb) SetDiffKey(block *big.Int, address common.Address, key common.Hash) error {
-	mock.db.SetDiffKey(block, address, key)
+func (mock *mockDb) SetDiffKey(block *big.Int, address common.Address, key common.Hash, mutated bool) error {
+	mock.db.SetDiffKey(block, address, key, mutated)
 	return nil
 }
 func (mock *mockDb) CreateAccount(common.Address)                              {}
