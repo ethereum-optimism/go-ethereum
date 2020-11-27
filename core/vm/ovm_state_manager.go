@@ -131,10 +131,24 @@ func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 		return nil, errors.New("Could not parse value arg in putContractStorage")
 	}
 	val := toHash(_value)
-	evm.StateDB.SetState(address, key, val)
+
 	// save the block number and address with modified key if it's not an eth_call
 	if evm.Context.EthCallSender == nil {
-		evm.StateDB.SetDiffKey(evm.Context.BlockNumber, address, key)
+		// save the value before
+		before := evm.StateDB.GetState(address, key)
+		evm.StateDB.SetState(address, key, val)
+		err := evm.StateDB.SetDiffKey(
+			evm.Context.BlockNumber,
+			address,
+			key,
+			before != val,
+		)
+		if err != nil {
+			log.Error("error", err)
+		}
+	} else {
+		// otherwise just do the db update
+		evm.StateDB.SetState(address, key, val)
 	}
 
 	log.Debug("Put contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
