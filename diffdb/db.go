@@ -7,7 +7,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type Diff map[common.Address][]common.Hash
+type Key struct {
+	Key     common.Hash
+	Mutated bool
+}
+
+type Diff map[common.Address][]Key
 
 type DiffDb struct {
 	// Todo: should this be go-ethereum's leveldb maybe?
@@ -16,14 +21,14 @@ type DiffDb struct {
 }
 
 // Called by the OVM StateManager
-func (diff DiffDb) SetDiffKey(block *big.Int, address common.Address, key common.Hash) {
+func (diff DiffDb) SetDiffKey(block *big.Int, address common.Address, key common.Hash, mutated bool) {
 	// instantiate the diff
 	if diff.inner[block.Uint64()] == nil {
-		diff.inner[block.Uint64()] = make(map[common.Address][]common.Hash)
+		diff.inner[block.Uint64()] = make(map[common.Address][]Key)
 	}
 
 	// set the value
-	diff.inner[block.Uint64()][address] = append(diff.inner[block.Uint64()][address], key)
+	diff.inner[block.Uint64()][address] = append(diff.inner[block.Uint64()][address], Key{key, mutated})
 }
 
 /// Gets a list of diffs from the databse for the corresponding
