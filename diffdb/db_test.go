@@ -1,9 +1,10 @@
 package diffdb
 
 import (
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func TestInMemoryDb(t *testing.T) {
