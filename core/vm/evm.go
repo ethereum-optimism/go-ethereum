@@ -71,11 +71,10 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			log.Debug("Calling Unknown Contract", "Address", contract.Address().Hex())
 		}
 
-		// Temporary: Safety checker always returns true.
-		// ovmTODO: Remove this.
-		if contract.Address() == OvmStateDump.Accounts["OVM_SafetyChecker"].Address {
-			return AbiBytesTrue, nil
-		}
+		// Uncomment to make Safety checker always returns true.
+		// if contract.Address() == OvmStateDump.Accounts["OVM_SafetyChecker"].Address {
+		// 	return AbiBytesTrue, nil
+		// }
 
 		// If we're calling the state manager, we want to use our native implementation instead.
 		if contract.Address() == OvmStateManager.Address {
