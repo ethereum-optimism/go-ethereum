@@ -78,6 +78,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.Eth1HTTPFlag,
 			utils.RollupAddressManagerOwnerAddressFlag,
 			utils.RollupEnableVerifierFlag,
+			utils.RollupDiffDbFlag,
 		},
 	},
 	{

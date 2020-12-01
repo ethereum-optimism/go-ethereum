@@ -63,6 +63,7 @@ type DiffDB interface {
 	SetDiffKey(*big.Int, common.Address, common.Hash, bool) error
 	GetDiff(*big.Int) (diffdb.Diff, error)
 	Close() error
+	ForceCommit() error
 }
 
 // StateDBs within the ethereum protocol are used to store anything

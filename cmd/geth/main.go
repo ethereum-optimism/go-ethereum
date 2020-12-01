@@ -165,6 +165,7 @@ var (
 		// Enable verifier mode
 		utils.RollupEnableVerifierFlag,
 		utils.RollupAddressManagerOwnerAddressFlag,
+		utils.RollupDiffDbFlag,
 	}
 
 	rpcFlags = []cli.Flag{
