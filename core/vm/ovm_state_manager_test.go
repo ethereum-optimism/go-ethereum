@@ -29,24 +29,21 @@ type ContractData struct {
 var (
 	contract1 = common.HexToAddress("0x000000000000000000000000000000000001")
 	contract2 = common.HexToAddress("0x000000000000000000000000000000000002")
-	env       *EVM
-	contract  *Contract
-	db        *diffdb.DiffDb
-	mock      *mockDb
-	testData  TestData
 )
 
-func init() {
-	os.Remove("test.db")
-	db, _ = diffdb.NewDiffDb("test.db", 1)
-	mock = &mockDb{db: *db}
-	env = NewEVM(Context{}, mock, params.TestChainConfig, Config{})
+func makeEnv(dbname string) (*diffdb.DiffDb, *EVM, TestData, *Contract) {
+	os.Remove(dbname)
+	db, _ := diffdb.NewDiffDb(dbname, 1)
+	mock := &mockDb{db: *db}
+	env := NewEVM(Context{}, mock, params.TestChainConfig, Config{})
 	// re-use `dummyContractRef` from `logger_test.go`
-	contract = NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
-	testData = make(TestData)
+	contract := NewContract(&dummyContractRef{}, &dummyContractRef{}, new(big.Int), 0)
+	testData := make(TestData)
+	return db, env, testData, contract
 }
 
 func TestEthCallNoop(t *testing.T) {
+	db, env, _, contract := makeEnv("test1")
 	env.Context.EthCallSender = &common.Address{0}
 	env.Context.BlockNumber = big.NewInt(1)
 	args := map[string]interface{}{
@@ -59,9 +56,11 @@ func TestEthCallNoop(t *testing.T) {
 	if len(diff) > 0 {
 		t.Fatalf("map must be empty since it was an eth call")
 	}
+	os.Remove("test1")
 }
 
 func TestSetDiffs(t *testing.T) {
+	db, env, testData, contract := makeEnv("test2")
 	// not an eth-call
 	env.Context.EthCallSender = nil
 	// in block 1 both contracts get touched
@@ -97,6 +96,7 @@ func TestSetDiffs(t *testing.T) {
 	if !reflect.DeepEqual(diff2, expected2) {
 		t.Fatalf("Diff2 did not match.")
 	}
+	os.Remove("test2")
 }
 
 // inserts a bunch of data for the provided `blockNumber` for all contracts touched in that block
