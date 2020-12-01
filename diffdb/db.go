@@ -1,9 +1,10 @@
 package diffdb
 
 import (
-	"database/sql"
 	"github.com/ethereum/go-ethereum/common"
 	_ "github.com/mattn/go-sqlite3"
+
+	"database/sql"
 	"math/big"
 )
 

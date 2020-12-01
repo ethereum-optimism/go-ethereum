@@ -2,10 +2,10 @@ package diffdb
 
 import (
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"os"
 )
 
 func TestDiffDb(t *testing.T) {
