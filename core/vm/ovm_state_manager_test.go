@@ -3,6 +3,7 @@ package vm
 import (
 	"crypto/rand"
 	"math/big"
+	"os"
 	"reflect"
 	"testing"
 
@@ -36,7 +37,8 @@ var (
 )
 
 func init() {
-	db, _ = diffdb.NewDiffDb("test")
+	os.Remove("test.db")
+	db, _ = diffdb.NewDiffDb("test.db", 1)
 	mock = &mockDb{db: *db}
 	env = NewEVM(Context{}, mock, params.TestChainConfig, Config{})
 	// re-use `dummyContractRef` from `logger_test.go`
