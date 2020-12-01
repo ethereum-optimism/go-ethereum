@@ -904,6 +904,7 @@ func (bc *BlockChain) Stop() {
 			log.Error("Dangling trie nodes after full cleanup")
 		}
 	}
+	bc.diffdb.Close()
 	log.Info("Blockchain manager stopped")
 }
 

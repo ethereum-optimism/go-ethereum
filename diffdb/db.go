@@ -125,6 +125,10 @@ func (diff *DiffDb) resetTx() error {
 	return nil
 }
 
+func (diff *DiffDb) Close() error {
+	return diff.db.Close()
+}
+
 /// Instantiates a new DiffDb using sqlite at `path`, with `cache` insertions
 /// done in a transaction before it gets committed to the database.
 func NewDiffDb(path string, cache uint64) (*DiffDb, error) {

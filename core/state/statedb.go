@@ -62,6 +62,7 @@ func (n *proofList) Delete(key []byte) error {
 type DiffDB interface {
 	SetDiffKey(*big.Int, common.Address, common.Hash, bool) error
 	GetDiff(*big.Int) (diffdb.Diff, error)
+	Close() error
 }
 
 // StateDBs within the ethereum protocol are used to store anything
