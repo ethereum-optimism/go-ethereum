@@ -84,6 +84,7 @@ const (
 	maxTimeFutureBlocks = 30
 	badBlockLimit       = 10
 	TriesInMemory       = 128
+	diffDbCacheLimit    = 256
 
 	// BlockChainVersion ensures that an incompatible database forces a resync from scratch.
 	//
@@ -203,7 +204,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
 
-	diff, err := diffdb.NewDiffDb("eth/db/diffs")
+	diff, err := diffdb.NewDiffDb("diffs", diffDbCacheLimit)
 	if err != nil {
 		return nil, err
 	}
