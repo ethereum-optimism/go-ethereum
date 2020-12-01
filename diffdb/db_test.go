@@ -10,7 +10,7 @@ import (
 
 func TestDiffDb(t *testing.T) {
 	os.Remove("./test_diff.db")
-	db, err := NewDiffDb("./test_diff.db")
+	db, err := NewDiffDb("./test_diff.db", 3)
 	if err != nil {
 		t.Fatal(err)
 	}

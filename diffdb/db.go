@@ -14,8 +14,18 @@ type Key struct {
 
 type Diff map[common.Address][]Key
 
+/// A DiffDb is a thin wrapper around an Sqlite3 connection.
+///
+/// Its purpose is to store and fetch the storage keys corresponding to an address that was
+/// touched in a block.
 type DiffDb struct {
-	db *sql.DB
+	db    *sql.DB
+	tx    *sql.Tx
+	stmt  *sql.Stmt
+	cache uint64
+	// We have a db-wide counter for the number of db calls made which we reset
+	// whenever it hits `cache`.
+	numCalls uint64
 }
 
 var insertStatement = `
@@ -38,8 +48,31 @@ SELECT * from diffs WHERE block = $1
 
 /// Inserts a new row to the sqlite with the provided diff data.
 func (diff *DiffDb) SetDiffKey(block *big.Int, address common.Address, key common.Hash, mutated bool) error {
-	_, err := diff.db.Exec(insertStatement, block.Uint64(), address, key, mutated)
-	return err
+	// add 1 more insertion to the transaction
+	_, err := diff.stmt.Exec(block.Uint64(), address, key, mutated)
+	if err != nil {
+		return err
+	}
+
+	// increment number of calls
+	diff.numCalls += 1
+
+	// if we had enough calls, commit it
+	if diff.numCalls == diff.cache {
+		if err := diff.ForceCommit(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+/// Commits a pending diffdb transaction
+func (diff *DiffDb) ForceCommit() error {
+	if err := diff.tx.Commit(); err != nil {
+		return err
+	}
+	return diff.resetTx()
 }
 
 /// Gets all the rows for the matching block and converts them to a Diff map.
@@ -69,7 +102,31 @@ func (diff *DiffDb) GetDiff(blockNum *big.Int) (Diff, error) {
 	return res, rows.Err()
 }
 
-func NewDiffDb(path string) (*DiffDb, error) {
+// Initializes the transaction which we will be using to commit data to the db
+func (diff *DiffDb) resetTx() error {
+	// reset the number of calls made
+	diff.numCalls = 0
+
+	// start a new tx
+	tx, err := diff.db.Begin()
+	if err != nil {
+		return err
+	}
+	diff.tx = tx
+
+	// the tx is about inserts
+	stmt, err := diff.tx.Prepare(insertStatement)
+	if err != nil {
+		return err
+	}
+	diff.stmt = stmt
+
+	return nil
+}
+
+/// Instantiates a new DiffDb using sqlite at `path`, with `cache` insertions
+/// done in a transaction before it gets committed to the database.
+func NewDiffDb(path string, cache uint64) (*DiffDb, error) {
 	// get a handle
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
@@ -82,6 +139,11 @@ func NewDiffDb(path string) (*DiffDb, error) {
 		return nil, err
 	}
 
-	// retturn
-	return &DiffDb{db: db}, nil
+	diffdb := &DiffDb{db: db, cache: cache}
+
+	// initialize the transaction
+	if err := diffdb.resetTx(); err != nil {
+		return nil, err
+	}
+	return diffdb, nil
 }
