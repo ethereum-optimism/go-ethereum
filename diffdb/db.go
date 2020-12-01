@@ -1,10 +1,10 @@
 package diffdb
 
 import (
-	"errors"
-	"math/big"
-
+	"database/sql"
 	"github.com/ethereum/go-ethereum/common"
+	_ "github.com/mattn/go-sqlite3"
+	"math/big"
 )
 
 type Key struct {
@@ -15,37 +15,73 @@ type Key struct {
 type Diff map[common.Address][]Key
 
 type DiffDb struct {
-	// Todo: should this be go-ethereum's leveldb maybe?
-	// db *leveldb.DB
-	inner map[uint64]Diff
+	db *sql.DB
 }
 
-// Called by the OVM StateManager
-func (diff DiffDb) SetDiffKey(block *big.Int, address common.Address, key common.Hash, mutated bool) {
-	// instantiate the diff
-	if diff.inner[block.Uint64()] == nil {
-		diff.inner[block.Uint64()] = make(map[common.Address][]Key)
-	}
+var insertStatement = `
+INSERT INTO diffs
+    (block, address, key, mutated)
+    VALUES
+    ($1, $2, $3, $4)
+`
+var createStmt = `
+CREATE TABLE IF NOT EXISTS diffs (
+    block INTEGER,
+    address STRING,
+    key STRING,
+    mutated BOOL
+)
+`
+var selectStmt = `
+SELECT * from diffs WHERE block = $1
+`
 
-	// set the value
-	diff.inner[block.Uint64()][address] = append(diff.inner[block.Uint64()][address], Key{key, mutated})
+/// Inserts a new row to the sqlite with the provided diff data.
+func (diff *DiffDb) SetDiffKey(block *big.Int, address common.Address, key common.Hash, mutated bool) error {
+	_, err := diff.db.Exec(insertStatement, block.Uint64(), address, key, mutated)
+	return err
 }
 
-/// Gets a list of diffs from the databse for the corresponding
-func (diff *DiffDb) GetDiff(block *big.Int) (Diff, error) {
-	res, ok := diff.inner[block.Uint64()]
-	if !ok {
-		return nil, errors.New("No diff was found for the provided block")
+/// Gets all the rows for the matching block and converts them to a Diff map.
+func (diff *DiffDb) GetDiff(blockNum *big.Int) (Diff, error) {
+	// make the query
+	rows, err := diff.db.Query(selectStmt, blockNum.Uint64())
+	if err != nil {
+		return nil, err
 	}
-	return res, nil
+
+	// initialize our data
+	res := make(Diff)
+	var block uint64
+	var address common.Address
+	var key common.Hash
+	var mutated bool
+	for rows.Next() {
+		// deserialize the line
+		err = rows.Scan(&block, &address, &key, &mutated)
+		if err != nil {
+			return nil, err
+		}
+		// add the data to the map
+		res[address] = append(res[address], Key{key, mutated})
+	}
+
+	return res, rows.Err()
 }
 
 func NewDiffDb(path string) (*DiffDb, error) {
-	// db, err := leveldb.OpenFile(path, nil)
-	// if err != nil {
-	//     return nil, err
-	// }
-	// return &DiffDb{ db: db }, nil
-	diffdb := make(map[uint64]Diff)
-	return &DiffDb{inner: diffdb}, nil
+	// get a handle
+	db, err := sql.Open("sqlite3", path)
+	if err != nil {
+		return nil, err
+	}
+
+	// create the table if it does not exist
+	_, err = db.Exec(createStmt)
+	if err != nil {
+		return nil, err
+	}
+
+	// retturn
+	return &DiffDb{db: db}, nil
 }

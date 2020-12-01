@@ -5,10 +5,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"os"
 )
 
-func TestInMemoryDb(t *testing.T) {
-	db, err := NewDiffDb("whatever")
+func TestDiffDb(t *testing.T) {
+	os.Remove("./test_diff.db")
+	db, err := NewDiffDb("./test_diff.db")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +28,10 @@ func TestInMemoryDb(t *testing.T) {
 	db.SetDiffKey(big.NewInt(1), common.Address{0x2}, common.Hash{0x99}, false)
 	db.SetDiffKey(big.NewInt(2), common.Address{0x2}, common.Hash{0x98}, true)
 
-	diff, _ := db.GetDiff(big.NewInt(1))
+	diff, err := db.GetDiff(big.NewInt(1))
+	if err != nil {
+		t.Fatal("Did not expect error")
+	}
 	for i := range hashes {
 		if hashes[i] != diff[addr][i].Key {
 			t.Fatalf("Did not match")
@@ -37,4 +42,5 @@ func TestInMemoryDb(t *testing.T) {
 	if diff[common.Address{0x2}][0].Mutated != true {
 		t.Fatalf("Did not match mutated")
 	}
+	os.Remove("./test_diff.db")
 }
