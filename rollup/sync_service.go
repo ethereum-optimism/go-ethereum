@@ -939,7 +939,7 @@ func (s *SyncService) ProcessLog(ctx context.Context, ethlog types.Log) error {
 		return nil
 	}
 
-	log.Error("Unkown log topic", "topic", hexutil.Encode(topic), "tx-hash", ethlog.TxHash.Hex())
+	log.Error("Unknown log topic", "topic", hexutil.Encode(topic), "tx-hash", ethlog.TxHash.Hex())
 	return nil
 }
 
