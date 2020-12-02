@@ -1064,12 +1064,7 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 		}
 	}
 	// Check for pending transactions for every account that sent new ones
-	var tx *types.Transaction
-	if reset != nil {
-		tx = reset.tx
-	}
-
-	promoted := pool.promoteExecutables(promoteAddrs, tx)
+	promoted := pool.promoteExecutables(promoteAddrs)
 	for _, tx := range promoted {
 		addr, _ := types.Sender(pool.signer, tx)
 		if _, ok := events[addr]; !ok {
@@ -1080,6 +1075,10 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
+	var tx *types.Transaction
+	if reset != nil {
+		tx = reset.tx
+	}
 	if reset != nil {
 		pool.demoteUnexecutables(tx)
 	}
@@ -1199,7 +1198,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 // promoteExecutables moves transactions that have become processable from the
 // future queue to the set of pending transactions. During this process, all
 // invalidated transactions (low nonce, low balance) are deleted.
-func (pool *TxPool) promoteExecutables(accounts []common.Address, tx *types.Transaction) []*types.Transaction {
+func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Transaction {
 	// Track the promoted transactions to broadcast them at once
 	var promoted []*types.Transaction
 	// Iterate over all accounts and promote any executable transactions
