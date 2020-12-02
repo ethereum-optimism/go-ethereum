@@ -163,19 +163,11 @@ func (t *Trie) Update(key, value []byte) {
 // If a node was not found in the database, a MissingNodeError is returned.
 func (t *Trie) TryUpdate(key, value []byte) error {
 	k := keybytesToHex(key)
-	if len(value) != 0 {
-		_, n, err := t.insert(t.root, nil, k, valueNode(value))
-		if err != nil {
-			return err
-		}
-		t.root = n
-	} else {
-		_, n, err := t.delete(t.root, nil, k)
-		if err != nil {
-			return err
-		}
-		t.root = n
+	_, n, err := t.insert(t.root, nil, k, valueNode(value))
+	if err != nil {
+		return err
 	}
+	t.root = n
 	return nil
 }
 
