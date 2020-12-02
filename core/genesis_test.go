@@ -34,12 +34,12 @@ func TestDefaultGenesisBlock(t *testing.T) {
 	t.Skip("OVM breaks this test because it adds the OVM contracts to the Genesis state.")
 
 	block := DefaultGenesisBlock().ToBlock(nil)
-	if block.Hash() != params.OLDMainnetGenesisHash {
-		t.Errorf("wrong mainnet genesis hash, got %x, want %x", block.Hash(), params.MainnetGenesisHash)
+	if block.Hash() != params.MainnetGenesisHash {
+		t.Errorf("wrong mainnet genesis hash, got %v, want %v", block.Hash(), params.MainnetGenesisHash)
 	}
 	block = DefaultTestnetGenesisBlock().ToBlock(nil)
-	if block.Hash() != params.OLDTestnetGenesisHash {
-		t.Errorf("wrong testnet genesis hash, got %x, want %x", block.Hash(), params.TestnetGenesisHash)
+	if block.Hash() != params.TestnetGenesisHash {
+		t.Errorf("wrong testnet genesis hash, got %v, want %v", block.Hash(), params.TestnetGenesisHash)
 	}
 }
 
@@ -47,7 +47,7 @@ func TestSetupGenesis(t *testing.T) {
 	t.Skip("OVM Genesis breaks this test because it adds the OVM contracts to the state.")
 
 	var (
-		customghash = common.HexToHash("0x59e8ec65c976d6c8439c75702588a151ff0ca96e6d53ea2d641e93700c498d98")
+		customghash = common.HexToHash("0xc4651b85bcce4003ab6ff39a969fc1589673294d4ff4ea8f052c6669aa8571a4")
 		customg     = Genesis{
 			Config: &params.ChainConfig{HomesteadBlock: big.NewInt(3)},
 			Alloc: GenesisAlloc{
@@ -77,7 +77,7 @@ func TestSetupGenesis(t *testing.T) {
 			fn: func(db ethdb.Database) (*params.ChainConfig, common.Hash, error) {
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   params.OLDMainnetGenesisHash,
+			wantHash:   params.MainnetGenesisHash,
 			wantConfig: params.MainnetChainConfig,
 		},
 		{
@@ -86,7 +86,7 @@ func TestSetupGenesis(t *testing.T) {
 				DefaultGenesisBlock().MustCommit(db)
 				return SetupGenesisBlock(db, nil)
 			},
-			wantHash:   params.OLDMainnetGenesisHash,
+			wantHash:   params.MainnetGenesisHash,
 			wantConfig: params.MainnetChainConfig,
 		},
 		{
@@ -104,8 +104,8 @@ func TestSetupGenesis(t *testing.T) {
 				customg.MustCommit(db)
 				return SetupGenesisBlock(db, DefaultTestnetGenesisBlock())
 			},
-			wantErr:    &GenesisMismatchError{Stored: customghash, New: params.OLDTestnetGenesisHash},
-			wantHash:   params.OLDTestnetGenesisHash,
+			wantErr:    &GenesisMismatchError{Stored: customghash, New: params.TestnetGenesisHash},
+			wantHash:   params.TestnetGenesisHash,
 			wantConfig: params.TestnetChainConfig,
 		},
 		{
