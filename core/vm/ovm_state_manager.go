@@ -144,7 +144,7 @@ func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 			before != val,
 		)
 		if err != nil {
-			log.Error("error", err)
+			log.Error("Cannot set diff key", "err", err)
 		}
 	} else {
 		// otherwise just do the db update
