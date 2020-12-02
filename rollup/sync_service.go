@@ -123,9 +123,10 @@ func (t *TransactionCache) Range(f func(uint64, *RollupTransaction)) {
 
 // These variables represent the event signatures
 var (
-	transactionEnqueuedEventSignature    = crypto.Keccak256([]byte("TransactionEnqueued(address,address,uint256,bytes,uint256,uint256)"))
-	queueBatchAppendedEventSignature     = crypto.Keccak256([]byte("QueueBatchAppended(uint256,uint256,uint256)"))
-	sequencerBatchAppendedEventSignature = crypto.Keccak256([]byte("SequencerBatchAppended(uint256,uint256,uint256)"))
+	transactionEnqueuedEventSignature      = crypto.Keccak256([]byte("TransactionEnqueued(address,address,uint256,bytes,uint256,uint256)"))
+	queueBatchAppendedEventSignature       = crypto.Keccak256([]byte("QueueBatchAppended(uint256,uint256,uint256)"))
+	sequencerBatchAppendedEventSignature   = crypto.Keccak256([]byte("SequencerBatchAppended(uint256,uint256,uint256)"))
+	transactionBatchAppendedEventSignature = crypto.Keccak256([]byte("TransactionBatchAppended(uint256,bytes32,uint256,uint256,bytes)"))
 )
 
 // Eth1Data represents the last processed ethereum 1 data
@@ -934,8 +935,12 @@ func (s *SyncService) ProcessLog(ctx context.Context, ethlog types.Log) error {
 	if bytes.Equal(topic, queueBatchAppendedEventSignature) {
 		return s.ProcessQueueBatchAppendedLog(ctx, ethlog)
 	}
+	if bytes.Equal(topic, transactionBatchAppendedEventSignature) {
+		return nil
+	}
 
-	return fmt.Errorf("Unknown log topic %s", hexutil.Encode(topic))
+	log.Error("Unknown log topic", "topic", hexutil.Encode(topic), "tx-hash", ethlog.TxHash.Hex())
+	return nil
 }
 
 func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog types.Log) error {
