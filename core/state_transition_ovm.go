@@ -43,7 +43,7 @@ func init() {
 func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 	tx := ovmTransaction{
 		evm.Context.Time,
-		msg.L1BlockNumber(),
+		evm.Context.BlockNumber, // TODO (what's the correct block number?)
 		uint8(msg.QueueOrigin().Uint64()),
 		*msg.L1MessageSender(),
 		*msg.To(),
