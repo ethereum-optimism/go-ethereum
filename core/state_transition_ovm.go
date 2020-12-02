@@ -83,7 +83,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 	}
 
 	// ovmTODO: Is this still necessary?
-	if msg.From() == GodAddress {
+	if msg.From() == (common.Address{}) {
 		return msg, nil
 	}
 
@@ -91,6 +91,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 
 	// V parameter here will include the chain ID, so we need to recover the original V. If the V
 	// does not equal zero or one, we have an invalid parameter and need to throw an error.
+	// TODO: the chainid needs to be pulled in from config
 	v = big.NewInt(int64(v.Uint64() - 35 - 2*420))
 	if v.Uint64() != 0 && v.Uint64() != 1 {
 		return msg, fmt.Errorf("invalid signature v parameter")
