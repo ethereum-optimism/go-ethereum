@@ -38,6 +38,8 @@ type Config struct {
 	CanonicalTransactionChainAddress common.Address
 	L1ToL2TransactionQueueAddress    common.Address
 	SequencerDecompressionAddress    common.Address
+	L1CrossDomainMessengerAddress    common.Address
+	AddressManagerOwnerAddress       common.Address
 	// Deployment Height of the canonical transaction chain
 	CanonicalTransactionChainDeployHeight *big.Int
 }

@@ -19,11 +19,11 @@ make geth
 ```
 
 ```
-rm -rf da-test-chain-dir && ./build/bin/geth --datadir da-test-chain-dir --rpc --dev --rpcaddr "0.0.0.0" --rpccorsdomain "*" --networkid 420 --rpcapi 'eth,net' --gasprice '0' --targetgaslimit '8000000' --nousb --gcmode=archive
+rm -rf da-test-chain-dir && USING_OVM=true ./build/bin/geth --datadir da-test-chain-dir --rpc --dev --rpcaddr "0.0.0.0" --rpccorsdomain "*" --networkid 420 --rpcapi 'eth,net' --gasprice '0' --targetgaslimit '8000000' --nousb --gcmode=archive
 ```
 You can also enable logs with 
 ```
-rm -rf da-test-chain-dir && ./build/bin/geth --datadir da-test-chain-dir --rpc --dev --rpcaddr "0.0.0.0" --rpccorsdomain "*" --networkid 420 --rpcapi 'eth,net' --gasprice '0' --targetgaslimit '8000000' --nousb --gcmode=archive --verbosity=5
+rm -rf da-test-chain-dir && USING_OVM=true ./build/bin/geth --datadir da-test-chain-dir --rpc --dev --rpcaddr "0.0.0.0" --rpccorsdomain "*" --networkid 420 --rpcapi 'eth,net' --gasprice '0' --targetgaslimit '8000000' --nousb --gcmode=archive --verbosity=5
 ```
 
 

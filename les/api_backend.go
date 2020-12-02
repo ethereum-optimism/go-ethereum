@@ -61,6 +61,14 @@ func (b *LesApiBackend) GetLatestEth1Data() (common.Hash, uint64) {
 	return common.Hash{}, 0
 }
 
+func (b *LesApiBackend) GetLatestL1BlockNumber() uint64 {
+	return 0
+}
+
+func (b *LesApiBackend) GetLatestL1Timestamp() uint64 {
+	return 0
+}
+
 func (b *LesApiBackend) GetRollupContractAddresses() map[string]*common.Address {
 	return map[string]*common.Address{}
 }
