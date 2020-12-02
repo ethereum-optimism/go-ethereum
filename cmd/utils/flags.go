@@ -849,6 +849,7 @@ var (
 	RollupDiffDbFlag = cli.Uint64Flag{
 		Name:   "rollup.diffdbcache",
 		Usage:  "Number of diffdb batch updates",
+		Value:  eth.DefaultConfig.DiffDbCache,
 		EnvVar: "ROLLUP_DIFFDB_CACHE",
 	}
 )

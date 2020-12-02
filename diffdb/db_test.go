@@ -9,8 +9,9 @@ import (
 )
 
 func TestDiffDb(t *testing.T) {
-	os.Remove("./test_diff.db")
 	db, err := NewDiffDb("./test_diff.db", 3)
+	// cleanup (sqlite will create the file if it doesn't exist)
+	defer os.Remove("./test_diff.db")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,5 +43,4 @@ func TestDiffDb(t *testing.T) {
 	if diff[common.Address{0x2}][0].Mutated != true {
 		t.Fatalf("Did not match mutated")
 	}
-	os.Remove("./test_diff.db")
 }

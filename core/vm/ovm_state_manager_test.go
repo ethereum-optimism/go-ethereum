@@ -32,7 +32,6 @@ var (
 )
 
 func makeEnv(dbname string) (*diffdb.DiffDb, *EVM, TestData, *Contract) {
-	os.Remove(dbname)
 	db, _ := diffdb.NewDiffDb(dbname, 1)
 	mock := &mockDb{db: *db}
 	env := NewEVM(Context{}, mock, params.TestChainConfig, Config{})
@@ -44,6 +43,7 @@ func makeEnv(dbname string) (*diffdb.DiffDb, *EVM, TestData, *Contract) {
 
 func TestEthCallNoop(t *testing.T) {
 	db, env, _, contract := makeEnv("test1")
+	defer os.Remove("test1")
 	env.Context.EthCallSender = &common.Address{0}
 	env.Context.BlockNumber = big.NewInt(1)
 	args := map[string]interface{}{
@@ -52,15 +52,18 @@ func TestEthCallNoop(t *testing.T) {
 		"_value":    [32]uint8{2},
 	}
 	putContractStorage(env, contract, args)
-	diff, _ := db.GetDiff(env.Context.BlockNumber)
+	diff, err := db.GetDiff(env.Context.BlockNumber)
+	if err != nil {
+		t.Fatal("Db call error", err)
+	}
 	if len(diff) > 0 {
 		t.Fatalf("map must be empty since it was an eth call")
 	}
-	os.Remove("test1")
 }
 
 func TestSetDiffs(t *testing.T) {
 	db, env, testData, contract := makeEnv("test2")
+	defer os.Remove("test2")
 	// not an eth-call
 	env.Context.EthCallSender = nil
 	// in block 1 both contracts get touched
@@ -83,7 +86,10 @@ func TestSetDiffs(t *testing.T) {
 	}
 
 	// empty diff for the next block
-	diff2, _ := db.GetDiff(blockNumber2)
+	diff2, err := db.GetDiff(blockNumber2)
+	if err != nil {
+		t.Fatal("Db call error", err)
+	}
 	if len(diff2) != 0 {
 		t.Fatalf("Diff2 should be empty since data about the next block is not added yet")
 	}
@@ -92,11 +98,13 @@ func TestSetDiffs(t *testing.T) {
 	putTestData(t, env, contract, blockNumber2, testData)
 
 	expected2 := getExpected(testData[blockNumber2])
-	diff2, _ = db.GetDiff(blockNumber2)
+	diff2, err = db.GetDiff(blockNumber2)
+	if err != nil {
+		t.Fatal("Db call error", err)
+	}
 	if !reflect.DeepEqual(diff2, expected2) {
 		t.Fatalf("Diff2 did not match.")
 	}
-	os.Remove("test2")
 }
 
 // inserts a bunch of data for the provided `blockNumber` for all contracts touched in that block
