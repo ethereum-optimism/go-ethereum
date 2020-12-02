@@ -26,8 +26,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/rollup"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
@@ -79,8 +77,6 @@ type ProtocolManager struct {
 	blockchain *core.BlockChain
 	maxPeers   int
 
-	rollupBatchBuilder rollup.RollupTransitionBatchBuilder
-
 	downloader *downloader.Downloader
 	fetcher    *fetcher.Fetcher
 	peers      *peerSet
@@ -105,21 +101,20 @@ type ProtocolManager struct {
 
 // NewProtocolManager returns a new Ethereum sub protocol manager. The Ethereum sub protocol manages peers capable
 // with the Ethereum network.
-func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash, batchBuilder rollup.RollupTransitionBatchBuilder) (*ProtocolManager, error) {
+func NewProtocolManager(config *params.ChainConfig, checkpoint *params.TrustedCheckpoint, mode downloader.SyncMode, networkID uint64, mux *event.TypeMux, txpool txPool, engine consensus.Engine, blockchain *core.BlockChain, chaindb ethdb.Database, cacheLimit int, whitelist map[uint64]common.Hash) (*ProtocolManager, error) {
 	// Create the protocol manager with the base fields
 	manager := &ProtocolManager{
-		networkID:          networkID,
-		forkFilter:         forkid.NewFilter(blockchain),
-		eventMux:           mux,
-		txpool:             txpool,
-		blockchain:         blockchain,
-		peers:              newPeerSet(),
-		whitelist:          whitelist,
-		newPeerCh:          make(chan *peer),
-		noMorePeers:        make(chan struct{}),
-		txsyncCh:           make(chan *txsync),
-		quitSync:           make(chan struct{}),
-		rollupBatchBuilder: batchBuilder,
+		networkID:   networkID,
+		forkFilter:  forkid.NewFilter(blockchain),
+		eventMux:    mux,
+		txpool:      txpool,
+		blockchain:  blockchain,
+		peers:       newPeerSet(),
+		whitelist:   whitelist,
+		newPeerCh:   make(chan *peer),
+		noMorePeers: make(chan struct{}),
+		txsyncCh:    make(chan *txsync),
+		quitSync:    make(chan struct{}),
 	}
 	if mode == downloader.FullSync {
 		// The database seems empty as the current block is the genesis. Yet the fast
@@ -271,8 +266,6 @@ func (pm *ProtocolManager) Stop() {
 
 	pm.txsSub.Unsubscribe()        // quits txBroadcastLoop
 	pm.minedBlockSub.Unsubscribe() // quits blockBroadcastLoop
-
-	pm.rollupBatchBuilder.Stop()
 
 	// Quit the sync loop.
 	// After this send has completed, no new peers will be accepted.
@@ -822,7 +815,6 @@ func (pm *ProtocolManager) minedBroadcastLoop() {
 		if ev, ok := obj.Data.(core.NewMinedBlockEvent); ok {
 			pm.BroadcastBlock(ev.Block, true)  // First propagate block to peers
 			pm.BroadcastBlock(ev.Block, false) // Only then announce to the rest
-			pm.rollupBatchBuilder.NewBlock(ev.Block)
 		}
 	}
 }

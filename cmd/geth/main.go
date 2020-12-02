@@ -157,12 +157,14 @@ var (
 		utils.Eth1CanonicalTransactionChainDeployHeightFlag,
 		utils.Eth1CanonicalTransactionChainAddressFlag,
 		utils.Eth1SequencerDecompressionAddressFlag,
+		utils.Eth1L1CrossDomainMessengerAddressFlag,
 		utils.Eth1ChainIdFlag,
 		utils.Eth1NetworkIdFlag,
 		utils.Eth1HTTPFlag,
 		utils.Eth1ConfirmationDepth,
 		// Enable verifier mode
 		utils.RollupEnableVerifierFlag,
+		utils.RollupAddressManagerOwnerAddressFlag,
 	}
 
 	rpcFlags = []cli.Flag{

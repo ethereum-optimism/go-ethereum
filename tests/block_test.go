@@ -43,15 +43,15 @@ func TestBlockchain(t *testing.T) {
 	// Very slow test
 	bt.skipLoad(`.*/stTimeConsuming/.*`)
 
-	// test takes a lot for time and goes easily OOM because of sha3 calculation on a huge range,
-	// using 4.6 TGas
-	bt.skipLoad(`.*randomStatetest94.json.*`)
-
-	// OVM Trie changes break these tests
+	// OVM breaks these tests
 	bt.skipLoad(`^InvalidBlocks`)
 	bt.skipLoad(`^ValidBlocks`)
 	bt.skipLoad(`^TransitionTests`)
 	bt.skipLoad(`^randomStatetest391.json`)
+
+	// test takes a lot for time and goes easily OOM because of sha3 calculation on a huge range,
+	// using 4.6 TGas
+	bt.skipLoad(`.*randomStatetest94.json.*`)
 
 	bt.walk(t, blockTestDir, func(t *testing.T, name string, test *BlockTest) {
 		if err := bt.checkFailure(t, name, test.Run()); err != nil {

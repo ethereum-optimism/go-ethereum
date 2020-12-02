@@ -19,7 +19,6 @@ package types
 import (
 	"container/heap"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"sync/atomic"
@@ -144,27 +143,25 @@ func (t *Transaction) SetIndex(index uint64) {
 	t.meta.Index = &index
 }
 
-// Appends the provided 64-bit nonce to this Transaction's calldata as the last 4 bytes
-func (t *Transaction) AddNonceToWrappedTransaction(nonce uint64) {
-	bytes := make([]byte, 8)
-	for i := range bytes {
-		bytes[i] = 0xFF & byte(nonce>>(56-i))
+func (t *Transaction) SetL1Timestamp(ts uint64) {
+	if &t.meta == nil {
+		return
 	}
-	t.data.Payload = append(t.data.Payload, bytes...)
+	t.meta.L1Timestamp = ts
 }
 
-// Parses the encoded nonce from this Transaction's calldata and returns it as well as the calldata without the encoded nonce.
-func (t *Transaction) GetNonceAndCalldataFromWrappedTransaction() (uint64, []byte, error) {
-	if len(t.data.Payload) < 8 {
-		return 0, nil, fmt.Errorf("Cannot parse encoded nonce out of calldata of less than 8 bytes in length. Calldata: %x", t.data.Payload)
+func (t *Transaction) L1Timestamp() uint64 {
+	if &t.meta == nil {
+		return 0
 	}
+	return t.meta.L1Timestamp
+}
 
-	nonceBytes := t.data.Payload[len(t.data.Payload)-8:]
-	nonce := uint64(0)
-	for i := range nonceBytes {
-		nonce += uint64(nonceBytes[i] << (56 - i))
+func (t *Transaction) SetL1BlockNumber(bn uint64) {
+	if &t.meta == nil {
+		return
 	}
-	return nonce, t.data.Payload[:len(t.data.Payload)-8], nil
+	t.meta.L1BlockNumber = new(big.Int).SetUint64(bn)
 }
 
 // ChainId returns which chain id this transaction was signed for (if at all)

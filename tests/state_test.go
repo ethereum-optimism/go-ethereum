@@ -45,10 +45,6 @@ func TestState(t *testing.T) {
 	st.skipLoad(`^stTimeConsuming/`)
 
 	// OVM changes break these tests
-	st.skipLoad(`stCreateTest/CREATE_ContractRETURNBigOffset.json`)
-	st.skipLoad(`stCodeSizeLimit/codesizeOOGInvalidSize.json`)
-
-	// TODO: Trie changes break all state tests
 	st.skipLoad(`^st`)
 
 	// Broken tests:
