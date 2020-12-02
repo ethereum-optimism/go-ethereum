@@ -176,11 +176,6 @@ func (st *StateTransition) buyGas() error {
 	return nil
 }
 
-// never include txs that don't increment the nonce
-// keep track of the pre nonce and post nonce
-// only check if queue origin sequencer
-// log an error if it happens, never should
-
 func (st *StateTransition) preCheck() error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
@@ -275,6 +270,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		if qo != nil && qo.Uint64() == uint64(types.QueueOriginSequencer) {
 			postNonce := st.state.GetNonce(msg.From())
 			if initialNonce+1 != postNonce {
+				log.Error("Tx did not increment the nonce", "from", msg.From().Hex(), "pre-nonce", initialNonce, "post-nonce", postNonce)
 				return nil, 0, false, errNonIncrementingNonce
 			}
 		}
