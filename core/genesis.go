@@ -444,28 +444,29 @@ func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrM
 	stateDump := dump.OvmDump{}
 	if os.Getenv("USING_OVM") == "true" {
 		// Fetch the state dump from the state dump path
-		if stateDumpPath != "" {
-			log.Info("Fetching state dump", "path", stateDumpPath)
-			err := fetchStateDump(stateDumpPath, &stateDump)
-			if err != nil {
-				panic(fmt.Sprintf("Cannot fetch state dump: %s", err))
-			}
-			_, ok := stateDump.Accounts["Lib_AddressManager"]
-			if !ok {
-				panic("Lib_AddressManager not in state dump")
-			}
-			_, ok = stateDump.Accounts["OVM_StateManager"]
-			if !ok {
-				panic("OVM_StateManager not in state dump")
-			}
-			_, ok = stateDump.Accounts["OVM_ExecutionManager"]
-			if !ok {
-				panic("OVM_ExecutionManager not in state dump")
-			}
-			_, ok = stateDump.Accounts["OVM_SequencerEntrypoint"]
-			if !ok {
-				panic("OVM_SequencerEntrypoint not in state dump")
-			}
+		if stateDumpPath == "" {
+			panic("Must pass state dump path")
+		}
+		log.Info("Fetching state dump", "path", stateDumpPath)
+		err := fetchStateDump(stateDumpPath, &stateDump)
+		if err != nil {
+			panic(fmt.Sprintf("Cannot fetch state dump: %s", err))
+		}
+		_, ok := stateDump.Accounts["Lib_AddressManager"]
+		if !ok {
+			panic("Lib_AddressManager not in state dump")
+		}
+		_, ok = stateDump.Accounts["OVM_StateManager"]
+		if !ok {
+			panic("OVM_StateManager not in state dump")
+		}
+		_, ok = stateDump.Accounts["OVM_ExecutionManager"]
+		if !ok {
+			panic("OVM_ExecutionManager not in state dump")
+		}
+		_, ok = stateDump.Accounts["OVM_SequencerEntrypoint"]
+		if !ok {
+			panic("OVM_SequencerEntrypoint not in state dump")
 		}
 	}
 	config.StateDump = &stateDump

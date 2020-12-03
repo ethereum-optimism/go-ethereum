@@ -37,7 +37,7 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 	var abi = evm.Context.OvmExecutionManager.ABI
 	var args = []interface{}{
 		tx,
-		evm.OvmStateManager.Address,
+		evm.Context.OvmStateManager.Address,
 	}
 
 	ret, err := abi.Pack("run", args...)

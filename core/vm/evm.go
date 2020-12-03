@@ -73,7 +73,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 		}
 
 		// Uncomment to make Safety checker always returns true.
-		// if contract.Address() == evm.vmConfig.StateDump.Accounts["OVM_SafetyChecker"].Address {
+		// if contract.Address() == evm.Context.SafetyChecker.Address {
 		// 	return AbiBytesTrue, nil
 		// }
 
@@ -143,6 +143,7 @@ type Context struct {
 	OvmExecutionManager   dump.OvmDumpAccount
 	OvmStateManager       dump.OvmDumpAccount
 	OvmMockAccount        dump.OvmDumpAccount
+	OvmSafetyChecker      dump.OvmDumpAccount
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -191,6 +192,7 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 		ctx.OvmExecutionManager = chainConfig.StateDump.Accounts["OVM_ExecutionManager"]
 		ctx.OvmStateManager = chainConfig.StateDump.Accounts["OVM_StateManager"]
 		ctx.OvmMockAccount = chainConfig.StateDump.Accounts["mockOVM_ECDSAContractAccount"]
+		ctx.OvmSafetyChecker = chainConfig.StateDump.Accounts["OVM_SafetyChecker"]
 	}
 	evm := &EVM{
 		Context:      ctx,

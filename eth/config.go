@@ -63,13 +63,8 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	Rollup: rollup.Config{
-		TxIngestionEnable:       false,
-		TxIngestionDBHost:       "localhost",
-		TxIngestionDBPort:       5432,
-		TxIngestionDBName:       "rollup",
-		TxIngestionPollInterval: 100 * time.Millisecond,
-		TxIngestionDBUser:       "test",
-		TxIngestionDBPassword:   "test",
+		TxIngestionEnable: false,
+		StateDumpPath:     "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/uat/1.json",
 	},
 }
 

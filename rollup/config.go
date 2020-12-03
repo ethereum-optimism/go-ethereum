@@ -3,21 +3,13 @@ package rollup
 import (
 	"crypto/ecdsa"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type Config struct {
 	// TODO(mark): deprecate these config options
-	TxIngestionEnable       bool
-	TxIngestionDBHost       string
-	TxIngestionDBPort       uint
-	TxIngestionDBName       string
-	TxIngestionDBUser       string
-	TxIngestionDBPassword   string
-	TxIngestionPollInterval time.Duration
-
+	TxIngestionEnable bool
 	// Number of confs before applying a L1 to L2 tx
 	Eth1ConfirmationDepth uint64
 	// Verifier mode

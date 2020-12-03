@@ -849,7 +849,7 @@ var (
 	RollupStateDumpPathFlag = cli.StringFlag{
 		Name:   "rollup.statedumppath",
 		Usage:  "Path to the state dump",
-		Value:  "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/uat/1.json",
+		Value:  eth.DefaultConfig.Rollup.StateDumpPath,
 		EnvVar: "ROLLUP_STATE_DUMP_PATH",
 	}
 )
@@ -1152,6 +1152,8 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(RollupStateDumpPathFlag.Name) {
 		cfg.StateDumpPath = ctx.GlobalString(RollupStateDumpPathFlag.Name)
+	} else {
+		cfg.StateDumpPath = eth.DefaultConfig.Rollup.StateDumpPath
 	}
 }
 
