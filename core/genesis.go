@@ -509,6 +509,9 @@ func fetchStateDump(path string, stateDump *dump.OvmDump) error {
 		return errors.New("Unable to fetch state dump")
 	}
 	resp, err := http.Get(path)
+	if resp.StatusCode >= 400 {
+		return errors.New("State dump not found")
+	}
 	if err != nil {
 		return fmt.Errorf("Unable to GET state dump: %w", err)
 	}

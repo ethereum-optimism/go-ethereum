@@ -105,9 +105,7 @@ func newTester(t *testing.T, confOverride func(*eth.Config)) *tester {
 		Ethash: ethash.Config{
 			PowMode: ethash.ModeTest,
 		},
-		Rollup: rollup.Config{
-			TxIngestionPollInterval: 1 * time.Millisecond,
-		},
+		Rollup: rollup.Config{},
 	}
 	if confOverride != nil {
 		confOverride(ethConf)
