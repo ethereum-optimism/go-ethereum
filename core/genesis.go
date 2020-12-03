@@ -307,8 +307,8 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 
-	// OVM_ENABLED
 	if os.Getenv("USING_OVM") == "true" {
+		// OVM_ENABLED
 		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.Config.StateDump)
 	}
 
