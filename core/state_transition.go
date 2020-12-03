@@ -263,15 +263,18 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 
 	if vm.UsingOVM {
-		// Make sure that queue origin sequencer transactions increment the
-		// nonce. Transactions that fail execution here will not be included
-		// in blocks.
-		qo := msg.QueueOrigin()
-		if qo != nil && qo.Uint64() == uint64(types.QueueOriginSequencer) {
-			postNonce := st.state.GetNonce(msg.From())
-			if initialNonce+1 != postNonce {
-				log.Error("Tx did not increment the nonce", "from", msg.From().Hex(), "pre-nonce", initialNonce, "post-nonce", postNonce)
-				return nil, 0, false, errNonIncrementingNonce
+		// Only assert that the nonce increments when its not `eth_call`
+		if st.evm.Context.EthCallSender == nil {
+			// Make sure that queue origin sequencer transactions increment the
+			// nonce. Transactions that fail execution here will not be included
+			// in blocks.
+			qo := msg.QueueOrigin()
+			if qo != nil && qo.Uint64() == uint64(types.QueueOriginSequencer) {
+				postNonce := st.state.GetNonce(msg.From())
+				if initialNonce+1 != postNonce {
+					log.Error("Tx did not increment the nonce", "from", msg.From().Hex(), "pre-nonce", initialNonce, "post-nonce", postNonce)
+					return nil, 0, false, errNonIncrementingNonce
+				}
 			}
 		}
 	}
