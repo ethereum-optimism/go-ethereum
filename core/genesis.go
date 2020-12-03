@@ -22,7 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -33,12 +35,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rollup/dump"
 )
 
 //go:generate gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
@@ -69,6 +71,7 @@ type Genesis struct {
 	// in the genesis state
 	L1CrossDomainMessengerAddress common.Address `json:"-"`
 	AddressManagerOwnerAddress    common.Address `json:"-"`
+	StateDump                     *dump.OvmDump  `json:"-"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -262,34 +265,39 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 }
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
-func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrManagerOwnerAddress common.Address) {
-	acctKeys := make([]string, len(vm.OvmStateDump.Accounts))
+func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDump *dump.OvmDump) {
+	if len(stateDump.Accounts) == 0 {
+		return
+	}
+	acctKeys := make([]string, len(stateDump.Accounts))
 	i := 0
-	for k := range vm.OvmStateDump.Accounts {
+	for k := range stateDump.Accounts {
 		acctKeys[i] = k
 		i++
 	}
 	sort.Strings(acctKeys)
 	for _, acctKey := range acctKeys {
-		account := vm.OvmStateDump.Accounts[acctKey]
+		account := stateDump.Accounts[acctKey]
 		statedb.SetCode(account.Address, common.FromHex(account.Code))
 		statedb.SetNonce(account.Address, account.Nonce)
 		for key, val := range account.Storage {
 			statedb.SetState(account.Address, key, common.HexToHash(val))
 		}
 	}
-	AddressManager := vm.OvmStateDump.Accounts["Lib_AddressManager"]
-	// Set the owner of the address manager
-	ownerSlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-	ownerValue := common.BytesToHash(addrManagerOwnerAddress.Bytes())
-	statedb.SetState(AddressManager.Address, ownerSlot, ownerValue)
-	log.Info("Setting AddressManager Owner", "owner", addrManagerOwnerAddress.Hex())
-	// Set the storage slot associated with the cross domain messenger
-	// to the cross domain messenger address.
-	slot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
-	value := common.BytesToHash(xDomainMessengerAddress.Bytes())
-	statedb.SetState(AddressManager.Address, slot, value)
-	log.Info("Setting CrossDomainMessenger in AddressManager", "address", xDomainMessengerAddress.Hex())
+	AddressManager, ok := stateDump.Accounts["Lib_AddressManager"]
+	if ok {
+		// Set the owner of the address manager
+		ownerSlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
+		ownerValue := common.BytesToHash(addrManagerOwnerAddress.Bytes())
+		statedb.SetState(AddressManager.Address, ownerSlot, ownerValue)
+		log.Info("Setting AddressManager Owner", "owner", addrManagerOwnerAddress.Hex())
+		// Set the storage slot associated with the cross domain messenger
+		// to the cross domain messenger address.
+		slot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
+		value := common.BytesToHash(xDomainMessengerAddress.Bytes())
+		statedb.SetState(AddressManager.Address, slot, value)
+		log.Info("Setting CrossDomainMessenger in AddressManager", "address", xDomainMessengerAddress.Hex())
+	}
 }
 
 // ToBlock creates the genesis block and writes state of a genesis specification
@@ -300,9 +308,10 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 
+	// OVM_ENABLED
 	if os.Getenv("USING_OVM") == "true" {
-		// OVM_ENABLED
-		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress)
+		// Fetch the state dump from the state dump path
+		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.StateDump)
 	}
 
 	for addr, account := range g.Alloc {
@@ -429,10 +438,39 @@ func DefaultGoerliGenesisBlock() *Genesis {
 }
 
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
-func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress common.Address) *Genesis {
+func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDumpPath string) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
+
+	stateDump := dump.OvmDump{}
+	if os.Getenv("USING_OVM") == "true" {
+		// Fetch the state dump from the state dump path
+		if stateDumpPath != "" {
+			log.Info("Fetching state dump", "path", stateDumpPath)
+			err := fetchStateDump(stateDumpPath, &stateDump)
+			if err != nil {
+				panic(fmt.Sprintf("Cannot fetch state dump: %s", err))
+			}
+			_, ok := stateDump.Accounts["Lib_AddressManager"]
+			if !ok {
+				panic("Lib_AddressManager not in state dump")
+			}
+			_, ok = stateDump.Accounts["OVM_StateManager"]
+			if !ok {
+				panic("OVM_StateManager not in state dump")
+			}
+			_, ok = stateDump.Accounts["OVM_ExecutionManager"]
+			if !ok {
+				panic("OVM_ExecutionManager not in state dump")
+			}
+			_, ok = stateDump.Accounts["OVM_SequencerEntrypoint"]
+			if !ok {
+				panic("OVM_SequencerEntrypoint not in state dump")
+			}
+		}
+	}
+	config.StateDump = &stateDump
 
 	// Assemble and return the genesis with the precompiles and faucet pre-funded
 	return &Genesis{
@@ -465,4 +503,21 @@ func decodePrealloc(data string) GenesisAlloc {
 		ga[common.BigToAddress(account.Addr)] = GenesisAccount{Balance: account.Balance}
 	}
 	return ga
+}
+
+func fetchStateDump(path string, stateDump *dump.OvmDump) error {
+	resp, err := http.Get(path)
+	if err != nil {
+		return fmt.Errorf("Unable to GET state dump: %w", err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("Unable to read response body: %w", err)
+	}
+	err = json.Unmarshal(body, stateDump)
+	if err != nil {
+		return fmt.Errorf("Unable to unmarshal response body: %w", err)
+	}
+	return nil
 }

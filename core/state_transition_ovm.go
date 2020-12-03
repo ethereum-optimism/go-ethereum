@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -33,10 +34,10 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 		msg.Data(),
 	}
 
-	var abi = vm.OvmExecutionManager.ABI
+	var abi = evm.Context.OvmExecutionManager.ABI
 	var args = []interface{}{
 		tx,
-		vm.OvmStateManager.Address,
+		evm.OvmStateManager.Address,
 	}
 
 	ret, err := abi.Pack("run", args...)
@@ -47,7 +48,7 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 	outputmsg, err := modMessage(
 		msg,
 		msg.From(),
-		&vm.OvmExecutionManager.Address,
+		&evm.Context.OvmExecutionManager.Address,
 		ret,
 		evm.Context.GasLimit,
 	)
@@ -58,7 +59,7 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 	return outputmsg, nil
 }
 
-func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
+func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor common.Address) (Message, error) {
 	msg, err := tx.AsMessage(signer)
 	if err != nil {
 		return msg, err
@@ -109,11 +110,10 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 
 	// Sequencer transactions get sent to the "sequencer entrypoint," a contract that decompresses
 	// the incoming transaction data.
-	decompressor := vm.OvmStateDump.Accounts["OVM_SequencerEntrypoint"]
 	outmsg, err := modMessage(
 		msg,
 		msg.From(),
-		&(decompressor.Address),
+		&decompressor,
 		data.Bytes(),
 		msg.Gas(),
 	)
@@ -127,6 +127,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 
 func EncodeFakeMessage(
 	msg Message,
+	account abi.ABI,
 ) (Message, error) {
 	var input = []interface{}{
 		big.NewInt(int64(msg.Gas())),
@@ -134,8 +135,7 @@ func EncodeFakeMessage(
 		msg.Data(),
 	}
 
-	var abi = vm.OvmStateDump.Accounts["mockOVM_ECDSAContractAccount"].ABI
-	output, err := abi.Pack("qall", input...)
+	output, err := account.Pack("qall", input...)
 	if err != nil {
 		return nil, err
 	}

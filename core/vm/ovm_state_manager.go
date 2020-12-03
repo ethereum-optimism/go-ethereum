@@ -34,7 +34,7 @@ var funcs = map[string]stateManagerFunction{
 }
 
 func callStateManager(input []byte, evm *EVM, contract *Contract) (ret []byte, err error) {
-	rawabi := OvmStateManager.ABI
+	rawabi := evm.Context.OvmStateManager.ABI
 	abi := &rawabi
 
 	method, err := abi.MethodById(input)

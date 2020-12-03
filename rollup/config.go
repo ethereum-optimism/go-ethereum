@@ -42,6 +42,8 @@ type Config struct {
 	AddressManagerOwnerAddress       common.Address
 	// Deployment Height of the canonical transaction chain
 	CanonicalTransactionChainDeployHeight *big.Int
+	// Path to the state dump
+	StateDumpPath string
 }
 
 func (c *Config) IsTxIngestionEnabled() bool {
