@@ -229,6 +229,8 @@ func TestDelete(t *testing.T) {
 }
 
 func TestEmptyValues(t *testing.T) {
+	t.Skip("Skipping because empty doesn't delete")
+
 	trie := newEmpty()
 
 	vals := []struct{ k, v string }{
@@ -249,6 +251,21 @@ func TestEmptyValues(t *testing.T) {
 	exp := common.HexToHash("5991bb8c6514148a29db676a14ac506cd2cd5775ace63c30a4fe457715e9ac84")
 	if hash != exp {
 		t.Errorf("expected %x got %x", exp, hash)
+	}
+}
+
+func TestEmptyValuesNoDelete(t *testing.T) {
+	trie := newEmpty()
+
+	updateString(trie, "shaman", "horse")
+	r := trie.Get([]byte("shaman"))
+	if !bytes.Equal(r, []byte("horse")) {
+		t.Fatalf("Trie get mismatch, expected horse, got %s", string(r))
+	}
+	updateString(trie, "shaman", "")
+	r2 := trie.Get([]byte("shaman"))
+	if !bytes.Equal(r2, []byte("")) {
+		t.Fatalf("Trie get mismatch, expected \"\", got %s", string(r2))
 	}
 }
 
