@@ -184,6 +184,20 @@ type BlockChain struct {
 	terminateInsert func(common.Hash, uint64) bool // Testing hook used to terminate ancient receipt chain insertion.
 }
 
+func NewBlockChainWithDiffDb(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, path string, cache uint64) (*BlockChain, error) {
+	diff, err := diffdb.NewDiffDb(path, cache)
+	if err != nil {
+		return nil, err
+	}
+	bc, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig, shouldPreserve)
+	if err != nil {
+		return nil, err
+	}
+	bc.diffdb = diff
+
+	return bc, nil
+}
+
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator and
 // Processor.
@@ -203,16 +217,10 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	futureBlocks, _ := lru.New(maxFutureBlocks)
 	badBlocks, _ := lru.New(badBlockLimit)
 
-	diff, err := diffdb.NewDiffDb("eth/db/diffs")
-	if err != nil {
-		return nil, err
-	}
-
 	bc := &BlockChain{
 		chainConfig:    chainConfig,
 		cacheConfig:    cacheConfig,
 		db:             db,
-		diffdb:         diff,
 		triegc:         prque.New(nil),
 		stateCache:     state.NewDatabaseWithCache(db, cacheConfig.TrieCleanLimit),
 		quit:           make(chan struct{}),
@@ -231,6 +239,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bc.prefetcher = newStatePrefetcher(chainConfig, bc, engine)
 	bc.processor = NewStateProcessor(chainConfig, bc, engine)
 
+	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
 	if err != nil {
 		return nil, err
@@ -901,6 +910,15 @@ func (bc *BlockChain) Stop() {
 		}
 		if size, _ := triedb.Size(); size != 0 {
 			log.Error("Dangling trie nodes after full cleanup")
+		}
+	}
+
+	if bc.diffdb != nil {
+		if err := bc.diffdb.ForceCommit(); err != nil {
+			log.Error("Failed to commit recent state diffs", "err", err)
+		}
+		if err := bc.diffdb.Close(); err != nil {
+			log.Error("Failed to commit state diffs handler", "err", err)
 		}
 	}
 	log.Info("Blockchain manager stopped")

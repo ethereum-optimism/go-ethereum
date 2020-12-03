@@ -2,13 +2,16 @@ package diffdb
 
 import (
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func TestInMemoryDb(t *testing.T) {
-	db, err := NewDiffDb("whatever")
+func TestDiffDb(t *testing.T) {
+	db, err := NewDiffDb("./test_diff.db", 3)
+	// cleanup (sqlite will create the file if it doesn't exist)
+	defer os.Remove("./test_diff.db")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +29,10 @@ func TestInMemoryDb(t *testing.T) {
 	db.SetDiffKey(big.NewInt(1), common.Address{0x2}, common.Hash{0x99}, false)
 	db.SetDiffKey(big.NewInt(2), common.Address{0x2}, common.Hash{0x98}, true)
 
-	diff, _ := db.GetDiff(big.NewInt(1))
+	diff, err := db.GetDiff(big.NewInt(1))
+	if err != nil {
+		t.Fatal("Did not expect error")
+	}
 	for i := range hashes {
 		if hashes[i] != diff[addr][i].Key {
 			t.Fatalf("Did not match")
