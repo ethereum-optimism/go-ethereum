@@ -849,6 +849,7 @@ var (
 	RollupStateDumpPathFlag = cli.StringFlag{
 		Name:   "rollup.statedumppath",
 		Usage:  "Path to the state dump",
+		Value:  "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/uat/1.json",
 		EnvVar: "ROLLUP_STATE_DUMP_PATH",
 	}
 )
