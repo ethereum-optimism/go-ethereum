@@ -138,7 +138,16 @@ func (s OVMSigner) Hash(tx *Transaction) common.Hash {
 	})
 }
 
+// Sender will ecrecover the public key that created the signature
+// and then hash the public key to create an address. In the
+// case of L1ToL2 transactions, Layer One did the authentication
+// for us so there is no signature involved. The concept of a "from"
+// is only required for bookkeeping within this codebase
 func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
+	qo := tx.QueueOrigin()
+	if qo != nil && qo.Uint64() == uint64(QueueOriginL1ToL2) {
+		return common.Address{}, nil
+	}
 	if !tx.Protected() {
 		return HomesteadSigner{}.Sender(tx)
 	}

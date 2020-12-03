@@ -17,6 +17,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -260,6 +261,7 @@ type TxPool struct {
 
 type txpoolResetRequest struct {
 	oldHead, newHead *types.Header
+	tx               *types.Transaction
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -342,7 +344,12 @@ func (pool *TxPool) loop() {
 		// Handle ChainHeadEvent
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
-				pool.requestReset(head.Header(), ev.Block.Header())
+				txs := ev.Block.Transactions()
+				var tx *types.Transaction
+				if len(txs) > 0 {
+					tx = txs[0]
+				}
+				pool.requestReset(head.Header(), ev.Block.Header(), tx)
 				head = ev.Block
 			}
 
@@ -929,9 +936,9 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 
 // requestPromoteExecutables requests a pool reset to the new head block.
 // The returned channel is closed when the reset has occurred.
-func (pool *TxPool) requestReset(oldHead *types.Header, newHead *types.Header) chan struct{} {
+func (pool *TxPool) requestReset(oldHead *types.Header, newHead *types.Header, tx *types.Transaction) chan struct{} {
 	select {
-	case pool.reqResetCh <- &txpoolResetRequest{oldHead, newHead}:
+	case pool.reqResetCh <- &txpoolResetRequest{oldHead, newHead, tx}:
 		return <-pool.reorgDoneCh
 	case <-pool.reorgShutdownCh:
 		return pool.reorgShutdownCh
@@ -1067,8 +1074,12 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
+	var tx *types.Transaction
 	if reset != nil {
-		pool.demoteUnexecutables()
+		tx = reset.tx
+	}
+	if reset != nil {
+		pool.demoteUnexecutables(tx)
 	}
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
 	pool.truncatePending()
@@ -1383,11 +1394,16 @@ func (pool *TxPool) truncateQueue() {
 // demoteUnexecutables removes invalid and processed transactions from the pools
 // executable/pending queue and any subsequent transactions that become unexecutable
 // are moved back into the future queue.
-func (pool *TxPool) demoteUnexecutables() {
+func (pool *TxPool) demoteUnexecutables(txn *types.Transaction) {
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
-
+		if os.Getenv("USING_OVM") == "true" {
+			from, _ := types.Sender(pool.signer, txn)
+			if txn != nil && bytes.Equal(from.Bytes(), addr.Bytes()) {
+				nonce = txn.Nonce() + 1
+			}
+		}
 		// Drop all transactions that are deemed too old (low nonce)
 		olds := list.Forward(nonce)
 		for _, tx := range olds {

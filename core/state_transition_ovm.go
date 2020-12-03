@@ -4,15 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/log"
 )
 
-var GodAddress common.Address
 var ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 type ovmTransaction struct {
@@ -23,21 +20,6 @@ type ovmTransaction struct {
 	Entrypoint    common.Address "json:\"entrypoint\""
 	GasLimit      *big.Int       "json:\"gasLimit\""
 	Data          []uint8        "json:\"data\""
-}
-
-func init() {
-	// ovmTODO: Pass this in via standard config flow instead of via environment variables.
-	// kelvin's note: "tee hee, sorry!"
-	address := os.Getenv("TX_INGESTION_SIGNER_ADDRESS")
-
-	if len(address) == 0 {
-		log.Warn("No TX_INGESTION_SIGNER_ADDRESS supplied. Using ZERO_ADDRESS default.")
-		address = "0000000000000000000000000000000000000000"
-	} else if len(address) != 42 {
-		panic(fmt.Errorf("invalid TX_INGESTION_SIGNER_ADDRESS: %s", address))
-	}
-
-	GodAddress = common.HexToAddress(address)
 }
 
 func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
@@ -82,8 +64,12 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 		return msg, err
 	}
 
-	// ovmTODO: Is this still necessary?
-	if msg.From() == GodAddress {
+	// Queue origin L1ToL2 transactions do not go through the
+	// sequencer entrypoint. The calldata is expected to be in the
+	// correct format when deserialized from the EVM events, see
+	// rollup/sync_service.go.
+	qo := msg.QueueOrigin()
+	if qo != nil && qo.Uint64() == uint64(types.QueueOriginL1ToL2) {
 		return msg, nil
 	}
 
@@ -91,6 +77,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer) (Message, error) {
 
 	// V parameter here will include the chain ID, so we need to recover the original V. If the V
 	// does not equal zero or one, we have an invalid parameter and need to throw an error.
+	// TODO: the chainid needs to be pulled in from config
 	v = big.NewInt(int64(v.Uint64() - 35 - 2*420))
 	if v.Uint64() != 0 && v.Uint64() != 1 {
 		return msg, fmt.Errorf("invalid signature v parameter")
