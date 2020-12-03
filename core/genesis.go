@@ -71,7 +71,6 @@ type Genesis struct {
 	// in the genesis state
 	L1CrossDomainMessengerAddress common.Address `json:"-"`
 	AddressManagerOwnerAddress    common.Address `json:"-"`
-	StateDump                     *dump.OvmDump  `json:"-"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -310,7 +309,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 
 	// OVM_ENABLED
 	if os.Getenv("USING_OVM") == "true" {
-		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.StateDump)
+		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.Config.StateDump)
 	}
 
 	for addr, account := range g.Alloc {
@@ -505,6 +504,9 @@ func decodePrealloc(data string) GenesisAlloc {
 }
 
 func fetchStateDump(path string, stateDump *dump.OvmDump) error {
+	if stateDump == nil {
+		return errors.New("Unable to fetch state dump")
+	}
 	resp, err := http.Get(path)
 	if err != nil {
 		return fmt.Errorf("Unable to GET state dump: %w", err)
