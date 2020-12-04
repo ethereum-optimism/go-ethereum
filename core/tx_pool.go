@@ -1224,7 +1224,22 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 		queuedNofundsMeter.Mark(int64(len(drops)))
 
 		// Gather all executable transactions and promote them
-		readies := list.Ready(pool.pendingNonces.get(addr))
+		nonce := pool.pendingNonces.get(addr)
+		readies := types.Transactions{}
+		// QueueOriginL1ToL2 transactions do not increment the nonce
+		// and the sender is the zero address, always promote them.
+		if os.Getenv("USING_OVM") == "true" {
+			if addr == (common.Address{}) {
+				readies = list.Flatten()
+				for _, tx := range readies {
+					list.Remove(tx)
+				}
+			} else {
+				readies = list.Ready(nonce)
+			}
+		} else {
+			readies = list.Ready(nonce)
+		}
 		for _, tx := range readies {
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
