@@ -59,7 +59,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				abi := &(account.ABI)
 				method, err := abi.MethodById(input)
 				if err != nil {
-					log.Debug("Calling Known Contract", "Name", name, "ERROR", err)
+					log.Debug("Calling Known Contract", "Name", name, "Message", err)
 				} else {
 					log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
 				}
