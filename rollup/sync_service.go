@@ -1009,6 +1009,9 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 	}
 
 	log.Debug("Decoded chain elements", "count", len(cd.ChainElements))
+	// Keep track of the number of enqueued elements so that the queue index
+	// can be calculated in the case of `element.IsSequenced` is false.
+	enqueuedCount := uint64(0)
 	for i, element := range cd.ChainElements {
 		var tx *types.Transaction
 		index := (event.TotalElements.Uint64() - uint64(len(cd.ChainElements))) + uint64(i)
@@ -1077,9 +1080,11 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 			}
 		} else {
 			// Queue transaction
-			rtx, ok := s.txCache.Load(index)
+			queueIndex := event.StartingQueueIndex.Uint64() + enqueuedCount
+			enqueuedCount++
+			rtx, ok := s.txCache.Load(queueIndex)
 			if !ok {
-				log.Error("Cannot find transaction in transaction cache", "index", index)
+				log.Error("Cannot find transaction in transaction cache", "queue-index", queueIndex)
 				continue
 			}
 			tx = rtx.tx
