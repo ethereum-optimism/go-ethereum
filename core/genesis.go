@@ -25,7 +25,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
-	"os"
 	"sort"
 	"strings"
 
@@ -35,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
@@ -307,7 +307,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 	}
 	statedb, _ := state.New(common.Hash{}, state.NewDatabase(db))
 
-	if os.Getenv("USING_OVM") == "true" {
+	if vm.UsingOVM {
 		// OVM_ENABLED
 		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.Config.StateDump)
 	}
@@ -442,7 +442,7 @@ func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrM
 	config.Clique.Period = period
 
 	stateDump := dump.OvmDump{}
-	if os.Getenv("USING_OVM") == "true" {
+	if vm.UsingOVM {
 		// Fetch the state dump from the state dump path
 		if stateDumpPath == "" {
 			panic("Must pass state dump path")

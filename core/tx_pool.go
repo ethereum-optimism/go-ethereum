@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -31,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -1182,7 +1182,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 
 	// OVM Change. Do not reinject reorganized transactions
 	// into the mempool.
-	if os.Getenv("USING_OVM") != "true" {
+	if vm.UsingOVM {
 		// Inject any transactions discarded due to reorgs
 		log.Debug("Reinjecting stale transactions", "count", len(reinject))
 		senderCacher.recover(pool.signer, reinject)
