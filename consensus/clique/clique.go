@@ -23,6 +23,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 
@@ -248,9 +249,11 @@ func (c *Clique) verifyHeader(chain consensus.ChainReader, header *types.Header,
 	}
 	number := header.Number.Uint64()
 
-	// Don't waste time checking blocks from the future
-	if header.Time > uint64(time.Now().Unix()) {
-		return consensus.ErrFutureBlock
+	if os.Getenv("USING_OVM") != "true" {
+		// Don't waste time checking blocks from the future
+		if header.Time > uint64(time.Now().Unix()) {
+			return consensus.ErrFutureBlock
+		}
 	}
 	// Checkpoint blocks need to enforce zero beneficiary
 	checkpoint := (number % c.config.Epoch) == 0
@@ -627,6 +630,9 @@ func (c *Clique) Seal(chain consensus.ChainReader, block *types.Block, results c
 		delay += time.Duration(rand.Int63n(int64(wiggle)))
 
 		log.Trace("Out-of-turn signing requested", "wiggle", common.PrettyDuration(wiggle))
+	}
+	if os.Getenv("USING_OVM") == "true" {
+		delay = 0
 	}
 	// Sign all the things!
 	sighash, err := signFn(accounts.Account{Address: signer}, accounts.MimetypeClique, CliqueRLP(header))
