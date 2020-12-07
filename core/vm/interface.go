@@ -65,6 +65,7 @@ type StateDB interface {
 
 	ForEachStorage(common.Address, func(common.Hash, common.Hash) bool) error
 	SetDiffKey(block *big.Int, address common.Address, key common.Hash, mutated bool) error
+	SetDiffAccount(block *big.Int, address common.Address) error
 }
 
 // CallContext provides a basic interface for the EVM calling conventions. The EVM

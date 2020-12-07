@@ -27,8 +27,28 @@ func (diff DiffDb) SetDiffKey(block *big.Int, address common.Address, key common
 		diff.inner[block.Uint64()] = make(map[common.Address][]Key)
 	}
 
-	// set the value
-	diff.inner[block.Uint64()][address] = append(diff.inner[block.Uint64()][address], Key{key, mutated})
+	hasKey := false
+	for _, slot := range diff.inner[block.Uint64()][address] {
+		if slot.Key == key {
+			hasKey = true
+		}
+	}
+
+	if !hasKey {
+		diff.inner[block.Uint64()][address] = append(diff.inner[block.Uint64()][address], Key{key, mutated})
+	}
+}
+
+// Called by the OVM StateManager
+func (diff DiffDb) SetDiffAccount(block *big.Int, address common.Address) {
+	// instantiate the diff
+	if diff.inner[block.Uint64()] == nil {
+		diff.inner[block.Uint64()] = make(map[common.Address][]Key)
+	}
+
+	if _, ok := diff.inner[block.Uint64()][address]; !ok {
+		diff.inner[block.Uint64()][address] = make([]Key, 0)
+	}
 }
 
 /// Gets a list of diffs from the databse for the corresponding

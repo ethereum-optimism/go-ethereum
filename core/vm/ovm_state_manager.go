@@ -23,10 +23,10 @@ var funcs = map[string]stateManagerFunction{
 	"hasAccount":                               nativeFunctionTrue,
 	"hasEmptyAccount":                          nativeFunctionTrue,
 	"hasContractStorage":                       nativeFunctionTrue,
-	"testAndSetAccountLoaded":                  nativeFunctionTrue,
-	"testAndSetAccountChanged":                 nativeFunctionTrue,
-	"testAndSetContractStorageLoaded":          nativeFunctionTrue,
-	"testAndSetContractStorageChanged":         nativeFunctionTrue,
+	"testAndSetAccountLoaded":                  testAndSetAccountLoaded,
+	"testAndSetAccountChanged":                 testAndSetAccountChanged,
+	"testAndSetContractStorageLoaded":          testAndSetContractStorageLoaded,
+	"testAndSetContractStorageChanged":         testAndSetContractStorageChanged,
 	"incrementTotalUncommittedAccounts":        nativeFunctionVoid,
 	"incrementTotalUncommittedContractStorage": nativeFunctionVoid,
 	"initPendingAccount":                       nativeFunctionVoid,
@@ -132,27 +132,105 @@ func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 	}
 	val := toHash(_value)
 
-	// save the block number and address with modified key if it's not an eth_call
+	// otherwise just do the db update
+	evm.StateDB.SetState(address, key, val)
+
+	log.Debug("Put contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
+	return []interface{}{}, nil
+}
+
+func testAndSetAccountLoaded(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	address, ok := args["_address"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in putContractStorage")
+	}
+
 	if evm.Context.EthCallSender == nil {
-		// save the value before
-		before := evm.StateDB.GetState(address, key)
-		evm.StateDB.SetState(address, key, val)
+		err := evm.StateDB.SetDiffAccount(
+			evm.Context.BlockNumber,
+			address,
+		)
+
+		if err != nil {
+			log.Error("error", err)
+		}
+	}
+
+	return []interface{}{true}, nil
+}
+
+func testAndSetAccountChanged(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	address, ok := args["_address"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in putContractStorage")
+	}
+
+	if evm.Context.EthCallSender == nil {
+		err := evm.StateDB.SetDiffAccount(
+			evm.Context.BlockNumber,
+			address,
+		)
+
+		if err != nil {
+			log.Error("error", err)
+		}
+	}
+
+	return []interface{}{true}, nil
+}
+
+func testAndSetContractStorageLoaded(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	address, ok := args["_contract"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in putContractStorage")
+	}
+	_key, ok := args["_key"]
+	if !ok {
+		return nil, errors.New("Could not parse key arg in putContractStorage")
+	}
+	key := toHash(_key)
+
+	if evm.Context.EthCallSender == nil {
 		err := evm.StateDB.SetDiffKey(
 			evm.Context.BlockNumber,
 			address,
 			key,
-			before != val,
+			false,
 		)
+
 		if err != nil {
 			log.Error("error", err)
 		}
-	} else {
-		// otherwise just do the db update
-		evm.StateDB.SetState(address, key, val)
 	}
 
-	log.Debug("Put contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
-	return []interface{}{}, nil
+	return []interface{}{true}, nil
+}
+
+func testAndSetContractStorageChanged(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	address, ok := args["_contract"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in putContractStorage")
+	}
+	_key, ok := args["_key"]
+	if !ok {
+		return nil, errors.New("Could not parse key arg in putContractStorage")
+	}
+	key := toHash(_key)
+
+	if evm.Context.EthCallSender == nil {
+		err := evm.StateDB.SetDiffKey(
+			evm.Context.BlockNumber,
+			address,
+			key,
+			true,
+		)
+
+		if err != nil {
+			log.Error("error", err)
+		}
+	}
+
+	return []interface{}{true}, nil
 }
 
 func nativeFunctionTrue(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {

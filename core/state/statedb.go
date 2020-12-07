@@ -61,6 +61,7 @@ func (n *proofList) Delete(key []byte) error {
 // DiffDb is a database for storing state diffs per block
 type DiffDB interface {
 	SetDiffKey(*big.Int, common.Address, common.Hash, bool)
+	SetDiffAccount(*big.Int, common.Address)
 	GetDiff(*big.Int) (diffdb.Diff, error)
 }
 
@@ -151,6 +152,14 @@ func (s *StateDB) SetDiffKey(block *big.Int, address common.Address, key common.
 		return errors.New("DiffDB not set")
 	}
 	s.diffdb.SetDiffKey(block, address, key, mutated)
+	return nil
+}
+
+func (s *StateDB) SetDiffAccount(block *big.Int, address common.Address) error {
+	if s.diffdb == nil {
+		return errors.New("DiffDB not set")
+	}
+	s.diffdb.SetDiffAccount(block, address)
 	return nil
 }
 

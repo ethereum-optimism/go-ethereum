@@ -935,7 +935,7 @@ func (s *SyncService) ProcessLog(ctx context.Context, ethlog types.Log) error {
 		return s.ProcessQueueBatchAppendedLog(ctx, ethlog)
 	}
 
-	return fmt.Errorf("Unknown log topic %s", hexutil.Encode(topic))
+	return nil
 }
 
 func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog types.Log) error {

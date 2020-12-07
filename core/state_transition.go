@@ -266,6 +266,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			}
 		}
 	}
+	log.Debug("Final Nonce", "sender", msg.From().Hex(), "Nonce", st.state.GetNonce(msg.From()))
 
 	if vmerr != nil {
 		if vmerr == vm.ErrInsufficientBalance {

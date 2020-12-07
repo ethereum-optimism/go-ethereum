@@ -573,7 +573,7 @@ func (s *PublicBlockChainAPI) GetStateDiff(ctx context.Context, blockNrOrHash rp
 	if err != nil {
 		return nil, err
 	}
-	return s.b.GetDiff(header.Number)
+	return s.b.GetDiff(new(big.Int).Add(header.Number, big.NewInt(1)))
 }
 
 // GetStateDiffProof returns the Merkle-proofs corresponding to all the accounts and
