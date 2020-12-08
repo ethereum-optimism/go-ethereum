@@ -217,7 +217,7 @@ func TestStateChangeDuringTransactionPoolReset(t *testing.T) {
 
 	// trigger state change in the background
 	trigger = true
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 
 	_, err := pool.Pending()
 	if err != nil {
@@ -275,7 +275,7 @@ func TestTransactionQueue(t *testing.T) {
 	tx := transaction(0, 100, key)
 	from, _ := deriveSender(tx)
 	pool.currentState.AddBalance(from, big.NewInt(1000))
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 
 	pool.enqueueTx(tx.Hash(), tx)
 	<-pool.requestPromoteExecutables(newAccountSet(pool.signer, from))
@@ -349,7 +349,7 @@ func TestTransactionChainFork(t *testing.T) {
 		statedb.AddBalance(addr, big.NewInt(100000000000000))
 
 		pool.chain = &testBlockChain{statedb, 1000000, new(event.Feed)}
-		<-pool.requestReset(nil, nil)
+		<-pool.requestReset(nil, nil, nil)
 	}
 	resetState()
 
@@ -378,7 +378,7 @@ func TestTransactionDoubleNonce(t *testing.T) {
 		statedb.AddBalance(addr, big.NewInt(100000000000000))
 
 		pool.chain = &testBlockChain{statedb, 1000000, new(event.Feed)}
-		<-pool.requestReset(nil, nil)
+		<-pool.requestReset(nil, nil, nil)
 	}
 	resetState()
 
@@ -450,7 +450,7 @@ func TestTransactionNonceRecovery(t *testing.T) {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 	pool.currentState.SetNonce(addr, n)
 	pool.currentState.AddBalance(addr, big.NewInt(100000000000000))
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 
 	tx := transaction(n, 100000, key)
 	if err := pool.AddRemote(tx); err != nil {
@@ -458,7 +458,7 @@ func TestTransactionNonceRecovery(t *testing.T) {
 	}
 	// simulate some weird re-order of transactions and missing nonce(s)
 	pool.currentState.SetNonce(addr, n-1)
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 	if fn := pool.Nonce(addr); fn != n-1 {
 		t.Errorf("expected nonce to be %d, got %d", n-1, fn)
 	}
@@ -502,7 +502,7 @@ func TestTransactionDropping(t *testing.T) {
 	if pool.all.Count() != 6 {
 		t.Errorf("total transaction mismatch: have %d, want %d", pool.all.Count(), 6)
 	}
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 	if pool.pending[account].Len() != 3 {
 		t.Errorf("pending transaction mismatch: have %d, want %d", pool.pending[account].Len(), 3)
 	}
@@ -514,7 +514,7 @@ func TestTransactionDropping(t *testing.T) {
 	}
 	// Reduce the balance of the account, and check that invalidated transactions are dropped
 	pool.currentState.AddBalance(account, big.NewInt(-650))
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 
 	if _, ok := pool.pending[account].txs.items[tx0.Nonce()]; !ok {
 		t.Errorf("funded pending transaction missing: %v", tx0)
@@ -539,7 +539,7 @@ func TestTransactionDropping(t *testing.T) {
 	}
 	// Reduce the block gas limit, check that invalidated transactions are dropped
 	pool.chain.(*testBlockChain).gasLimit = 100
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 
 	if _, ok := pool.pending[account].txs.items[tx0.Nonce()]; !ok {
 		t.Errorf("funded pending transaction missing: %v", tx0)
@@ -610,7 +610,7 @@ func TestTransactionPostponing(t *testing.T) {
 	if pool.all.Count() != len(txs) {
 		t.Errorf("total transaction mismatch: have %d, want %d", pool.all.Count(), len(txs))
 	}
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 	if pending := pool.pending[accs[0]].Len() + pool.pending[accs[1]].Len(); pending != len(txs) {
 		t.Errorf("pending transaction mismatch: have %d, want %d", pending, len(txs))
 	}
@@ -624,7 +624,7 @@ func TestTransactionPostponing(t *testing.T) {
 	for _, addr := range accs {
 		pool.currentState.AddBalance(addr, big.NewInt(-1))
 	}
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 
 	// The first account's first transaction remains valid, check that subsequent
 	// ones are either filtered out, or queued up for later.
@@ -1735,7 +1735,7 @@ func testTransactionJournaling(t *testing.T, nolocals bool) {
 	}
 	// Bump the nonce temporarily and ensure the newly invalidated transaction is removed
 	statedb.SetNonce(crypto.PubkeyToAddress(local.PublicKey), 2)
-	<-pool.requestReset(nil, nil)
+	<-pool.requestReset(nil, nil, nil)
 	time.Sleep(2 * config.Rejournal)
 	pool.Stop()
 
@@ -1857,7 +1857,7 @@ func benchmarkPendingDemotion(b *testing.B, size int) {
 	// Benchmark the speed of pool validation
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		pool.demoteUnexecutables()
+		pool.demoteUnexecutables(nil)
 	}
 }
 

@@ -123,9 +123,10 @@ func (t *TransactionCache) Range(f func(uint64, *RollupTransaction)) {
 
 // These variables represent the event signatures
 var (
-	transactionEnqueuedEventSignature    = crypto.Keccak256([]byte("TransactionEnqueued(address,address,uint256,bytes,uint256,uint256)"))
-	queueBatchAppendedEventSignature     = crypto.Keccak256([]byte("QueueBatchAppended(uint256,uint256,uint256)"))
-	sequencerBatchAppendedEventSignature = crypto.Keccak256([]byte("SequencerBatchAppended(uint256,uint256,uint256)"))
+	transactionEnqueuedEventSignature      = crypto.Keccak256([]byte("TransactionEnqueued(address,address,uint256,bytes,uint256,uint256)"))
+	queueBatchAppendedEventSignature       = crypto.Keccak256([]byte("QueueBatchAppended(uint256,uint256,uint256)"))
+	sequencerBatchAppendedEventSignature   = crypto.Keccak256([]byte("SequencerBatchAppended(uint256,uint256,uint256)"))
+	transactionBatchAppendedEventSignature = crypto.Keccak256([]byte("TransactionBatchAppended(uint256,bytes32,uint256,uint256,bytes)"))
 )
 
 // Eth1Data represents the last processed ethereum 1 data
@@ -857,13 +858,12 @@ func (s *SyncService) ApplyLogs(tip *types.Header) error {
 	for i := 0; i < len(txs); i++ {
 		rtx := txs[i]
 		log.Debug("Sequencer ingesting", "local-index", i, "rtx-index", rtx.index)
-		// The god key needs to sign L1ToL2 transactions
 		// The reorg code is no longer used here, after it is better
 		// tested we should move back to using it here and remove
 		// the verifier check in maybeReorgAndApplyTx
-		err := s.applyTransaction(rtx.tx, true)
+		err := s.applyTransaction(rtx.tx)
 		if err != nil {
-			log.Error("Sequencer ingest queue transaction failed: %w", err)
+			log.Error("Sequencer ingest queue transaction failed", "msg", err)
 		}
 		rtx.executed = true
 		s.txCache.Store(rtx.index, rtx)
@@ -934,7 +934,11 @@ func (s *SyncService) ProcessLog(ctx context.Context, ethlog types.Log) error {
 	if bytes.Equal(topic, queueBatchAppendedEventSignature) {
 		return s.ProcessQueueBatchAppendedLog(ctx, ethlog)
 	}
+	if bytes.Equal(topic, transactionBatchAppendedEventSignature) {
+		return nil
+	}
 
+	log.Error("Unknown log topic", "topic", hexutil.Encode(topic), "tx-hash", ethlog.TxHash.Hex())
 	return nil
 }
 
@@ -944,9 +948,10 @@ func (s *SyncService) ProcessTransactionEnqueuedLog(ctx context.Context, ethlog 
 		return fmt.Errorf("Cannot parse transaction enqueued event log: %w", err)
 	}
 
-	// Nonce is set by god key at execution time
+	// Nonce is the queue index
 	// Value and gasPrice are set to 0
-	tx := types.NewTransaction(uint64(0), event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, new(big.Int).SetUint64(ethlog.BlockNumber), types.QueueOriginL1ToL2, types.SighashEIP155)
+	nonce := event.QueueIndex.Uint64()
+	tx := types.NewTransaction(nonce, event.Target, big.NewInt(0), event.GasLimit.Uint64(), big.NewInt(0), event.Data, &event.L1TxOrigin, new(big.Int).SetUint64(ethlog.BlockNumber), types.QueueOriginL1ToL2, types.SighashEIP155)
 	// Set the timestamp in the txmeta
 	timestamp := uint64(event.Timestamp.Int64())
 	tx.SetL1Timestamp(timestamp)
@@ -1004,13 +1009,12 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 	}
 
 	log.Debug("Decoded chain elements", "count", len(cd.ChainElements))
+	// Keep track of the number of enqueued elements so that the queue index
+	// can be calculated in the case of `element.IsSequenced` is false.
+	enqueuedCount := uint64(0)
 	for i, element := range cd.ChainElements {
 		var tx *types.Transaction
 		index := (event.TotalElements.Uint64() - uint64(len(cd.ChainElements))) + uint64(i)
-		// Certain types of transactions require a signature from the god key.
-		// Keep track of this so that the god key can sign after reorganizing,
-		// to ensure that nonces are correct.
-		godKeyShouldSign := false
 		// Sequencer transaction
 		if element.IsSequenced {
 			// Different types of transactions can be included in the canonical
@@ -1025,8 +1029,6 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 
 			switch ctcTx.typ {
 			case CTCTransactionTypeEIP155:
-				// The signature is deserialized so the god key does not need to
-				// sign in this case.
 				eip155, ok := ctcTx.tx.(*CTCTxEIP155)
 				if !ok {
 					return fmt.Errorf("Unexpected type when parsing ctc tx eip155: %T", ctcTx.tx)
@@ -1048,8 +1050,6 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				}
 				log.Debug("Deserialized CTC EIP155 transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
 			case CTCTransactionTypeEthSign:
-				// The signature is deserialized so the god key does not need to
-				// sign in this case.
 				ethsign, ok := ctcTx.tx.(*CTCTxEthSign)
 				if !ok {
 					return fmt.Errorf("Unexpected type when parsing ctc tx eip155: %T", ctcTx.tx)
@@ -1080,11 +1080,11 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 			}
 		} else {
 			// Queue transaction
-			// The god key needs to sign in this case
-			godKeyShouldSign = true
-			rtx, ok := s.txCache.Load(index)
+			queueIndex := event.StartingQueueIndex.Uint64() + enqueuedCount
+			enqueuedCount++
+			rtx, ok := s.txCache.Load(queueIndex)
 			if !ok {
-				log.Error("Cannot find transaction in transaction cache", "index", index)
+				log.Error("Cannot find transaction in transaction cache", "queue-index", queueIndex)
 				continue
 			}
 			tx = rtx.tx
@@ -1093,11 +1093,11 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 		}
 
 		log.Debug("Sequencer batch appended applying tx", "index", index)
-		err = s.maybeReorgAndApplyTx(index, tx, godKeyShouldSign)
+		err = s.maybeReorgAndApplyTx(index, tx)
 		if err != nil {
 			return fmt.Errorf("Sequencer batch appended error with index %d: %w", index, err)
 		}
-		log.Info("Sequencer Batch appended success", "index", index, "to", tx.To().Hex(), "god-key-used", godKeyShouldSign)
+		log.Info("Sequencer Batch appended success", "index", index, "to", tx.To().Hex())
 	}
 	return nil
 }
@@ -1121,19 +1121,20 @@ func (s *SyncService) maybeReorg(index uint64, tx *types.Transaction) error {
 		}
 		prev := block.Transactions()[0]
 		// The transaction hash is not the canonical identifier of a transaction
-		// due to nonces coming from the god key. Do an equality check using
-		// `to`, `data`, `l1TxOrigin` and `gasLimit`
+		// due to nonces technically needing to be incremented.
+		// Do an equality check using `to`, `data`, `l1TxOrigin` and `gasLimit`
 		if !isCtcTxEqual(tx, prev) {
 			log.Info("Different tx detected", "index", index, "new", tx.Hash().Hex(), "previous", prev.Hash().Hex())
+		} else {
+			log.Info("Same tx detected", "index", index)
 		}
 	}
 	return nil
 }
 
 // maybeReorgAndApplyTx will reorg based on the transaction found at the index
-// and then maybe sign the transaction if it needs to be signed by the god key
 // and then maybe apply the transaction if it is the correct index.
-func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, godKeyShouldSign bool) error {
+func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction) error {
 	err := s.maybeReorg(index, tx)
 	if err != nil {
 		return fmt.Errorf("Cannot reorganize before applying tx: %w", err)
@@ -1142,26 +1143,12 @@ func (s *SyncService) maybeReorgAndApplyTx(index uint64, tx *types.Transaction, 
 	// This is here so that we can observe the behavior of `maybeReorg`
 	// to make sure that it is operating as expected.
 	if s.verifier {
-		err = s.applyTransaction(tx, godKeyShouldSign)
+		err = s.applyTransaction(tx)
 		if err != nil {
 			return fmt.Errorf("Cannot apply tx: %w", err)
 		}
 	}
 	return nil
-}
-
-// signTransaction gets the nonce for the god key, sets the nonce on the
-// transaction and then signs the transaction with the god key. This is not safe
-// if a reorg happens after this method, so be sure to only use this function
-// after reorganizing.
-func (s *SyncService) signTransaction(tx *types.Transaction) (*types.Transaction, error) {
-	nonce := s.txpool.Nonce(s.address)
-	tx.SetNonce(nonce)
-	tx, err := types.SignTx(tx, s.signer, &s.key)
-	if err != nil {
-		return nil, fmt.Errorf("Transaction signing failed: %w", err)
-	}
-	return tx, nil
 }
 
 // ProcessQueueBatchAppendedLog handles the queue batch appended event that is
@@ -1182,8 +1169,7 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 			log.Error("Cannot find transaction in transaction cache", "index", i)
 			continue
 		}
-		// The god key needs to sign in this case
-		err = s.maybeReorgAndApplyTx(i, rtx.tx, true)
+		err = s.maybeReorgAndApplyTx(i, rtx.tx)
 		if err != nil {
 			log.Error("Error applying transaction", "message", err.Error())
 			continue
@@ -1197,15 +1183,8 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 // Adds the transaction to the mempool so that downstream services
 // can apply it to the state. This should directly play against
 // the state eventually, skipping the mempool.
-func (s *SyncService) applyTransaction(tx *types.Transaction, godKeyShouldSign bool) error {
-	var err error
-	if godKeyShouldSign {
-		tx, err = s.signTransaction(tx)
-		if err != nil {
-			return fmt.Errorf("Cannot sign transaction with god key: %w", err)
-		}
-	}
-	err = s.txpool.AddLocal(tx)
+func (s *SyncService) applyTransaction(tx *types.Transaction) error {
+	err := s.txpool.AddLocal(tx)
 	if err != nil {
 		return fmt.Errorf("Cannot add tx to mempool: %w", err)
 	}

@@ -17,11 +17,11 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -260,6 +261,7 @@ type TxPool struct {
 
 type txpoolResetRequest struct {
 	oldHead, newHead *types.Header
+	tx               *types.Transaction
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -342,7 +344,12 @@ func (pool *TxPool) loop() {
 		// Handle ChainHeadEvent
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
-				pool.requestReset(head.Header(), ev.Block.Header())
+				txs := ev.Block.Transactions()
+				var tx *types.Transaction
+				if len(txs) > 0 {
+					tx = txs[0]
+				}
+				pool.requestReset(head.Header(), ev.Block.Header(), tx)
 				head = ev.Block
 			}
 
@@ -929,9 +936,9 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 
 // requestPromoteExecutables requests a pool reset to the new head block.
 // The returned channel is closed when the reset has occurred.
-func (pool *TxPool) requestReset(oldHead *types.Header, newHead *types.Header) chan struct{} {
+func (pool *TxPool) requestReset(oldHead *types.Header, newHead *types.Header, tx *types.Transaction) chan struct{} {
 	select {
-	case pool.reqResetCh <- &txpoolResetRequest{oldHead, newHead}:
+	case pool.reqResetCh <- &txpoolResetRequest{oldHead, newHead, tx}:
 		return <-pool.reorgDoneCh
 	case <-pool.reorgShutdownCh:
 		return pool.reorgShutdownCh
@@ -1067,8 +1074,12 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
+	var tx *types.Transaction
 	if reset != nil {
-		pool.demoteUnexecutables()
+		tx = reset.tx
+	}
+	if reset != nil {
+		pool.demoteUnexecutables(tx)
 	}
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
 	pool.truncatePending()
@@ -1171,7 +1182,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 
 	// OVM Change. Do not reinject reorganized transactions
 	// into the mempool.
-	if os.Getenv("USING_OVM") != "true" {
+	if vm.UsingOVM {
 		// Inject any transactions discarded due to reorgs
 		log.Debug("Reinjecting stale transactions", "count", len(reinject))
 		senderCacher.recover(pool.signer, reinject)
@@ -1213,7 +1224,22 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 		queuedNofundsMeter.Mark(int64(len(drops)))
 
 		// Gather all executable transactions and promote them
-		readies := list.Ready(pool.pendingNonces.get(addr))
+		nonce := pool.pendingNonces.get(addr)
+		var readies types.Transactions
+		// QueueOriginL1ToL2 transactions do not increment the nonce
+		// and the sender is the zero address, always promote them.
+		if vm.UsingOVM {
+			if addr == (common.Address{}) {
+				readies = list.Flatten()
+				for _, tx := range readies {
+					list.Remove(tx)
+				}
+			} else {
+				readies = list.Ready(nonce)
+			}
+		} else {
+			readies = list.Ready(nonce)
+		}
 		for _, tx := range readies {
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
@@ -1383,11 +1409,16 @@ func (pool *TxPool) truncateQueue() {
 // demoteUnexecutables removes invalid and processed transactions from the pools
 // executable/pending queue and any subsequent transactions that become unexecutable
 // are moved back into the future queue.
-func (pool *TxPool) demoteUnexecutables() {
+func (pool *TxPool) demoteUnexecutables(txn *types.Transaction) {
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
-
+		if vm.UsingOVM {
+			from, _ := types.Sender(pool.signer, txn)
+			if txn != nil && bytes.Equal(from.Bytes(), addr.Bytes()) {
+				nonce = txn.Nonce() + 1
+			}
+		}
 		// Drop all transactions that are deemed too old (low nonce)
 		olds := list.Forward(nonce)
 		for _, tx := range olds {
