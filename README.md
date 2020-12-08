@@ -16,6 +16,8 @@ configuration will determine the mode of operation. The configuration flags
 can be configured using either environment variables or passed at runtime as
 flags.
 
+A prebuilt Docker image is available at `ethereumoptimism/go-ethereum`.
+
 To compile the code, run:
 ```
 $ make geth
@@ -23,16 +25,25 @@ $ make geth
 
 ### Running a Sequencer
 
-See the script `scripts/start.sh`. It runs the command:
+See the script `scripts/start.sh`. It sets many of the config options
+and accepts CLI flags. For usage, run the command:
+
+```bash
+$ ./scripts/start.sh -h
+```
+
+This may be suitable for simple usecases, users that need more flexibility
+with their configuration can run the command:
+
 ```bash
 $ USING_OVM=true ./build/bin/geth \
-    --rollup.addressmanagerowneraddress "0x0000000000000000000000000000000000000000" \
+    --rollup.addressmanagerowneraddress $ADDRESS_MANAGER_OWNER_ADDRESS \
     --eth1.confirmationdepth 0 \
     --eth1.http $LAYER1_NODE_URL \
     --eth1.networkid $LAYER1_NETWORK_ID \
     --eth1.chainid $LAYER1_CHAIN_ID \
-    --eth1.l1crossdomainmessengeraddress "0x0000000000000000000000000000000000000000" \
-    --eth1.addressresolveraddress "0x0000000000000000000000000000000000000000" \
+    --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS \
+    --eth1.addressresolveraddress $ETH1_ADDRESS_RESOLVER_ADDRESS \
     --eth1.ctcdeploymentheight $CTC_DEPLOY_HEIGHT \
     --eth1.syncservice \
     --rpc \
@@ -50,6 +61,8 @@ $ USING_OVM=true ./build/bin/geth \
     --gcmode=archive \
     --ipcdisable
 ```
+
+The address manager owner address will be set in the layer two state at runtime.
 
 To persist the database, pass the `--datadir` with a path to the directory for
 the database to be persisted in. Without this flag, an in memory database will
