@@ -29,18 +29,24 @@ type DiffDb struct {
 	numCalls uint64
 }
 
+/// This key is used to mark that an account's state has been modified (e.g. nonce or balance)
+/// and that an account proof is required.
+var accountKey = common.HexToHash("0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF")
+
 var insertStatement = `
 INSERT INTO diffs
     (block, address, key, mutated)
     VALUES
     ($1, $2, $3, $4)
+ON CONFLICT DO NOTHING
 `
 var createStmt = `
 CREATE TABLE IF NOT EXISTS diffs (
     block INTEGER,
     address STRING,
     key STRING,
-    mutated BOOL
+    mutated BOOL,
+    PRIMARY KEY (block, address, key)
 )
 `
 var selectStmt = `
@@ -66,6 +72,12 @@ func (diff *DiffDb) SetDiffKey(block *big.Int, address common.Address, key commo
 	}
 
 	return nil
+}
+
+/// Inserts a new row to the sqlite indicating that the account was modified in that block
+/// at a pre-set key
+func (diff *DiffDb) SetDiffAccount(block *big.Int, address common.Address) error {
+	return diff.SetDiffKey(block, address, accountKey, true)
 }
 
 /// Commits a pending diffdb transaction
