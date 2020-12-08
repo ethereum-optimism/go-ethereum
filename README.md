@@ -68,6 +68,10 @@ To persist the database, pass the `--datadir` with a path to the directory for
 the database to be persisted in. Without this flag, an in memory database will
 be used. To tune the log level, use the `--verbosity` flag with an integer.
 
+The initial state can be fetched via HTTPS using the flag `--rollup.statedumppath`.
+State dumps are available via the [regenesis repository](https://github.com/ethereum-optimism/regenesis).
+To use a different genesis state, pass in a path to one of the JSON files in the repository.
+
 ### Running a Verifier
 
 Add the flag `--rollup.verifier`
