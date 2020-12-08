@@ -18,8 +18,6 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Build the Docker image
-        env:
-          DOCKER_BUILDKIT: 1
         run: docker build . --file Dockerfile.test -t geth_test
 
       - name: Run Lint & Test Docker Image
