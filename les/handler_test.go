@@ -528,11 +528,16 @@ func testGetBloombitsProofs(t *testing.T, protocol int) {
 	}
 }
 
-func TestTransactionStatusLes2(t *testing.T) { testTransactionStatus(t, 2) }
-func TestTransactionStatusLes3(t *testing.T) { testTransactionStatus(t, 3) }
+func TestTransactionStatusLes2(t *testing.T) {
+	t.Skip("Skipping, les not used")
+	testTransactionStatus(t, 2)
+}
+func TestTransactionStatusLes3(t *testing.T) {
+	t.Skip("Skipping, les not used")
+	testTransactionStatus(t, 3)
+}
 
 func testTransactionStatus(t *testing.T, protocol int) {
-	t.Skip("Skipping, les not used")
 	server, tearDown := newServerEnv(t, 0, protocol, nil, false, true, 0)
 	defer tearDown()
 	server.handler.addTxsSync = true
