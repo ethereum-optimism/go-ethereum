@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"math/big"
 	"os"
-	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -81,7 +81,7 @@ func TestSetDiffs(t *testing.T) {
 	// diffs match
 	diff, _ := db.GetDiff(blockNumber)
 	expected := getExpected(testData[blockNumber])
-	if !reflect.DeepEqual(diff, expected) {
+	if !DiffsEqual(diff, expected) {
 		t.Fatalf("Diff did not match.")
 	}
 
@@ -102,9 +102,31 @@ func TestSetDiffs(t *testing.T) {
 	if err != nil {
 		t.Fatal("Db call error", err)
 	}
-	if !reflect.DeepEqual(diff2, expected2) {
-		t.Fatalf("Diff2 did not match.")
+	if !DiffsEqual(diff2, expected2) {
+		t.Fatalf("Diff did not match.")
 	}
+}
+
+/// Sorted equality between 2 diffs
+func DiffsEqual(d1 diffdb.Diff, d2 diffdb.Diff) bool {
+	for k, v := range d1 {
+		sort.SliceStable(v, func(i, j int) bool {
+			return v[i].Key.Big().Cmp(v[j].Key.Big()) < 0
+		})
+
+		sort.SliceStable(d2[k], func(i, j int) bool {
+			return d2[k][i].Key.Big().Cmp(d2[k][j].Key.Big()) < 0
+		})
+
+		exp := d2[k]
+		for i, v2 := range v {
+			if exp[i] != v2 {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 // inserts a bunch of data for the provided `blockNumber` for all contracts touched in that block
@@ -177,6 +199,12 @@ func (mock *mockDb) SetDiffKey(block *big.Int, address common.Address, key commo
 	mock.db.SetDiffKey(block, address, key, mutated)
 	return nil
 }
+
+func (mock *mockDb) SetDiffAccount(block *big.Int, address common.Address) error {
+	// mock.db.SetDiffAccount(block, address)
+	return nil
+}
+
 func (mock *mockDb) CreateAccount(common.Address)                              {}
 func (mock *mockDb) SubBalance(common.Address, *big.Int)                       {}
 func (mock *mockDb) AddBalance(common.Address, *big.Int)                       {}
