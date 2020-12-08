@@ -90,7 +90,8 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 			return nil, err
 		}
 	} else {
-		msg, err = asOvmMessage(tx, types.MakeSigner(config, header.Number))
+		decompressor := config.StateDump.Accounts["OVM_SequencerEntrypoint"]
+		msg, err = asOvmMessage(tx, types.MakeSigner(config, header.Number), decompressor.Address)
 		if err != nil {
 			return nil, err
 		}

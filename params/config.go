@@ -17,13 +17,13 @@
 package params
 
 import (
-	"crypto/ecdsa"
 	"encoding/binary"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rollup/dump"
 )
 
 // Genesis hashes to enforce below configs on.
@@ -211,8 +211,6 @@ var (
 		Threshold: 2,
 	}
 
-	// TODO: Fill out BlockBatchesSender Address when we know it
-
 	// AllEthashProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Ethash consensus.
 	//
@@ -304,7 +302,8 @@ type ChainConfig struct {
 	Ethash *EthashConfig `json:"ethash,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
 
-	BlockBatchesSender *ecdsa.PublicKey `json:"blockBatchSender,omitempty"`
+	// OVM Specific
+	StateDump *dump.OvmDump `json:"-"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.

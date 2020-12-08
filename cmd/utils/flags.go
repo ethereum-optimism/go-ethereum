@@ -846,6 +846,12 @@ var (
 		Value:  "0x0000000000000000000000000000000000000000",
 		EnvVar: "ROLLUP_ADDRESS_MANAGER_OWNER_ADDRESS",
 	}
+	RollupStateDumpPathFlag = cli.StringFlag{
+		Name:   "rollup.statedumppath",
+		Usage:  "Path to the state dump",
+		Value:  eth.DefaultConfig.Rollup.StateDumpPath,
+		EnvVar: "ROLLUP_STATE_DUMP_PATH",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1114,14 +1120,6 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
 		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
 	}
-	if ctx.GlobalIsSet(RollupAddressManagerOwnerAddressFlag.Name) {
-		addr := ctx.GlobalString(RollupAddressManagerOwnerAddressFlag.Name)
-		cfg.AddressManagerOwnerAddress = common.HexToAddress(addr)
-	}
-	if ctx.GlobalIsSet(RollupEnableVerifierFlag.Name) {
-		cfg.IsVerifier = true
-	}
-
 	var (
 		hex  = ctx.GlobalString(TxIngestionSignerKeyHexFlag.Name)
 		file = ctx.GlobalString(TxIngestionSignerKeyFileFlag.Name)
@@ -1141,6 +1139,21 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
 		}
 		cfg.TxIngestionSignerKey = key
+	}
+}
+
+func setRollup(ctx *cli.Context, cfg *rollup.Config) {
+	if ctx.GlobalIsSet(RollupAddressManagerOwnerAddressFlag.Name) {
+		addr := ctx.GlobalString(RollupAddressManagerOwnerAddressFlag.Name)
+		cfg.AddressManagerOwnerAddress = common.HexToAddress(addr)
+	}
+	if ctx.GlobalIsSet(RollupEnableVerifierFlag.Name) {
+		cfg.IsVerifier = true
+	}
+	if ctx.GlobalIsSet(RollupStateDumpPathFlag.Name) {
+		cfg.StateDumpPath = ctx.GlobalString(RollupStateDumpPathFlag.Name)
+	} else {
+		cfg.StateDumpPath = eth.DefaultConfig.Rollup.StateDumpPath
 	}
 }
 
@@ -1602,6 +1615,7 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setWhitelist(ctx, cfg)
 	setLes(ctx, cfg)
 	setEth1(ctx, &cfg.Rollup)
+	setRollup(ctx, &cfg.Rollup)
 
 	if ctx.GlobalIsSet(SyncModeFlag.Name) {
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
@@ -1692,7 +1706,8 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 
 		xdomainAddress := cfg.Rollup.L1CrossDomainMessengerAddress
 		addrManagerOwnerAddress := cfg.Rollup.AddressManagerOwnerAddress
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress)
+		stateDumpPath := cfg.Rollup.StateDumpPath
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}

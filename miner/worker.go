@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -32,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -762,7 +762,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		// OVM Change - set the timestamp on the header to the
 		// timestamp of the transaction. Since there is an assumption
 		// of only 1 transaction, only do this for the first tx.
-		if os.Getenv("USING_OVM") == "true" {
+		if vm.UsingOVM {
 			if len(w.current.txs) == 0 {
 				if tx.L1Timestamp() == 0 {
 					ts := w.eth.SyncService().GetLatestL1Timestamp()

@@ -831,8 +831,10 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	var msg core.Message
 	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer, 0)
 	if vm.UsingOVM {
+		cfg := b.ChainConfig()
+		account := cfg.StateDump.Accounts["mockOVM_ECDSAContractAccount"].ABI
 		var err error
-		msg, err = core.EncodeFakeMessage(msg)
+		msg, err = core.EncodeFakeMessage(msg, account)
 		if err != nil {
 			return nil, 0, false, err
 		}

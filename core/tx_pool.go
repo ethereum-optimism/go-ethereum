@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"os"
 	"sort"
 	"sync"
 	"time"
@@ -31,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/prque"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
@@ -1182,7 +1182,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 
 	// OVM Change. Do not reinject reorganized transactions
 	// into the mempool.
-	if os.Getenv("USING_OVM") != "true" {
+	if vm.UsingOVM {
 		// Inject any transactions discarded due to reorgs
 		log.Debug("Reinjecting stale transactions", "count", len(reinject))
 		senderCacher.recover(pool.signer, reinject)
@@ -1228,7 +1228,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 		var readies types.Transactions
 		// QueueOriginL1ToL2 transactions do not increment the nonce
 		// and the sender is the zero address, always promote them.
-		if os.Getenv("USING_OVM") == "true" {
+		if vm.UsingOVM {
 			if addr == (common.Address{}) {
 				readies = list.Flatten()
 				for _, tx := range readies {
@@ -1413,7 +1413,7 @@ func (pool *TxPool) demoteUnexecutables(txn *types.Transaction) {
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
-		if os.Getenv("USING_OVM") == "true" {
+		if vm.UsingOVM {
 			from, _ := types.Sender(pool.signer, txn)
 			if txn != nil && bytes.Equal(from.Bytes(), addr.Bytes()) {
 				nonce = txn.Nonce() + 1
