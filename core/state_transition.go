@@ -247,6 +247,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		if msg.L1MessageSender() != nil {
 			l1MessageSender = msg.L1MessageSender().Hex()
 		}
+		st.gas = msg.Gas()
 		log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "l1MessageSender", l1MessageSender, "data", hexutil.Encode(msg.Data()))
 	}
 
