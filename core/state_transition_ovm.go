@@ -30,7 +30,7 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 		uint8(msg.QueueOrigin().Uint64()),
 		*msg.L1MessageSender(),
 		*msg.To(),
-		big.NewInt(int64(msg.Gas())),
+		big.NewInt(int64(evm.Context.GasLimit)),
 		msg.Data(),
 	}
 
