@@ -870,7 +870,7 @@ func (w *worker) commitNewTx(interrupt *int32, tx *types.Transaction) error {
 	tstart := time.Now()
 
 	parent := w.chain.CurrentBlock()
-	// TODO: the timestmap is 0 until a l1 to l2 tx happens
+	// TODO: the timestamp is 0 until a l1 to l2 tx happens
 	timestamp := w.chain.CurrentTimestamp()
 
 	num := parent.Number()

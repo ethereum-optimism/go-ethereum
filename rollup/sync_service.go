@@ -1226,7 +1226,7 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("invalid transaction: %w", err)
 	}
 	txs := types.Transactions{tx}
-	s.txFeed.Send(core.NewTxsEvent{txs})
+	s.txFeed.Send(core.NewTxsEvent{Txs: txs})
 	return nil
 }
 
