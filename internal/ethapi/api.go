@@ -1434,7 +1434,7 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		input = *args.Data
 	}
 	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, nil, args.L1BlockNumber, types.QueueOriginSequencer)
+		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, nil, args.L1BlockNumber, types.QueueOriginSequencer, args.SignatureHashType)
 	}
 	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1BlockNumber, types.QueueOriginSequencer, args.SignatureHashType)
 }

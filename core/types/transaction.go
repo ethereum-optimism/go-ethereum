@@ -85,9 +85,8 @@ func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit u
 	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
 }
 
-// TODO: cannot deploy contracts with SighashEthSign right until SighashEIP155 is no longer hardcoded
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin, SighashEIP155)
+func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, sighashType SignatureHashType) *Transaction {
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
 }
 
 func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, sighashType SignatureHashType) *Transaction {
