@@ -903,7 +903,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 		return 0, err
 	}
 	// For now always return the gas limit
-	return hexutil.Uint64(block.GasLimit() - 2000000), nil
+	return hexutil.Uint64(block.GasLimit() - 1), nil
 }
 
 // EstimateGas returns an estimate of the amount of gas needed to execute the
