@@ -1218,12 +1218,13 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 // the state eventually, skipping the mempool.
 func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 	err := s.txpool.ValidateTx(tx)
-	// Only queue prevent queue origin sequencer transactions from entering
-	// when invalid. L1ToL2 transactions must be included even if they are
-	// invalid.
-	qo := tx.QueueOrigin()
-	if err != nil && qo.Uint64() == uint64(types.QueueOriginSequencer) {
-		return fmt.Errorf("invalid transaction: %w", err)
+	// The sequencer needs to prevent transactions that fail the mempool
+	// checks. The verifier needs to play the transactions no matter what.
+	if !s.verifier {
+		qo := tx.QueueOrigin()
+		if err != nil && qo.Uint64() == uint64(types.QueueOriginSequencer) {
+			return fmt.Errorf("invalid transaction: %w", err)
+		}
 	}
 	txs := types.Transactions{tx}
 	s.txFeed.Send(core.NewTxsEvent{Txs: txs})
