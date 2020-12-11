@@ -46,7 +46,7 @@ const (
 	txChanSize = 4096
 
 	// chainHeadChanSize is the size of channel listening to ChainHeadEvent.
-	chainHeadChanSize = 1024
+	chainHeadChanSize = 10
 
 	// chainSideChanSize is the size of channel listening to ChainSideEvent.
 	chainSideChanSize = 10
