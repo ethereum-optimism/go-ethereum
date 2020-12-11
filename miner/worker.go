@@ -904,7 +904,7 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	acc, _ := types.Sender(w.current.signer, tx)
 	transactions[acc] = types.Transactions{tx}
 	txs := types.NewTransactionsByPriceAndNonce(w.current.signer, transactions)
-	if w.commitTransactions(txs, w.coinbase, interrupt) {
+	if w.commitTransactions(txs, w.coinbase, nil) {
 		return errors.New("Cannot commit transaction in miner")
 	}
 	return w.commit([]*types.Header{}, w.fullTaskHook, true, tstart)
