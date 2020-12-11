@@ -266,7 +266,8 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 
 	if vm.UsingOVM {
 		// Only assert that the nonce increments when its not `eth_call`
-		if st.evm.Context.EthCallSender == nil {
+		// and when there is no vm error.
+		if st.evm.Context.EthCallSender == nil && vmerr == nil {
 			// Make sure that queue origin sequencer transactions increment the
 			// nonce. Transactions that fail execution here will not be included
 			// in blocks.
