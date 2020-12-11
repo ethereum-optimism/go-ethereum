@@ -463,7 +463,6 @@ func (w *worker) mainLoop() {
 				head := <-w.chainHeadCh
 				txn := head.Block.Transactions()[0]
 				height := head.Block.Number().Uint64()
-				log.Debug("Miner got new head", "height", height, "tx-hash", txn.Hash().Hex(), "hash", head.Block.Hash().Hex())
 			} else {
 				log.Debug("Problem committing transaction: %w", err)
 			}
