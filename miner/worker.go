@@ -458,12 +458,20 @@ func (w *worker) mainLoop() {
 		// reading the next tx from the channel when there is
 		// not an error processing the transaction.
 		case ev := <-w.rollupCh:
+			if len(ev.Txs) == 0 {
+				log.Warn("No transaction sent to miner from syncservice")
+				continue
+			}
 			tx := ev.Txs[0]
 			if err := w.commitNewTx(nil, tx); err == nil {
 				head := <-w.chainHeadCh
+				if len(head.Block.Transactions()) == 0 {
+					log.Warn("No transactions in block")
+					continue
+				}
 				txn := head.Block.Transactions()[0]
 				height := head.Block.Number().Uint64()
-				log.Debug("Miner got new head", "height", height, "tx-hash", txn.Hash().Hex(), "hash", head.Block.Hash().Hex())
+				log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
 			} else {
 				log.Debug("Problem committing transaction: %w", err)
 			}
