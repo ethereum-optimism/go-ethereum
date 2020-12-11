@@ -255,7 +255,7 @@ func (s *SyncService) Start() error {
 	if !s.enable {
 		return nil
 	}
-	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "eh1-chainid", s.eth1ChainId, "eth1-networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address, "confirmation-depth", s.confirmationDepth)
+	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "eth1-chainid", s.eth1ChainId, "eth1-networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address, "confirmation-depth", s.confirmationDepth)
 	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature))
 
 	// Always initialize syncing to true to start, the sequencer can toggle off
