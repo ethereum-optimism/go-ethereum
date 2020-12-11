@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -237,6 +236,9 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 	<-service.doneProcessing
 	rtx, _ := service.txCache.Load(queueIndex.Uint64())
 
+	if rtx == nil {
+		t.Fatal("Unable to process tx")
+	}
 	ok, err := txProcessed(t, rtx, service)
 	if !ok {
 		t.Fatal(err)
@@ -244,55 +246,6 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 }
 
 func txProcessed(t *testing.T, rtx *RollupTransaction, service *SyncService) (bool, error) {
-	// Due to the current architecture of the system, the transaction should end
-	// up in the mempool. Downstream services are responsible for applying
-	// transactions to the state from the mempool.
-	pending, _ := service.txpool.Pending()
-	count := 0
-	for from, txs := range pending {
-		// The from should be the god key
-		if bytes.Equal(from.Bytes(), service.address.Bytes()) {
-			if len(txs) != 1 {
-				t.Fatal("More transactions in mempool than expected")
-			}
-			tx := txs[0]
-			//fmt.Println(tx.Hash().Hex())
-
-			if rtx.tx.Nonce() != tx.Nonce() {
-				t.Fatal("Nonce mismatch")
-			}
-			if !bytes.Equal(rtx.tx.To().Bytes(), tx.To().Bytes()) {
-				t.Fatal("To mismatch")
-			}
-			if rtx.tx.Gas() != tx.Gas() {
-				t.Fatal("Gas mismatch")
-			}
-			if !bytes.Equal(rtx.tx.GasPrice().Bytes(), tx.GasPrice().Bytes()) {
-				t.Fatal("GasPrice mismatch")
-			}
-			if !bytes.Equal(rtx.tx.Value().Bytes(), tx.Value().Bytes()) {
-				t.Fatal("Value mismatch")
-			}
-			if !bytes.Equal(rtx.tx.Data(), tx.Data()) {
-				t.Fatal("Data mismatch")
-			}
-			// remove the signature from the tx by creating a new tx with all
-			// of the information and then compare hashes.
-			fresh := types.NewTransaction(tx.Nonce(), *tx.To(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data(), nil, nil, types.QueueOriginL1ToL2, types.SighashEIP155)
-
-			if !bytes.Equal(fresh.Hash().Bytes(), rtx.tx.Hash().Bytes()) {
-				t.Fatal("Hash mismatch")
-			}
-		}
-		// Keep track of all pending tranasctions
-		count++
-	}
-
-	// There should only be one transaction in the mempool
-	if count != 1 {
-		t.Fatal("More transactions in mempool than expected")
-	}
-
 	return true, nil
 }
 
@@ -412,15 +365,9 @@ func newTestSyncService() (*SyncService, error) {
 	chaincfg := params.ChainConfig{ChainID: chainID}
 
 	txPool := core.NewTxPool(core.TxPoolConfig{PriceLimit: 0}, &chaincfg, chain)
-
-	// Hardcoded god key for determinism
-	d := "0xcb27a3fd66eeb29699d37c860f4b3545dad264aa70d2afdd92a454f30e3ae560"
-	key, _ := crypto.ToECDSA(hexutil.MustDecode(d))
-
 	cfg := Config{
 		CanonicalTransactionChainDeployHeight: big.NewInt(0),
 		CanonicalTransactionChainAddress:      ctcAddress,
-		TxIngestionSignerKey:                  key,
 	}
 
 	service, err := NewSyncService(context.Background(), cfg, txPool, chain, db)

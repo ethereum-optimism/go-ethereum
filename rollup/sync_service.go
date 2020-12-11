@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -153,6 +154,8 @@ type SyncService struct {
 	processingLock                   sync.RWMutex
 	txLock                           sync.Mutex
 	db                               ethdb.Database
+	scope                            event.SubscriptionScope
+	txFeed                           event.Feed
 	enable                           bool
 	ctcFilterer                      CTCEventFilterer
 	ctcCaller                        CTCCaller
@@ -252,7 +255,7 @@ func (s *SyncService) Start() error {
 	if !s.enable {
 		return nil
 	}
-	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "chainid", s.eth1ChainId, "networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address, "confirmation-depth", s.confirmationDepth)
+	log.Info("Initializing Sync Service", "endpoint", s.eth1HTTPEndpoint, "eh1-chainid", s.eth1ChainId, "eth1-networkid", s.eth1NetworkId, "address-resolver", s.AddressResolverAddress, "tx-ingestion-address", s.address, "confirmation-depth", s.confirmationDepth)
 	log.Info("Watching topics", "transaction-enqueued", hexutil.Encode(transactionEnqueuedEventSignature), "queue-batch-appened", hexutil.Encode(queueBatchAppendedEventSignature), "sequencer-batch-appended", hexutil.Encode(sequencerBatchAppendedEventSignature))
 
 	// Always initialize syncing to true to start, the sequencer can toggle off
@@ -274,6 +277,11 @@ func (s *SyncService) Start() error {
 		BlockHash:   blockHash,
 	}
 	s.Eth1Data = eth1Data
+
+	// TODO: LatestL1ToL2 fields will be 0 until a L1 to L2
+	// transaction takes place. This means that queue origin
+	// sequencer txs will have a L1BlockNumber of 0 until there
+	// is a L1 to L2 tx
 
 	_, client, err := s.dialEth1Node()
 	if err != nil {
@@ -588,6 +596,8 @@ func (s *SyncService) dialEth1Node() (*rpc.Client, *ethclient.Client, error) {
 func (s *SyncService) Stop() error {
 	defer close(s.heads)
 	defer close(s.doneProcessing)
+
+	s.scope.Close()
 
 	if s.cancel != nil {
 		defer s.cancel()
@@ -1039,7 +1049,11 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				data := eip155.data
 				l1BlockNumber := element.BlockNumber
 				// Set the L1TxOrigin to `nil`
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer, types.SighashEIP155)
+				if to == (common.Address{}) {
+					tx = types.NewContractCreation(nonce, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer)
+				} else {
+					tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer, types.SighashEIP155)
+				}
 				tx.SetIndex(index)
 				tx.SetL1Timestamp(element.Timestamp.Uint64())
 				// `WithSignature` accepts:
@@ -1048,7 +1062,16 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				if err != nil {
 					return fmt.Errorf("Cannot add signature to eip155 tx: %w", err)
 				}
-				log.Debug("Deserialized CTC EIP155 transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
+				from, err := s.signer.Sender(tx)
+				if err != nil {
+					from = common.Address{}
+					log.Error("Unable to compute from", "signature", hexutil.Encode(eip155.Signature[:]))
+				}
+				t := "<nil>"
+				if tx.To() != nil {
+					t = tx.To().Hex()
+				}
+				log.Debug("Deserialized CTC EIP155 transaction", "index", index, "to", t, "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas(), "from", from.Hex(), "sig", hexutil.Encode(eip155.Signature[:]), "hash", tx.Hash().Hex())
 			case CTCTransactionTypeEthSign:
 				ethsign, ok := ctcTx.tx.(*CTCTxEthSign)
 				if !ok {
@@ -1059,8 +1082,11 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				gasPrice := new(big.Int).SetUint64(uint64(ethsign.gasPrice))
 				data := ethsign.data
 				l1BlockNumber := element.BlockNumber
-				// Set the L1TxOrigin to `nil`
-				tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer, types.SighashEthSign)
+				if to == (common.Address{}) {
+					tx = types.NewContractCreation(nonce, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer)
+				} else {
+					tx = types.NewTransaction(nonce, to, big.NewInt(0), gasLimit, gasPrice, data, nil, l1BlockNumber, types.QueueOriginSequencer, types.SighashEthSign)
+				}
 				tx.SetIndex(index)
 				tx.SetL1Timestamp(element.Timestamp.Uint64())
 				// `WithSignature` accepts:
@@ -1088,6 +1114,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				continue
 			}
 			tx = rtx.tx
+			tx.SetIndex(index)
 			rtx.executed = true
 			s.txCache.Store(rtx.index, rtx)
 		}
@@ -1097,7 +1124,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 		if err != nil {
 			return fmt.Errorf("Sequencer batch appended error with index %d: %w", index, err)
 		}
-		log.Info("Sequencer Batch appended success", "index", index, "to", tx.To().Hex())
+		log.Info("Sequencer Batch appended success", "index", index)
 	}
 	return nil
 }
@@ -1180,13 +1207,29 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 	return nil
 }
 
+// SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
+// starts sending event to the given channel.
+func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+	return s.scope.Track(s.txFeed.Subscribe(ch))
+}
+
 // Adds the transaction to the mempool so that downstream services
 // can apply it to the state. This should directly play against
 // the state eventually, skipping the mempool.
 func (s *SyncService) applyTransaction(tx *types.Transaction) error {
-	err := s.txpool.AddLocal(tx)
-	if err != nil {
-		return fmt.Errorf("Cannot add tx to mempool: %w", err)
+	err := s.txpool.ValidateTx(tx)
+	// Only queue prevent queue origin sequencer transactions from entering
+	// when invalid. L1ToL2 transactions must be included even if they are
+	// invalid.
+	qo := tx.QueueOrigin()
+	if err != nil && qo.Uint64() == uint64(types.QueueOriginSequencer) {
+		return fmt.Errorf("invalid transaction: %w", err)
 	}
+	txs := types.Transactions{tx}
+	s.txFeed.Send(core.NewTxsEvent{txs})
 	return nil
+}
+
+func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
+	return s.applyTransaction(tx)
 }

@@ -429,10 +429,10 @@ type TxByIndexAndPrice Transactions
 
 func (s TxByIndexAndPrice) Len() int { return len(s) }
 func (s TxByIndexAndPrice) Less(i, j int) bool {
-	metai, metaj := s[i].meta, s[j].meta
+	metai, metaj := s[i].GetMeta(), s[j].GetMeta()
 	// They should never be the same integer but they
 	// can both be nil. Sort by gasPrice in this case.
-	if metai.Index == metaj.Index {
+	if metai.Index == nil && metaj.Index == nil {
 		return s[i].data.Price.Cmp(s[j].data.Price) > 0
 	}
 	// When the index is nil, it means that it is unknown. This

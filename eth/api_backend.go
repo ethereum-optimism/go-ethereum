@@ -267,11 +267,11 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	if vm.UsingOVM {
 		to := signedTx.To()
-		if to != nil && bytes.Equal(to.Bytes(), common.Address{}.Bytes()) {
+		if to != nil && *to == (common.Address{}) {
 			return errors.New("Cannot send transaction to zero address")
 		}
 	}
-	return b.eth.txPool.AddRemote(signedTx)
+	return b.eth.syncService.ApplyTransaction(signedTx)
 }
 
 func (b *EthAPIBackend) SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error {
