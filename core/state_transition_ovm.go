@@ -78,10 +78,9 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 
 	// V parameter here will include the chain ID, so we need to recover the original V. If the V
 	// does not equal zero or one, we have an invalid parameter and need to throw an error.
-	// TODO: the chainid needs to be pulled in from config
-	v = big.NewInt(int64(v.Uint64() - 35 - 2*420))
+	v = big.NewInt(int64(v.Uint64() - 35 - 2*tx.ChainId().Uint64()))
 	if v.Uint64() != 0 && v.Uint64() != 1 {
-		return msg, fmt.Errorf("invalid signature v parameter")
+		return msg, fmt.Errorf("invalid signature v parameter: %d", v.Uint64())
 	}
 
 	// Since we use a fixed encoding, we need to insert some placeholder address to represent that
