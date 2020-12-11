@@ -1045,6 +1045,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				}
 				nonce, gasLimit := uint64(eip155.nonce), uint64(eip155.gasLimit)
 				to := eip155.target
+
 				gasPrice := new(big.Int).SetUint64(uint64(eip155.gasPrice))
 				data := eip155.data
 				l1BlockNumber := element.BlockNumber
@@ -1188,7 +1189,7 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 	}
 	log.Debug("Queue Batch Appended Event Log", "startingQueueIndex", event.StartingQueueIndex.Uint64(), "numQueueElements", event.NumQueueElements.Uint64(), "totalElements", event.TotalElements.Uint64())
 
-	start := event.TotalElements.Uint64() - event.NumQueueElements.Uint64()
+	start := event.StartingQueueIndex.Uint64()
 	end := start + event.NumQueueElements.Uint64()
 	for i := start; i < end; i++ {
 		rtx, ok := s.txCache.Load(i)
