@@ -264,10 +264,6 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 	}
 }
 
-func txProcessed(t *testing.T, rtx *RollupTransaction, service *SyncService) (bool, error) {
-	return true, nil
-}
-
 func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	service, txCh, sub, err := newTestSyncService()
 	defer sub.Unsubscribe()
