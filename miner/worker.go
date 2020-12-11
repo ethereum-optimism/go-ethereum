@@ -465,11 +465,12 @@ func (w *worker) mainLoop() {
 			tx := ev.Txs[0]
 			if err := w.commitNewTx(nil, tx); err == nil {
 				head := <-w.chainHeadCh
-				if len(head.Block.Transactions()) == 0 {
+				txs := head.Block.Transactions()
+				if len(txs) == 0 {
 					log.Warn("No transactions in block")
 					continue
 				}
-				txn := head.Block.Transactions()[0]
+				txn := txs[0]
 				height := head.Block.Number().Uint64()
 				log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
 			} else {
