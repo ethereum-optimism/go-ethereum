@@ -463,7 +463,7 @@ func (w *worker) mainLoop() {
 				continue
 			}
 			tx := ev.Txs[0]
-			if err := w.commitNewTx(nil, tx); err == nil {
+			if err := w.commitNewTx(tx); err == nil {
 				head := <-w.chainHeadCh
 				txs := head.Block.Transactions()
 				if len(txs) == 0 {
@@ -873,7 +873,7 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 // It needs to return an error in the case there is an error to prevent waiting
 // on reading from a channel that is written to when a new block is added to the
 // chain.
-func (w *worker) commitNewTx(interrupt *int32, tx *types.Transaction) error {
+func (w *worker) commitNewTx(tx *types.Transaction) error {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	tstart := time.Now()
