@@ -19,6 +19,7 @@ package miner
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -891,14 +892,12 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 		Time:       uint64(timestamp),
 	}
 	if err := w.engine.Prepare(w.chain, header); err != nil {
-		log.Error("Failed to prepare header for mining", "err", err)
-		return errors.New("Cannot mine block very bad")
+		return fmt.Errorf("Failed to prepare header for mining: %w", err)
 	}
 	// Could potentially happen if starting to mine in an odd state.
 	err := w.makeCurrent(parent, header)
 	if err != nil {
-		log.Error("Failed to create mining context", "err", err)
-		return errors.New("Cannot mine block very bad")
+		return fmt.Errorf("Failed to create mining context: %w", err)
 	}
 	transactions := make(map[common.Address]types.Transactions)
 	acc, _ := types.Sender(w.current.signer, tx)
