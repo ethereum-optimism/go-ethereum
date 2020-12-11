@@ -50,7 +50,7 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 		msg.From(),
 		&evm.Context.OvmExecutionManager.Address,
 		ret,
-		msg.Gas(),
+		evm.Context.GasLimit,
 	)
 	if err != nil {
 		return nil, err
