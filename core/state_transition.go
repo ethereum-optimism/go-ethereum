@@ -32,7 +32,6 @@ import (
 
 var (
 	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
-	errNonIncrementingNonce      = errors.New("did not increment nonce")
 )
 
 /*
@@ -221,7 +220,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	contractCreation := msg.To() == nil
 
 	// OVM_ADDITION
-	initialNonce := st.state.GetNonce(msg.From())
 	// TODO(mark): pay intrinsic gas function needs to be updated
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead, istanbul)
 	if err != nil {
@@ -247,7 +245,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		if msg.L1MessageSender() != nil {
 			l1MessageSender = msg.L1MessageSender().Hex()
 		}
-		log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "l1MessageSender", l1MessageSender, "data", hexutil.Encode(msg.Data()))
+		log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "gasPrice", msg.GasPrice().Uint64(), "gasLimit", msg.Gas(), "l1MessageSender", l1MessageSender, "data", hexutil.Encode(msg.Data()))
 	}
 
 	if contractCreation {
@@ -260,23 +258,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		}
 
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value)
-	}
-
-	if vm.UsingOVM {
-		// Only assert that the nonce increments when its not `eth_call`
-		if st.evm.Context.EthCallSender == nil {
-			// Make sure that queue origin sequencer transactions increment the
-			// nonce. Transactions that fail execution here will not be included
-			// in blocks.
-			qo := msg.QueueOrigin()
-			if qo != nil && qo.Uint64() == uint64(types.QueueOriginSequencer) {
-				postNonce := st.state.GetNonce(msg.From())
-				if initialNonce+1 != postNonce {
-					log.Error("Tx did not increment the nonce", "from", msg.From().Hex(), "pre-nonce", initialNonce, "post-nonce", postNonce)
-					return nil, 0, false, errNonIncrementingNonce
-				}
-			}
-		}
 	}
 
 	if vmerr != nil {

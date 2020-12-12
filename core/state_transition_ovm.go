@@ -139,7 +139,7 @@ func EncodeFakeMessage(
 		return nil, err
 	}
 
-	var from = msg.From()
+	from := msg.From()
 	return modMessage(
 		msg,
 		from,

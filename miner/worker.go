@@ -19,6 +19,7 @@ package miner
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -140,6 +141,8 @@ type worker struct {
 	chainHeadSub event.Subscription
 	chainSideCh  chan core.ChainSideEvent
 	chainSideSub event.Subscription
+	rollupCh     chan core.NewTxsEvent
+	rollupSub    event.Subscription
 
 	// Channels
 	newWorkCh          chan *newWorkReq
@@ -194,6 +197,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		unconfirmed:        newUnconfirmedBlocks(eth.BlockChain(), miningLogAtDepth),
 		pendingTasks:       make(map[common.Hash]*task),
 		txsCh:              make(chan core.NewTxsEvent, txChanSize),
+		rollupCh:           make(chan core.NewTxsEvent, txChanSize),
 		chainHeadCh:        make(chan core.ChainHeadEvent, chainHeadChanSize),
 		chainSideCh:        make(chan core.ChainSideEvent, chainSideChanSize),
 		newWorkCh:          make(chan *newWorkReq),
@@ -206,6 +210,9 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	}
 	// Subscribe NewTxsEvent for tx pool
 	worker.txsSub = eth.TxPool().SubscribeNewTxsEvent(worker.txsCh)
+	// channel directly to the miner
+	worker.rollupSub = eth.SyncService().SubscribeNewTxsEvent(worker.rollupCh)
+
 	// Subscribe events for blockchain
 	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 	worker.chainSideSub = eth.BlockChain().SubscribeChainSideEvent(worker.chainSideCh)
@@ -349,11 +356,6 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 			timestamp = w.chain.CurrentTimestamp()
 			commit(false, commitInterruptNewHead)
 
-		case head := <-w.chainHeadCh:
-			clearPending(head.Block.NumberU64())
-			timestamp = w.chain.CurrentTimestamp()
-			commit(false, commitInterruptNewHead)
-
 		case <-timer.C:
 			// If mining is running resubmit a new work cycle periodically to pull in
 			// higher priced transactions. Disable this overhead for pending blocks.
@@ -407,6 +409,7 @@ func (w *worker) mainLoop() {
 	defer w.txsSub.Unsubscribe()
 	defer w.chainHeadSub.Unsubscribe()
 	defer w.chainSideSub.Unsubscribe()
+	defer w.rollupSub.Unsubscribe()
 
 	for {
 		select {
@@ -450,6 +453,29 @@ func (w *worker) mainLoop() {
 					})
 					w.commit(uncles, nil, true, start)
 				}
+			}
+		// Read from the sync service and mine single txs
+		// as they come. Wait for the block to be mined before
+		// reading the next tx from the channel when there is
+		// not an error processing the transaction.
+		case ev := <-w.rollupCh:
+			if len(ev.Txs) == 0 {
+				log.Warn("No transaction sent to miner from syncservice")
+				continue
+			}
+			tx := ev.Txs[0]
+			if err := w.commitNewTx(tx); err == nil {
+				head := <-w.chainHeadCh
+				txs := head.Block.Transactions()
+				if len(txs) == 0 {
+					log.Warn("No transactions in block")
+					continue
+				}
+				txn := txs[0]
+				height := head.Block.Number().Uint64()
+				log.Debug("Miner got new head", "height", height, "block-hash", head.Block.Hash().Hex(), "tx-hash", txn.Hash().Hex(), "tx-hash", tx.Hash().Hex())
+			} else {
+				log.Debug("Problem committing transaction: %w", err)
 			}
 
 		case ev := <-w.txsCh:
@@ -842,6 +868,45 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 		w.resubmitAdjustCh <- &intervalAdjust{inc: false}
 	}
 	return false
+}
+
+// commitNewTx is an OVM addition that mines a block with a single tx in it.
+// It needs to return an error in the case there is an error to prevent waiting
+// on reading from a channel that is written to when a new block is added to the
+// chain.
+func (w *worker) commitNewTx(tx *types.Transaction) error {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	tstart := time.Now()
+
+	parent := w.chain.CurrentBlock()
+	// TODO: the timestamp is 0 until a l1 to l2 tx happens
+	timestamp := w.chain.CurrentTimestamp()
+
+	num := parent.Number()
+	header := &types.Header{
+		ParentHash: parent.Hash(),
+		Number:     num.Add(num, common.Big1),
+		GasLimit:   core.CalcGasLimit(parent, w.config.GasFloor, w.config.GasCeil),
+		Extra:      w.extra,
+		Time:       uint64(timestamp),
+	}
+	if err := w.engine.Prepare(w.chain, header); err != nil {
+		return fmt.Errorf("Failed to prepare header for mining: %w", err)
+	}
+	// Could potentially happen if starting to mine in an odd state.
+	err := w.makeCurrent(parent, header)
+	if err != nil {
+		return fmt.Errorf("Failed to create mining context: %w", err)
+	}
+	transactions := make(map[common.Address]types.Transactions)
+	acc, _ := types.Sender(w.current.signer, tx)
+	transactions[acc] = types.Transactions{tx}
+	txs := types.NewTransactionsByPriceAndNonce(w.current.signer, transactions)
+	if w.commitTransactions(txs, w.coinbase, nil) {
+		return errors.New("Cannot commit transaction in miner")
+	}
+	return w.commit([]*types.Header{}, w.fullTaskHook, true, tstart)
 }
 
 // commitNewWork generates several new sealing tasks based on the parent block.
