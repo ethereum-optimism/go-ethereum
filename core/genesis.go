@@ -436,10 +436,14 @@ func DefaultGoerliGenesisBlock() *Genesis {
 }
 
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
-func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDumpPath string) *Genesis {
+func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDumpPath string, chainID *big.Int) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
+
+	if chainID != nil {
+		config.ChainID = chainID
+	}
 
 	stateDump := dump.OvmDump{}
 	if vm.UsingOVM {

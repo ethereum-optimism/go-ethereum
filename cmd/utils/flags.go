@@ -169,6 +169,11 @@ var (
 		Value:  eth.DefaultConfig.NetworkId,
 		EnvVar: "NETWORK_ID",
 	}
+	ChainIdFlag = cli.Uint64Flag{
+		Name:   "chainid",
+		Usage:  "Chain ID identifier",
+		EnvVar: "CHAIN_ID",
+	}
 	TestnetFlag = cli.BoolFlag{
 		Name:  "testnet",
 		Usage: "Ropsten network: pre-configured proof-of-work test network",
@@ -1704,10 +1709,17 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		}
 		log.Info("Using developer account", "address", developer.Address)
 
+		// Allow for a configurable chain id
+		var chainID *big.Int
+		if ctx.GlobalIsSet(ChainIdFlag.Name) {
+			id := ctx.GlobalUint64(ChainIdFlag.Name)
+			chainID = new(big.Int).SetUint64(id)
+		}
+
 		xdomainAddress := cfg.Rollup.L1CrossDomainMessengerAddress
 		addrManagerOwnerAddress := cfg.Rollup.AddressManagerOwnerAddress
 		stateDumpPath := cfg.Rollup.StateDumpPath
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath)
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath, chainID)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}
