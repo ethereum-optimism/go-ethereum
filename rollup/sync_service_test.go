@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -25,7 +25,7 @@ import (
 var ctcAddress = common.HexToAddress("0xE894780e35530557B152281e8828339303aE33e5")
 
 func TestSyncServiceDatabase(t *testing.T) {
-	service, err := newTestSyncService()
+	service, _, _, err := newTestSyncService()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func abiEncodeBatchAppended(startingQueueIndex, numQueueElements, totalElements 
 // Test that the `RollupTransaction` ends up in the transaction cache
 // after the transaction enqueued event is emitted.
 func TestSyncServiceTransactionEnqueued(t *testing.T) {
-	service, err := newTestSyncService()
+	service, _, _, err := newTestSyncService()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,15 +174,12 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	if !bytes.Equal(rtx.tx.To().Bytes(), target.Bytes()) {
 		t.Fatal("Incorrect target")
 	}
-
 	if !bytes.Equal(rtx.tx.L1MessageSender().Bytes(), l1TxOrigin.Bytes()) {
 		t.Fatal("L1TxOrigin not set correctly")
 	}
-
 	if rtx.tx.Gas() != gasLimit.Uint64() {
 		t.Fatal("Incorrect gas limit")
 	}
-
 	if !bytes.Equal(rtx.tx.Data(), data) {
 		t.Fatal("Incorrect data")
 	}
@@ -191,7 +188,9 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 // Tests that a queue batch append results in the transaction
 // from the cache is played against the state.
 func TestSyncServiceQueueBatchAppend(t *testing.T) {
-	service, err := newTestSyncService()
+	service, txCh, sub, err := newTestSyncService()
+	defer sub.Unsubscribe()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,68 +236,37 @@ func TestSyncServiceQueueBatchAppend(t *testing.T) {
 	<-service.doneProcessing
 	rtx, _ := service.txCache.Load(queueIndex.Uint64())
 
-	ok, err := txProcessed(t, rtx, service)
-	if !ok {
-		t.Fatal(err)
-	}
-}
-
-func txProcessed(t *testing.T, rtx *RollupTransaction, service *SyncService) (bool, error) {
-	// Due to the current architecture of the system, the transaction should end
-	// up in the mempool. Downstream services are responsible for applying
-	// transactions to the state from the mempool.
-	pending, _ := service.txpool.Pending()
-	count := 0
-	for from, txs := range pending {
-		// The from should be the god key
-		if bytes.Equal(from.Bytes(), service.address.Bytes()) {
-			if len(txs) != 1 {
-				t.Fatal("More transactions in mempool than expected")
-			}
-			tx := txs[0]
-			//fmt.Println(tx.Hash().Hex())
-
-			if rtx.tx.Nonce() != tx.Nonce() {
-				t.Fatal("Nonce mismatch")
-			}
-			if !bytes.Equal(rtx.tx.To().Bytes(), tx.To().Bytes()) {
-				t.Fatal("To mismatch")
-			}
-			if rtx.tx.Gas() != tx.Gas() {
-				t.Fatal("Gas mismatch")
-			}
-			if !bytes.Equal(rtx.tx.GasPrice().Bytes(), tx.GasPrice().Bytes()) {
-				t.Fatal("GasPrice mismatch")
-			}
-			if !bytes.Equal(rtx.tx.Value().Bytes(), tx.Value().Bytes()) {
-				t.Fatal("Value mismatch")
-			}
-			if !bytes.Equal(rtx.tx.Data(), tx.Data()) {
-				t.Fatal("Data mismatch")
-			}
-			// remove the signature from the tx by creating a new tx with all
-			// of the information and then compare hashes.
-			fresh := types.NewTransaction(tx.Nonce(), *tx.To(), tx.Value(), tx.Gas(), tx.GasPrice(), tx.Data(), nil, nil, types.QueueOriginL1ToL2, types.SighashEIP155)
-
-			if !bytes.Equal(fresh.Hash().Bytes(), rtx.tx.Hash().Bytes()) {
-				t.Fatal("Hash mismatch")
-			}
-		}
-		// Keep track of all pending tranasctions
-		count++
+	if rtx == nil {
+		t.Fatal("Unable to process tx")
 	}
 
-	// There should only be one transaction in the mempool
-	if count != 1 {
-		t.Fatal("More transactions in mempool than expected")
+	ev := <-txCh
+	if len(ev.Txs) != 1 {
+		t.Fatalf("Unexpected number of transactions: %d", len(ev.Txs))
 	}
-
-	return true, nil
+	tx := ev.Txs[0]
+	// Assert that the transaction was parsed as expected
+	if tx.Gas() != gasLimit.Uint64() {
+		t.Fatal("Gas limit mismatch")
+	}
+	if !bytes.Equal(tx.Data(), data) {
+		t.Fatal("Calldata mismatch")
+	}
+	// The nocne is equal to the queue index
+	if tx.Nonce() != queueIndex.Uint64() {
+		t.Fatal("Nonce mismatch")
+	}
+	if *tx.To() != target {
+		t.Fatal("Target mismatch")
+	}
+	if *tx.L1MessageSender() != l1TxOrigin {
+		t.Fatal("L1MessageSender mismatch")
+	}
 }
 
 func TestSyncServiceSequencerBatchAppend(t *testing.T) {
-	t.Skip("Disabled for now")
-	service, err := newTestSyncService()
+	service, txCh, sub, err := newTestSyncService()
+	defer sub.Unsubscribe()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,15 +274,19 @@ func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	raw := hexutil.MustDecode("0x789a80053e4927d0a898db8e065e948f5cf086e32f9ccaa54c1908e22ac430c62621578113ddbb62d509bf6049b8fb544ab06d36f916685a2eb8e57ffadde02301")
 	var sig [65]byte
 	copy(sig[:], raw)
-
+	// These variables will be used to assert against at the end of the test
+	gasLimit := uint32(50000)
+	gasPrice := uint32(0)
+	nonce := uint32(0)
+	target := common.HexToAddress("0x5769785087b1b64e4cbd9a38d48a1ca35a2fd75cf5cd941d75b2e2fbc6018e8a")
 	ctcTx := CTCTransaction{
 		typ: CTCTransactionTypeEIP155,
 		tx: &CTCTxEIP155{
 			Signature: sig,
-			gasLimit:  50000,
-			gasPrice:  0,
-			nonce:     (1 << 21) + 14,
-			target:    common.HexToAddress("0x5769785087b1b64e4cbd9a38d48a1ca35a2fd75cf5cd941d75b2e2fbc6018e8a"),
+			gasLimit:  gasLimit,
+			gasPrice:  gasPrice,
+			nonce:     nonce,
+			target:    target,
 			data:      raw,
 		},
 	}
@@ -352,11 +324,11 @@ func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	calldata := append(sequencerBatchAppendedEventSignature[:4], rawCd.Bytes()...)
 	// get transaction by hash
 	mockEthClient(service, map[string]interface{}{
 		"TransactionByHash": []*types.Transaction{
-			types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), rawCd.Bytes(), nil, nil, types.QueueOriginSequencer, types.SighashEIP155),
+			types.NewTransaction(0, common.Address{}, big.NewInt(0), 0, big.NewInt(0), calldata, nil, nil, types.QueueOriginSequencer, types.SighashEIP155),
 		},
 	})
 	mockLogClient(service, [][]types.Log{
@@ -377,27 +349,30 @@ func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	service.heads <- &types.Header{Number: big.NewInt(1)}
 	<-service.doneProcessing
 
-	// The god key should be a key containing the transaction in queued
-	pending, queued := service.txpool.Content()
-
-	// queued should only have 1 key/value pair
-	count := 0
-	for _, transactions := range queued {
-		for range transactions {
-			count++
-		}
+	ev := <-txCh
+	if len(ev.Txs) != 1 {
+		t.Fatalf("Unexpected number of transactions: %d", len(ev.Txs))
 	}
-	for _, transactions := range pending {
-		for range transactions {
-			count++
-		}
+	tx := ev.Txs[0]
+	// Assert that the transaction was parsed as expected
+	if tx.Gas() != uint64(gasLimit) {
+		t.Fatal("Gas limit mismatch")
 	}
-	if count != 1 {
-		t.Fatalf("Transaction count mismatch. Got %d, expected %d", count, 1)
+	if tx.GasPrice().Uint64() != uint64(gasPrice) {
+		t.Fatal("Gas price mismatch")
+	}
+	if !bytes.Equal(tx.Data(), raw) {
+		t.Fatal("Calldata mismatch")
+	}
+	if tx.Nonce() != uint64(nonce) {
+		t.Fatal("Nonce mismatch")
+	}
+	if *tx.To() != target {
+		t.Fatal("Target mismatch")
 	}
 }
 
-func newTestSyncService() (*SyncService, error) {
+func newTestSyncService() (*SyncService, chan core.NewTxsEvent, event.Subscription, error) {
 	chainCfg := params.AllEthashProtocolChanges
 	chainID := big.NewInt(420)
 	chainCfg.ChainID = chainID
@@ -407,28 +382,26 @@ func newTestSyncService() (*SyncService, error) {
 	_ = new(core.Genesis).MustCommit(db)
 	chain, err := core.NewBlockChain(db, nil, chainCfg, engine, vm.Config{}, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize blockchain: %w", err)
+		return nil, nil, nil, fmt.Errorf("Cannot initialize blockchain: %w", err)
 	}
 	chaincfg := params.ChainConfig{ChainID: chainID}
 
 	txPool := core.NewTxPool(core.TxPoolConfig{PriceLimit: 0}, &chaincfg, chain)
-
-	// Hardcoded god key for determinism
-	d := "0xcb27a3fd66eeb29699d37c860f4b3545dad264aa70d2afdd92a454f30e3ae560"
-	key, _ := crypto.ToECDSA(hexutil.MustDecode(d))
-
 	cfg := Config{
 		CanonicalTransactionChainDeployHeight: big.NewInt(0),
 		CanonicalTransactionChainAddress:      ctcAddress,
-		TxIngestionSignerKey:                  key,
+		IsVerifier:                            true,
 	}
 
 	service, err := NewSyncService(context.Background(), cfg, txPool, chain, db)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize syncservice: %w", err)
+		return nil, nil, nil, fmt.Errorf("Cannot initialize syncservice: %w", err)
 	}
 
-	return service, nil
+	txCh := make(chan core.NewTxsEvent, 1)
+	sub := service.SubscribeNewTxsEvent(txCh)
+
+	return service, txCh, sub, nil
 }
 
 // Mock setup functions
