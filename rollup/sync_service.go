@@ -360,12 +360,14 @@ func (s *SyncService) initializeLatestL1() error {
 		head := rawdb.ReadHeadBlockHash(s.db)
 		block := s.bc.GetBlockByHash(head)
 		txs := block.Transactions()
-		if len(txs) > 0 {
-			return fmt.Errorf("")
+		if len(txs) == 0 {
+			log.Error("Unexpected number of transactions in block: %d", len(txs))
 		}
-		tx := txs[0]
-		s.SetLatestL1Timestamp(tx.L1Timestamp())
-		s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
+		if len(txs) > 0 {
+			tx := txs[0]
+			s.SetLatestL1Timestamp(tx.L1Timestamp())
+			s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
+		}
 	}
 	return nil
 }
