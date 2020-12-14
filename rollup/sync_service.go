@@ -37,6 +37,7 @@ type EthereumClient interface {
 	NetworkID(context.Context) (*big.Int, error)
 	SyncProgress(context.Context) (*ethereum.SyncProgress, error)
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	BlockByNumber(context.Context, *big.Int) (*types.Block, error)
 	TransactionByHash(context.Context, common.Hash) (*types.Transaction, bool, error)
 }
 
@@ -278,11 +279,6 @@ func (s *SyncService) Start() error {
 	}
 	s.Eth1Data = eth1Data
 
-	// TODO: LatestL1ToL2 fields will be 0 until a L1 to L2
-	// transaction takes place. This means that queue origin
-	// sequencer txs will have a L1BlockNumber of 0 until there
-	// is a L1 to L2 tx
-
 	_, client, err := s.dialEth1Node()
 	if err != nil {
 		return fmt.Errorf("Cannot dial eth1 nodes: %w", err)
@@ -311,6 +307,13 @@ func (s *SyncService) Start() error {
 		return fmt.Errorf("Bad sync status: %w", err)
 	}
 
+	// Set the initial values of the `LatestL1BlockNumber`
+	// and `LatestL1Timestamp`
+	err = s.initializeLatestL1()
+	if err != nil {
+		return fmt.Errorf("Cannot set latest L1: %w", err)
+	}
+
 	go s.LogDoneProcessing()
 	// Catch up to the tip of the eth1 chain
 	err = s.processHistoricalLogs()
@@ -335,6 +338,40 @@ func (s *SyncService) Start() error {
 		go s.sequencerIngestQueue()
 	}
 
+	return nil
+}
+
+// initializeLatestL1 sets the initial values of the `L1BlockNumber`
+// and `L1Timestamp` to the deploy height of the Canonical Transaction
+// chain if the chain is empty, otherwise set it from the last
+// transaction processed.
+func (s *SyncService) initializeLatestL1() error {
+	block := s.bc.CurrentBlock()
+	if block == nil {
+		return errors.New("Current block is nil")
+	}
+	if block == s.bc.Genesis() {
+		if s.ctcDeployHeight == nil {
+			return errors.New("Must configure with canonical transaction chain deploy height")
+		}
+		var err error
+		block, err = s.ethclient.BlockByNumber(s.ctx, s.ctcDeployHeight)
+		if err != nil {
+			return fmt.Errorf("Cannot fetch ctc deploy block at height %d", s.ctcDeployHeight)
+		}
+		s.SetLatestL1Timestamp(block.Time())
+		s.SetLatestL1BlockNumber(block.Number().Uint64())
+	} else {
+		txs := block.Transactions()
+		if len(txs) != 1 {
+			log.Error("Unexpected number of transactions in block: %d", len(txs))
+		}
+		if len(txs) > 0 {
+			tx := txs[0]
+			s.SetLatestL1Timestamp(tx.L1Timestamp())
+			s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
+		}
+	}
 	return nil
 }
 

@@ -253,8 +253,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	bc.currentBlock.Store(nilBlock)
 	bc.currentFastBlock.Store(nilBlock)
 
-	// TODO: Make default current timestamp configurable & make 0 if genesis else load from last block?
-
 	// Initialize the chain with ancient data if it isn't empty.
 	if bc.empty() {
 		rawdb.InitDatabaseFromFreezer(bc.db)
@@ -540,6 +538,12 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 	return bc.currentBlock.Load().(*types.Block)
 }
 
+// SetCurrentBlock is used for testing
+func (bc *BlockChain) SetCurrentBlock(block *types.Block) {
+	bc.currentBlock.Store(block)
+}
+
+// GetDiff retrieves the diffdb's state diff keys for a block
 func (bc *BlockChain) GetDiff(block *big.Int) (diffdb.Diff, error) {
 	return bc.diffdb.GetDiff(block)
 }

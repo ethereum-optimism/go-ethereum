@@ -6,6 +6,7 @@ on:
       - master
       - testnet
       - uat
+      - kovan
 
 jobs:
   build:
@@ -31,7 +32,7 @@ jobs:
           ./build.sh -s go-ethereum -b $BRANCH
           if [ $BRANCH == 'master' ]; then
               docker push ethereumoptimism/go-ethereum:latest
-          elif [[ $BRANCH == 'uat' || $BRANCH == 'testnet' ]]; then
+          elif [[ $BRANCH == 'uat' || $BRANCH == 'testnet' || $BRANCH == 'kovan' ]]; then
               docker push ethereumoptimism/go-ethereum:$BRANCH
           fi
 

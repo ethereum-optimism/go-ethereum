@@ -9,24 +9,72 @@ https://camo.githubusercontent.com/915b7be44ada53c290eb157634330494ebe3e30a/6874
 [![Travis](https://travis-ci.org/ethereum/go-ethereum.svg?branch=master)](https://travis-ci.org/ethereum/go-ethereum)
 [![Discord](https://img.shields.io/badge/discord-join%20chat-blue.svg)](https://discord.gg/nthXNEv)
 
-Automated builds are available for stable releases and the unstable master branch. Binary
-archives are published at https://geth.ethereum.org/downloads/.
-
 ## Optimism
-First, run:
+
+The same codebase is used to run both the Sequencer and the Verifier. Runtime
+configuration will determine the mode of operation. The configuration flags
+can be configured using either environment variables or passed at runtime as
+flags.
+
+A prebuilt Docker image is available at `ethereumoptimism/go-ethereum`.
+
+To compile the code, run:
 ```
-make geth
+$ make geth
 ```
 
-```
-rm -rf da-test-chain-dir && USING_OVM=true ./build/bin/geth --datadir da-test-chain-dir --rpc --dev --rpcaddr "0.0.0.0" --rpccorsdomain "*" --networkid 420 --rpcapi 'eth,net' --gasprice '0' --targetgaslimit '8000000' --nousb --gcmode=archive
-```
-You can also enable logs with 
-```
-rm -rf da-test-chain-dir && USING_OVM=true ./build/bin/geth --datadir da-test-chain-dir --rpc --dev --rpcaddr "0.0.0.0" --rpccorsdomain "*" --networkid 420 --rpcapi 'eth,net' --gasprice '0' --targetgaslimit '8000000' --nousb --gcmode=archive --verbosity=5
+### Running a Sequencer
+
+See the script `scripts/start.sh`. It sets many of the config options
+and accepts CLI flags. For usage, run the command:
+
+```bash
+$ ./scripts/start.sh -h
 ```
 
+This may be suitable for simple usecases, users that need more flexibility
+with their configuration can run the command:
 
+```bash
+$ USING_OVM=true ./build/bin/geth \
+    --rollup.addressmanagerowneraddress $ADDRESS_MANAGER_OWNER_ADDRESS \
+    --eth1.confirmationdepth 0 \
+    --eth1.http $LAYER1_NODE_URL \
+    --eth1.networkid $LAYER1_NETWORK_ID \
+    --eth1.chainid $LAYER1_CHAIN_ID \
+    --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS \
+    --eth1.addressresolveraddress $ETH1_ADDRESS_RESOLVER_ADDRESS \
+    --eth1.ctcdeploymentheight $CTC_DEPLOY_HEIGHT \
+    --eth1.syncservice \
+    --rpc \
+    --dev \
+    --rpcaddr "0.0.0.0" \
+    --rpccorsdomain '*' \
+    --wsaddr "0.0.0.0" \
+    --wsport 8546 \
+    --wsorigins '*' \
+    --networkid 420 \
+    --rpcapi 'eth,net,rollup,web3' \
+    --gasprice '0' \
+    --targetgaslimit '8000000' \
+    --nousb \
+    --gcmode=archive \
+    --ipcdisable
+```
+
+The address manager owner address will be set in the layer two state at runtime.
+
+To persist the database, pass the `--datadir` with a path to the directory for
+the database to be persisted in. Without this flag, an in memory database will
+be used. To tune the log level, use the `--verbosity` flag with an integer.
+
+The initial state can be fetched via HTTPS using the flag `--rollup.statedumppath`.
+State dumps are available via the [regenesis repository](https://github.com/ethereum-optimism/regenesis).
+To use a different genesis state, pass in a path to one of the JSON files in the repository.
+
+### Running a Verifier
+
+Add the flag `--rollup.verifier`
 
 ## Building the source
 
