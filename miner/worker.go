@@ -885,7 +885,7 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 		Number:     num.Add(num, common.Big1),
 		GasLimit:   core.CalcGasLimit(parent, w.config.GasFloor, w.config.GasCeil),
 		Extra:      w.extra,
-		Time:       uint64(timestamp),
+		Time:       timestamp,
 	}
 	if err := w.engine.Prepare(w.chain, header); err != nil {
 		return fmt.Errorf("Failed to prepare header for mining: %w", err)
