@@ -360,7 +360,7 @@ func (s *SyncService) initializeLatestL1() error {
 		head := rawdb.ReadHeadBlockHash(s.db)
 		block := s.bc.GetBlockByHash(head)
 		txs := block.Transactions()
-		if len(txs) == 0 {
+		if len(txs) != 1 {
 			log.Error("Unexpected number of transactions in block: %d", len(txs))
 		}
 		if len(txs) > 0 {
