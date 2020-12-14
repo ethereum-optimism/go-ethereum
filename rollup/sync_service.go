@@ -37,6 +37,7 @@ type EthereumClient interface {
 	NetworkID(context.Context) (*big.Int, error)
 	SyncProgress(context.Context) (*ethereum.SyncProgress, error)
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	BlockByNumber(context.Context, *big.Int) (*types.Block, error)
 	TransactionByHash(context.Context, common.Hash) (*types.Transaction, bool, error)
 }
 
@@ -345,20 +346,22 @@ func (s *SyncService) Start() error {
 // chain if the chain is empty, otherwise set it from the last
 // transaction processed.
 func (s *SyncService) initializeLatestL1() error {
-	if block := s.bc.CurrentBlock(); block == s.bc.Genesis() {
+	block := s.bc.CurrentBlock()
+	if block == nil {
+		return errors.New("Current block is nil")
+	}
+	if block == s.bc.Genesis() {
 		if s.ctcDeployHeight == nil {
 			return errors.New("Must configure with canonical transaction chain deploy height")
 		}
 		var err error
-		block, err = s.ethrpcclient.BlockByNumber(s.ctx, s.ctcDeployHeight)
+		block, err = s.ethclient.BlockByNumber(s.ctx, s.ctcDeployHeight)
 		if err != nil {
 			return fmt.Errorf("Cannot fetch ctc deploy block at height %d", s.ctcDeployHeight)
 		}
 		s.SetLatestL1Timestamp(block.Time())
 		s.SetLatestL1BlockNumber(block.Number().Uint64())
 	} else {
-		head := rawdb.ReadHeadBlockHash(s.db)
-		block := s.bc.GetBlockByHash(head)
 		txs := block.Transactions()
 		if len(txs) != 1 {
 			log.Error("Unexpected number of transactions in block: %d", len(txs))

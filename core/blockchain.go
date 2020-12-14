@@ -521,6 +521,11 @@ func (bc *BlockChain) CurrentBlock() *types.Block {
 	return bc.currentBlock.Load().(*types.Block)
 }
 
+// SetCurrentBlock is used for testing
+func (bc *BlockChain) SetCurrentBlock(block *types.Block) {
+	bc.currentBlock.Store(block)
+}
+
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentFastBlock() *types.Block {
