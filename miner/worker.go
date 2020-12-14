@@ -32,7 +32,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -785,21 +784,6 @@ func (w *worker) commitTransactions(txs *types.TransactionsByPriceAndNonce, coin
 			break
 		}
 
-		// OVM Change - set the timestamp on the header to the
-		// timestamp of the transaction. Since there is an assumption
-		// of only 1 transaction, only do this for the first tx.
-		if vm.UsingOVM {
-			if len(w.current.txs) == 0 {
-				if tx.L1Timestamp() == 0 {
-					ts := w.eth.SyncService().GetLatestL1Timestamp()
-					bn := w.eth.SyncService().GetLatestL1BlockNumber()
-					tx.SetL1Timestamp(ts)
-					tx.SetL1BlockNumber(bn)
-				}
-				w.current.header.Time = tx.L1Timestamp()
-			}
-		}
-
 		// Error may be ignored here. The error has already been checked
 		// during transaction acceptance is the transaction pool.
 		//
@@ -880,8 +864,20 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	tstart := time.Now()
 
 	parent := w.chain.CurrentBlock()
-	// TODO: the timestamp is 0 until a l1 to l2 tx happens
-	timestamp := w.chain.CurrentTimestamp()
+	// The L1Timestamp will always be set for a transaction
+	// coming from a batch submission because the transaction
+	// has been included in the canonical transaction chain.
+	// The only time that L1Timestamp is zero is for queue
+	// origin sequencer transactions that have yet to be included
+	// in the canonical transaction chain, meaning this code
+	// path is only relevant for the sequencer.
+	if tx.L1Timestamp() == 0 {
+		ts := w.eth.SyncService().GetLatestL1Timestamp()
+		bn := w.eth.SyncService().GetLatestL1BlockNumber()
+		tx.SetL1Timestamp(ts)
+		tx.SetL1BlockNumber(bn)
+	}
+	timestamp := tx.L1Timestamp()
 
 	num := parent.Number()
 	header := &types.Header{
