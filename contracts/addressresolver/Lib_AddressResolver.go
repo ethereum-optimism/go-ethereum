@@ -214,4 +214,3 @@ func (_LibAddressResolver *LibAddressResolverSession) Resolve(_name string) (com
 func (_LibAddressResolver *LibAddressResolverCallerSession) Resolve(_name string) (common.Address, error) {
 	return _LibAddressResolver.Contract.Resolve(&_LibAddressResolver.CallOpts, _name)
 }
-

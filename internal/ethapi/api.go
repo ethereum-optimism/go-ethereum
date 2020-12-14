@@ -39,6 +39,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/diffdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/params"
@@ -549,9 +550,82 @@ type AccountResult struct {
 	StorageProof []StorageResult `json:"storageProof"`
 }
 type StorageResult struct {
-	Key   string       `json:"key"`
-	Value *hexutil.Big `json:"value"`
-	Proof []string     `json:"proof"`
+	Key     string       `json:"key"`
+	Value   *hexutil.Big `json:"value"`
+	Proof   []string     `json:"proof"`
+	Mutated bool         `json:"mutated"`
+}
+
+// Result structs for GetStateDiffProof
+type StateDiffProof struct {
+	Header   *HeaderMeta     `json:"header"`
+	Accounts []AccountResult `json:"accounts"`
+}
+type HeaderMeta struct {
+	Number    *big.Int    `json:"number"`
+	Hash      common.Hash `json:"hash"`
+	StateRoot common.Hash `json:"stateRoot"`
+	Timestamp uint64      `json:"timestamp"`
+}
+
+func (s *PublicBlockChainAPI) GetStateDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (diffdb.Diff, error) {
+	_, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	return s.b.GetDiff(header.Number)
+}
+
+// GetStateDiffProof returns the Merkle-proofs corresponding to all the accounts and
+// storage slots which were touched for a given block number or hash.
+func (s *PublicBlockChainAPI) GetStateDiffProof(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*StateDiffProof, error) {
+	state, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if state == nil || header == nil || err != nil {
+		return nil, err
+	}
+
+	// get the changed accounts for this block
+	diffs, err := s.GetStateDiff(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+
+	// for each changed account, get their proof
+	var accounts []AccountResult
+	for address, keys := range diffs {
+		// need to convert the hashes to strings, we could maybe refactor getProof
+		// alternatively
+		keyStrings := make([]string, len(keys))
+		for i, key := range keys {
+			keyStrings[i] = key.Key.String()
+		}
+
+		// get the proofs
+		res, err := s.GetProof(ctx, address, keyStrings, blockNrOrHash)
+		if err != nil {
+			return nil, err
+		}
+
+		// iterate over all the proofs and set their mutated bit
+		for i := range res.StorageProof {
+			res.StorageProof[i].Mutated = keys[i].Mutated
+		}
+
+		accounts = append(accounts, *res)
+	}
+
+	// add some metadata
+	stateDiffProof := &StateDiffProof{
+		Header: &HeaderMeta{
+			Number:    header.Number,
+			Hash:      header.Hash(),
+			StateRoot: header.Root,
+			Timestamp: header.Time,
+		},
+		Accounts: accounts,
+	}
+
+	return stateDiffProof, state.Error()
 }
 
 // GetProof returns the Merkle-proof for a given account and optionally some storage keys.
@@ -581,9 +655,19 @@ func (s *PublicBlockChainAPI) GetProof(ctx context.Context, address common.Addre
 			if storageError != nil {
 				return nil, storageError
 			}
-			storageProof[i] = StorageResult{key, (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()), common.ToHexArray(proof)}
+			// by default, the GetProof API does not return if a storage item
+			// was mutated or not.
+			storageProof[i] = StorageResult{
+				Key:   key,
+				Value: (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()),
+				Proof: common.ToHexArray(proof),
+			}
 		} else {
-			storageProof[i] = StorageResult{key, &hexutil.Big{}, []string{}}
+			storageProof[i] = StorageResult{
+				Key:   key,
+				Value: &hexutil.Big{},
+				Proof: []string{},
+			}
 		}
 	}
 

@@ -66,6 +66,7 @@ var DefaultConfig = Config{
 		TxIngestionEnable: false,
 		StateDumpPath:     "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/master.json",
 	},
+	DiffDbCache: 256,
 }
 
 func init() {
@@ -122,6 +123,7 @@ type Config struct {
 	DatabaseHandles    int  `toml:"-"`
 	DatabaseCache      int
 	DatabaseFreezer    string
+	DiffDbCache        uint64
 
 	TrieCleanCache int
 	TrieDirtyCache int

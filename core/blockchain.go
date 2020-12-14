@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/diffdb"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -164,6 +165,8 @@ type BlockChain struct {
 	txLookupCache *lru.Cache     // Cache for the most recent transaction lookup data.
 	futureBlocks  *lru.Cache     // future blocks are blocks added for later processing
 
+	diffdb state.DiffDB // Diff
+
 	quit    chan struct{} // blockchain quit channel
 	running int32         // running must be called atomically
 	// procInterrupt must be atomically called
@@ -179,6 +182,20 @@ type BlockChain struct {
 	badBlocks       *lru.Cache                     // Bad block cache
 	shouldPreserve  func(*types.Block) bool        // Function used to determine whether should preserve the given block.
 	terminateInsert func(common.Hash, uint64) bool // Testing hook used to terminate ancient receipt chain insertion.
+}
+
+func NewBlockChainWithDiffDb(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *params.ChainConfig, engine consensus.Engine, vmConfig vm.Config, shouldPreserve func(block *types.Block) bool, path string, cache uint64) (*BlockChain, error) {
+	diff, err := diffdb.NewDiffDb(path, cache)
+	if err != nil {
+		return nil, err
+	}
+	bc, err := NewBlockChain(db, cacheConfig, chainConfig, engine, vmConfig, shouldPreserve)
+	if err != nil {
+		return nil, err
+	}
+	bc.diffdb = diff
+
+	return bc, nil
 }
 
 // NewBlockChain returns a fully initialised block chain using information
@@ -348,7 +365,7 @@ func (bc *BlockChain) loadLastState() error {
 		return bc.Reset()
 	}
 	// Make sure the state associated with the block is available
-	if _, err := state.New(currentBlock.Root(), bc.stateCache); err != nil {
+	if _, err := state.NewWithDiffDb(currentBlock.Root(), bc.stateCache, bc.diffdb); err != nil {
 		// Dangling block without a state associated, init from scratch
 		log.Warn("Head state missing, repairing chain", "number", currentBlock.Number(), "hash", currentBlock.Hash())
 		if err := bc.repair(&currentBlock); err != nil {
@@ -410,7 +427,7 @@ func (bc *BlockChain) SetHead(head uint64) error {
 			if newHeadBlock == nil {
 				newHeadBlock = bc.genesisBlock
 			} else {
-				if _, err := state.New(newHeadBlock.Root(), bc.stateCache); err != nil {
+				if _, err := state.NewWithDiffDb(newHeadBlock.Root(), bc.stateCache, bc.diffdb); err != nil {
 					// Rewound state missing, rolled back to before pivot, reset to genesis
 					newHeadBlock = bc.genesisBlock
 				}
@@ -526,6 +543,11 @@ func (bc *BlockChain) SetCurrentBlock(block *types.Block) {
 	bc.currentBlock.Store(block)
 }
 
+// GetDiff retrieves the diffdb's state diff keys for a block
+func (bc *BlockChain) GetDiff(block *big.Int) (diffdb.Diff, error) {
+	return bc.diffdb.GetDiff(block)
+}
+
 // CurrentFastBlock retrieves the current fast-sync head block of the canonical
 // chain. The block is retrieved from the blockchain's internal cache.
 func (bc *BlockChain) CurrentFastBlock() *types.Block {
@@ -549,7 +571,7 @@ func (bc *BlockChain) State() (*state.StateDB, error) {
 
 // StateAt returns a new mutable state based on a particular point in time.
 func (bc *BlockChain) StateAt(root common.Hash) (*state.StateDB, error) {
-	return state.New(root, bc.stateCache)
+	return state.NewWithDiffDb(root, bc.stateCache, bc.diffdb)
 }
 
 // StateCache returns the caching database underpinning the blockchain instance.
@@ -601,7 +623,7 @@ func (bc *BlockChain) ResetWithGenesisBlock(genesis *types.Block) error {
 func (bc *BlockChain) repair(head **types.Block) error {
 	for {
 		// Abort if we've rewound to a head block that does have associated state
-		if _, err := state.New((*head).Root(), bc.stateCache); err == nil {
+		if _, err := state.NewWithDiffDb((*head).Root(), bc.stateCache, bc.diffdb); err == nil {
 			log.Info("Rewound blockchain to past state", "number", (*head).Number(), "hash", (*head).Hash())
 			return nil
 		}
@@ -892,6 +914,15 @@ func (bc *BlockChain) Stop() {
 		}
 		if size, _ := triedb.Size(); size != 0 {
 			log.Error("Dangling trie nodes after full cleanup")
+		}
+	}
+
+	if bc.diffdb != nil {
+		if err := bc.diffdb.ForceCommit(); err != nil {
+			log.Error("Failed to commit recent state diffs", "err", err)
+		}
+		if err := bc.diffdb.Close(); err != nil {
+			log.Error("Failed to commit state diffs handler", "err", err)
 		}
 	}
 	log.Info("Blockchain manager stopped")
@@ -1683,7 +1714,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals bool) (int, er
 		if parent == nil {
 			parent = bc.GetHeader(block.ParentHash(), block.NumberU64()-1)
 		}
-		statedb, err := state.New(parent.Root, bc.stateCache)
+		statedb, err := state.NewWithDiffDb(parent.Root, bc.stateCache, bc.diffdb)
 		if err != nil {
 			return it.index, err
 		}

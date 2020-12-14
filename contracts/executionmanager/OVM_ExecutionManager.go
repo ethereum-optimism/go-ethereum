@@ -214,4 +214,3 @@ func (_OVMExecutionManager *OVMExecutionManagerSession) GetMaxTransactionGasLimi
 func (_OVMExecutionManager *OVMExecutionManagerCallerSession) GetMaxTransactionGasLimit() (*big.Int, error) {
 	return _OVMExecutionManager.Contract.GetMaxTransactionGasLimit(&_OVMExecutionManager.CallOpts)
 }
-

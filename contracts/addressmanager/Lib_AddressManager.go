@@ -455,4 +455,3 @@ func (_LibAddressManager *LibAddressManagerFilterer) ParseOwnershipTransferred(l
 	}
 	return event, nil
 }
-

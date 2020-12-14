@@ -23,10 +23,10 @@ var funcs = map[string]stateManagerFunction{
 	"hasAccount":                               nativeFunctionTrue,
 	"hasEmptyAccount":                          nativeFunctionTrue,
 	"hasContractStorage":                       nativeFunctionTrue,
-	"testAndSetAccountLoaded":                  nativeFunctionTrue,
-	"testAndSetAccountChanged":                 nativeFunctionTrue,
-	"testAndSetContractStorageLoaded":          nativeFunctionTrue,
-	"testAndSetContractStorageChanged":         nativeFunctionTrue,
+	"testAndSetAccountLoaded":                  testAndSetAccount,
+	"testAndSetAccountChanged":                 testAndSetAccount,
+	"testAndSetContractStorageLoaded":          testAndSetContractStorageLoaded,
+	"testAndSetContractStorageChanged":         testAndSetContractStorageChanged,
 	"incrementTotalUncommittedAccounts":        nativeFunctionVoid,
 	"incrementTotalUncommittedContractStorage": nativeFunctionVoid,
 	"initPendingAccount":                       nativeFunctionVoid,
@@ -131,9 +131,83 @@ func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 		return nil, errors.New("Could not parse value arg in putContractStorage")
 	}
 	val := toHash(_value)
-	evm.StateDB.SetState(address, key, val)
+
+	// save the block number and address with modified key if it's not an eth_call
+	if evm.Context.EthCallSender == nil {
+		// save the value before
+		before := evm.StateDB.GetState(address, key)
+		evm.StateDB.SetState(address, key, val)
+		err := evm.StateDB.SetDiffKey(
+			evm.Context.BlockNumber,
+			address,
+			key,
+			before != val,
+		)
+		if err != nil {
+			log.Error("Cannot set diff key", "err", err)
+		}
+	} else {
+		// otherwise just do the db update
+		evm.StateDB.SetState(address, key, val)
+	}
+
 	log.Debug("Put contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
 	return []interface{}{}, nil
+}
+
+func testAndSetAccount(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	address, ok := args["_address"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in putContractStorage")
+	}
+
+	if evm.Context.EthCallSender == nil {
+		err := evm.StateDB.SetDiffAccount(
+			evm.Context.BlockNumber,
+			address,
+		)
+
+		if err != nil {
+			log.Error("Cannot set account diff", err)
+		}
+	}
+
+	return []interface{}{true}, nil
+}
+
+func testAndSetContractStorageLoaded(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	return testAndSetContractStorage(evm, contract, args, false)
+}
+
+func testAndSetContractStorageChanged(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	return testAndSetContractStorage(evm, contract, args, true)
+}
+
+func testAndSetContractStorage(evm *EVM, contract *Contract, args map[string]interface{}, changed bool) ([]interface{}, error) {
+	address, ok := args["_contract"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in putContractStorage")
+	}
+	_key, ok := args["_key"]
+	if !ok {
+		return nil, errors.New("Could not parse key arg in putContractStorage")
+	}
+	key := toHash(_key)
+
+	if evm.Context.EthCallSender == nil {
+		err := evm.StateDB.SetDiffKey(
+			evm.Context.BlockNumber,
+			address,
+			key,
+			changed,
+		)
+		if err != nil {
+			log.Error("Cannot set diff key", "err", err)
+		}
+	}
+
+	log.Debug("Test and Set Contract Storage", "address", address.Hex(), "key", key.Hex(), "changed", changed)
+	return []interface{}{true}, nil
 }
 
 func nativeFunctionTrue(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {

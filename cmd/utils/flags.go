@@ -852,6 +852,12 @@ var (
 		Value:  eth.DefaultConfig.Rollup.StateDumpPath,
 		EnvVar: "ROLLUP_STATE_DUMP_PATH",
 	}
+	RollupDiffDbFlag = cli.Uint64Flag{
+		Name:   "rollup.diffdbcache",
+		Usage:  "Number of diffdb batch updates",
+		Value:  eth.DefaultConfig.DiffDbCache,
+		EnvVar: "ROLLUP_DIFFDB_CACHE",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1617,6 +1623,9 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 	setEth1(ctx, &cfg.Rollup)
 	setRollup(ctx, &cfg.Rollup)
 
+	if ctx.GlobalIsSet(RollupDiffDbFlag.Name) {
+		cfg.DiffDbCache = ctx.GlobalUint64(RollupDiffDbFlag.Name)
+	}
 	if ctx.GlobalIsSet(SyncModeFlag.Name) {
 		cfg.SyncMode = *GlobalTextMarshaler(ctx, SyncModeFlag.Name).(*downloader.SyncMode)
 	}
