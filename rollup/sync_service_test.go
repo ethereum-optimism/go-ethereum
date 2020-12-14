@@ -3,6 +3,7 @@ package rollup
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -372,6 +373,75 @@ func TestSyncServiceSequencerBatchAppend(t *testing.T) {
 	}
 }
 
+func TestInitializeL1ContextGenesis(t *testing.T) {
+	service, _, _, err := newTestSyncService()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// number and time are used to assert
+	// equality on the LatestL1BlockNumber
+	// and the LatestL1Timestamp
+	number := big.NewInt(1)
+	timestamp := uint64(1)
+	header := types.Header{
+		Number: number,
+		Time:   timestamp,
+	}
+	block := types.NewBlock(&header, []*types.Transaction{}, []*types.Header{}, []*types.Receipt{})
+
+	mockEthClient(service, map[string]interface{}{
+		"BlockByNumber": []*types.Block{block},
+	})
+	err = service.initializeLatestL1()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	latestL1Timestamp := service.GetLatestL1Timestamp()
+	latestL1BlockNumber := service.GetLatestL1BlockNumber()
+	if number.Uint64() != latestL1BlockNumber {
+		t.Fatal("Block numbers do not match")
+	}
+	if latestL1Timestamp != timestamp {
+		t.Fatal("Timestamps do not match")
+	}
+}
+
+func TestInitializeL1ContextPostGenesis(t *testing.T) {
+	service, _, _, err := newTestSyncService()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	header := types.Header{
+		Number: big.NewInt(0),
+		Time:   0,
+	}
+	tx := types.Transaction{}
+
+	number := uint64(1)
+	timestamp := uint64(1)
+	tx.SetL1Timestamp(timestamp)
+	tx.SetL1BlockNumber(number)
+	block := types.NewBlock(&header, []*types.Transaction{&tx}, []*types.Header{}, []*types.Receipt{})
+	service.bc.SetCurrentBlock(block)
+
+	err = service.initializeLatestL1()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	latestL1Timestamp := service.GetLatestL1Timestamp()
+	latestL1BlockNumber := service.GetLatestL1BlockNumber()
+	if number != latestL1BlockNumber {
+		t.Fatalf("number does not match, got %d, expected %d", latestL1BlockNumber, number)
+	}
+	if latestL1Timestamp != timestamp {
+		t.Fatal("timestamp does not match")
+	}
+}
+
 func newTestSyncService() (*SyncService, chan core.NewTxsEvent, event.Subscription, error) {
 	chainCfg := params.AllEthashProtocolChanges
 	chainID := big.NewInt(420)
@@ -419,6 +489,8 @@ func mockEthClient(service *SyncService, responses map[string]interface{}) {
 type mockEthereumClient struct {
 	transactionByHashCallCount int
 	transactionByHashResponses []*types.Transaction
+	blockByNumberCallCount     int
+	blockByNumberResponses     []*types.Block
 }
 
 func (m *mockEthereumClient) ChainID(context.Context) (*big.Int, error) {
@@ -438,21 +510,36 @@ func (m *mockEthereumClient) HeaderByNumber(context.Context, *big.Int) (*types.H
 func (m *mockEthereumClient) TransactionByHash(context.Context, common.Hash) (*types.Transaction, bool, error) {
 	if m.transactionByHashCallCount < len(m.transactionByHashResponses) {
 		res := m.transactionByHashResponses[m.transactionByHashCallCount]
+		m.transactionByHashCallCount += 1
 		return res, false, nil
 	}
 	t := types.Transaction{}
 	return &t, false, nil
 }
+func (m *mockEthereumClient) BlockByNumber(context.Context, *big.Int) (*types.Block, error) {
+	if m.blockByNumberCallCount < len(m.blockByNumberResponses) {
+		res := m.blockByNumberResponses[m.blockByNumberCallCount]
+		m.blockByNumberCallCount += 1
+		return res, nil
+	}
+	return nil, errors.New("Unexpected number of calls to BlockByNumber")
+}
 
 func newMockEthereumClient(responses map[string]interface{}) *mockEthereumClient {
 	transactionByHashResponses := []*types.Transaction{}
+	blockByNumberResponses := []*types.Block{}
 
 	txByHash, ok := responses["TransactionByHash"]
 	if ok {
 		transactionByHashResponses = txByHash.([]*types.Transaction)
 	}
+	blockByNumber, ok := responses["BlockByNumber"]
+	if ok {
+		blockByNumberResponses = blockByNumber.([]*types.Block)
+	}
 	return &mockEthereumClient{
 		transactionByHashResponses: transactionByHashResponses,
+		blockByNumberResponses:     blockByNumberResponses,
 	}
 }
 
