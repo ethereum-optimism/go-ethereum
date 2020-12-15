@@ -863,12 +863,6 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 		log.Info("Reorganize cleared transactions from cache", "count", count)
 	}
 
-	// This should never happen and means that historical logs need to be
-	// processed.
-	if blockHeight > s.Eth1Data.BlockHeight+1 {
-		return s.Eth1Data, fmt.Errorf("Unexpected future block at height %d", blockHeight)
-	}
-
 	// Create a filter for all logs from the ctc at a specific block hash
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{
@@ -876,7 +870,7 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 		},
 		// currently unsupported in hardhat
 		// see: https://github.com/nomiclabs/hardhat/pull/948/
-		//BlockHash: &blockHash
+		//BlockHash: &blockHash,
 		FromBlock: header.Number,
 		ToBlock:   header.Number,
 		Topics:    [][]common.Hash{},
