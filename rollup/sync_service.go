@@ -765,26 +765,70 @@ func (s *SyncService) processHistoricalLogs() error {
 				errCh <- fmt.Errorf("Eth1 chain not synced: height %d", tipHeight)
 			}
 
-			// Fetch the next header and process it
-			header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(s.Eth1Data.BlockHeight+1))
-			if err != nil {
-				errCh <- fmt.Errorf("Cannot fetch header by number %d: %w", s.Eth1Data.BlockHeight+1, err)
+			query := ethereum.FilterQuery{
+				Addresses: []common.Address{
+					s.CanonicalTransactionChainAddress,
+				},
+				FromBlock: new(big.Int).SetUint64(s.Eth1Data.BlockHeight),
+				ToBlock:   new(big.Int).SetUint64(s.Eth1Data.BlockHeight + 1000),
+				Topics:    [][]common.Hash{},
 			}
-			if header.Number == nil {
-				errCh <- fmt.Errorf("Header has nil number")
-			}
-			headerHeight := header.Number.Uint64()
-			headerHash := header.Hash()
 
-			eth1data, err := s.ProcessETHBlock(s.ctx, header)
+			logs, err := s.logClient.FilterLogs(s.ctx, query)
 			if err != nil {
-				log.Error("Cannot process block", "message", err.Error(), "height", headerHeight, "hash", headerHash.Hex())
-				time.Sleep(1 * time.Second)
+				log.Error("Cannot query logs: %w", err)
 				continue
 			}
-			s.Eth1Data = eth1data
-			log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
-			s.doneProcessing <- headerHeight
+			if len(logs) == 0 {
+				height := s.Eth1Data.BlockHeight + 1000
+				if tipHeight < height {
+					height = tipHeight
+				}
+
+				header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(height))
+				if err != nil {
+					log.Debug("Problem fetching block: %w", err)
+					continue
+				}
+				headerHeight := header.Number.Uint64()
+				headerHash := header.Hash()
+
+				eth1data, err := s.ProcessETHBlock(s.ctx, header)
+				if err != nil {
+					log.Error("Cannot process block", "message", err.Error(), "height", headerHeight, "hash", headerHash.Hex())
+					continue
+				}
+				s.Eth1Data = eth1data
+				log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
+				s.doneProcessing <- headerHeight
+			} else {
+				sort.Sort(LogsByIndex(logs))
+				for _, ethlog := range logs {
+					var header *types.Header
+					for {
+						header, err = s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(ethlog.BlockNumber))
+						if err == nil {
+							break
+						}
+						log.Error("Cannot fetch header by number", "height", ethlog.BlockNumber, "msg", err)
+					}
+
+					if header.Number == nil {
+						errCh <- fmt.Errorf("Header has nil number")
+					}
+					headerHeight := header.Number.Uint64()
+					headerHash := header.Hash()
+
+					eth1data, err := s.ProcessETHBlock(s.ctx, header)
+					if err != nil {
+						log.Error("Cannot process block", "message", err.Error(), "height", headerHeight, "hash", headerHash.Hex())
+						continue
+					}
+					s.Eth1Data = eth1data
+					log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
+					s.doneProcessing <- headerHeight
+				}
+			}
 		}
 	}(errCh)
 
@@ -822,12 +866,6 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 		log.Info("Reorganize cleared transactions from cache", "count", count)
 	}
 
-	// This should never happen and means that historical logs need to be
-	// processed.
-	if blockHeight > s.Eth1Data.BlockHeight+1 {
-		return s.Eth1Data, fmt.Errorf("Unexpected future block at height %d", blockHeight)
-	}
-
 	// Create a filter for all logs from the ctc at a specific block hash
 	query := ethereum.FilterQuery{
 		Addresses: []common.Address{
@@ -835,7 +873,7 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 		},
 		// currently unsupported in hardhat
 		// see: https://github.com/nomiclabs/hardhat/pull/948/
-		//BlockHash: &blockHash
+		//BlockHash: &blockHash,
 		FromBlock: header.Number,
 		ToBlock:   header.Number,
 		Topics:    [][]common.Hash{},
