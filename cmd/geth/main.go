@@ -454,6 +454,11 @@ func startNode(ctx *cli.Context, stack *node.Node) {
 		if err := ethereum.StartMining(threads); err != nil {
 			utils.Fatalf("Failed to start mining: %v", err)
 		}
+		if ctx.GlobalBool(utils.Eth1SyncServiceEnable.Name) {
+			if err := ethereum.SyncService().Start(); err != nil {
+				utils.Fatalf("Failed to start syncservice: %v", err)
+			}
+		}
 	}
 }
 

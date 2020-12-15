@@ -540,13 +540,6 @@ func (s *Ethereum) Start(srvr *p2p.Server) error {
 
 	// Start the RPC service
 	s.netRPCService = ethapi.NewPublicNetAPI(srvr, s.NetVersion())
-
-	// Start the sync service
-	err := s.syncService.Start()
-	if err != nil {
-		return fmt.Errorf("unable to start syncservice: %w", err)
-	}
-
 	return nil
 }
 
