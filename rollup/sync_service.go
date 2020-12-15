@@ -781,9 +781,19 @@ func (s *SyncService) processHistoricalLogs() error {
 			}
 			sort.Sort(LogsByIndex(logs))
 			if len(logs) == 0 {
-				header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(s.Eth1Data.BlockHeight+1000))
-				if err != nil {
+				// min of tip and blockheight+1000
+				height := s.Eth1Data.BlockHeight + 1000
+				if tipHeight < height {
+					height = tipHeight
+				}
 
+				header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(height))
+				if err == ethereum.NotFound {
+					log.Debug("ethereum.NotFound")
+					// this could be further ahead than the tip
+					// resulting in an `error`, can we identify that?
+				} else if err != nil {
+					log.Debug("Problem fetching block")
 				}
 				headerHeight := header.Number.Uint64()
 				headerHash := header.Hash()
