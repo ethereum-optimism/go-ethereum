@@ -4,6 +4,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null && pwd )"
 REPO=$DIR/..
 
 IS_VERIFIER=
+DATADIR=$HOME/.ethereum
 L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0x0000000000000000000000000000000000000000
 ADDRESS_MANAGER_OWNER_ADDRESS=0x0000000000000000000000000000000000000000
 ADDRESS_RESOLVER_ADDRESS=0x0000000000000000000000000000000000000000
@@ -11,6 +12,7 @@ ETH1_NETWORK_ID=31337
 ETH1_CHAIN_ID=31337
 ETH1_CTC_DEPLOYMENT_HEIGHT=8
 ETH1_HTTP=http://localhost:9545
+TARGET_GAS_LIMIT=9000000
 
 USAGE="
 Start the Sequencer or Verifier with most configuration pre-set.
@@ -36,6 +38,15 @@ while (( "$#" )); do
         -v|--verifier)
             IS_VERIFIER=true
             shift 1
+            ;;
+        --datadir)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                DATADIR="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
             ;;
         --eth1.http)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
@@ -100,6 +111,15 @@ while (( "$#" )); do
                 exit 1
             fi
             ;;
+        --targetgaslimit)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                TARGET_GASLIMIT="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
         *)
             echo "Unknown argument $1" >&2
             shift
@@ -109,6 +129,7 @@ done
 
 cmd="$REPO/build/bin/geth"
 cmd="$cmd --eth1.syncservice"
+cmd="$cmd --datadir $HOME/.ethereum"
 cmd="$cmd --eth1.http $ETH1_HTTP"
 cmd="$cmd --eth1.confirmationdepth 0"
 cmd="$cmd --eth1.networkid $ETH1_NETWORK_ID"
@@ -127,14 +148,13 @@ cmd="$cmd --wsorigins '*'"
 cmd="$cmd --networkid 420"
 cmd="$cmd --rpcapi 'eth,net,rollup,web3'"
 cmd="$cmd --gasprice '0'"
-cmd="$cmd --targetgaslimit 12000000"
 cmd="$cmd --nousb"
 cmd="$cmd --gcmode=archive"
 cmd="$cmd --ipcdisable"
 
-if [[ ! -z $IS_VERIFIER ]]; then
+if [ ! -z "$IS_VERIFIER" ]; then
     cmd="$cmd --rollup.verifier"
 fi
 
 echo -e "Running:\n$cmd"
-eval env USING_OVM=true $cmd
+eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd
