@@ -776,24 +776,20 @@ func (s *SyncService) processHistoricalLogs() error {
 
 			logs, err := s.logClient.FilterLogs(s.ctx, query)
 			if err != nil {
-				log.Error("")
+				log.Error("Cannot query logs: %w", err)
 				continue
 			}
 			sort.Sort(LogsByIndex(logs))
 			if len(logs) == 0 {
-				// min of tip and blockheight+1000
 				height := s.Eth1Data.BlockHeight + 1000
 				if tipHeight < height {
 					height = tipHeight
 				}
 
 				header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(height))
-				if err == ethereum.NotFound {
-					log.Debug("ethereum.NotFound")
-					// this could be further ahead than the tip
-					// resulting in an `error`, can we identify that?
-				} else if err != nil {
-					log.Debug("Problem fetching block")
+				if err != nil {
+					log.Debug("Problem fetching block: %w", err)
+					continue
 				}
 				headerHeight := header.Number.Uint64()
 				headerHash := header.Hash()
