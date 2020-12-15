@@ -769,7 +769,7 @@ func (s *SyncService) processHistoricalLogs() error {
 				Addresses: []common.Address{
 					s.CanonicalTransactionChainAddress,
 				},
-				FromBlock: new(big.Int).SetUint64(s.Eth1Data.BlockHeight),
+				FromBlock: new(big.Int).SetUint64(s.Eth1Data.BlockHeight + 1),
 				ToBlock:   new(big.Int).SetUint64(s.Eth1Data.BlockHeight + 1000),
 				Topics:    [][]common.Hash{},
 			}
