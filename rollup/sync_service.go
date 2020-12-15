@@ -779,7 +779,6 @@ func (s *SyncService) processHistoricalLogs() error {
 				log.Error("Cannot query logs: %w", err)
 				continue
 			}
-			sort.Sort(LogsByIndex(logs))
 			if len(logs) == 0 {
 				height := s.Eth1Data.BlockHeight + 1000
 				if tipHeight < height {
@@ -803,11 +802,15 @@ func (s *SyncService) processHistoricalLogs() error {
 				log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
 				s.doneProcessing <- headerHeight
 			} else {
+				sort.Sort(LogsByIndex(logs))
 				for _, ethlog := range logs {
-					// Fetch the next header and process it
-					header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(ethlog.BlockNumber))
-					if err != nil {
-						errCh <- fmt.Errorf("Cannot fetch header by number %d: %w", s.Eth1Data.BlockHeight+1, err)
+					var header *types.Header
+					for {
+						header, err = s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(ethlog.BlockNumber))
+						if err == nil {
+							break
+						}
+						log.Error("Cannot fetch header by number", "height", ethlog.BlockNumber, "msg", err)
 					}
 
 					if header.Number == nil {
