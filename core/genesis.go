@@ -436,7 +436,7 @@ func DefaultGoerliGenesisBlock() *Genesis {
 }
 
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
-func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDumpPath string, chainID *big.Int) *Genesis {
+func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDumpPath string, chainID *big.Int, gasLimit uint64) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
@@ -479,7 +479,7 @@ func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrM
 	return &Genesis{
 		Config:     &config,
 		ExtraData:  append(append(make([]byte, 32), faucet[:]...), make([]byte, crypto.SignatureLength)...),
-		GasLimit:   12000000,
+		GasLimit:   gasLimit,
 		Difficulty: big.NewInt(1),
 		Alloc: map[common.Address]GenesisAccount{
 			common.BytesToAddress([]byte{1}): {Balance: big.NewInt(1)}, // ECRecover

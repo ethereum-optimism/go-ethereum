@@ -1125,7 +1125,7 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	// Check for both the legacy and standard gas target flags, if both are
 	// set then use the standard flag.
-	if ctx.GlobalIsSet(MinerLegacyGasTargetFlag.Name) {
+	if ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
 	}
 	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
@@ -1725,10 +1725,14 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 			chainID = new(big.Int).SetUint64(id)
 		}
 
+		gasLimit := cfg.Rollup.GasLimit
+		if gasLimit == 0 {
+			gasLimit = params.GenesisGasLimit
+		}
 		xdomainAddress := cfg.Rollup.L1CrossDomainMessengerAddress
 		addrManagerOwnerAddress := cfg.Rollup.AddressManagerOwnerAddress
 		stateDumpPath := cfg.Rollup.StateDumpPath
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath, chainID)
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath, chainID, gasLimit)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}
