@@ -4,6 +4,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null && pwd )"
 REPO=$DIR/..
 
 IS_VERIFIER=
+DATADIR=$HOME/.ethereum
 L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0x0000000000000000000000000000000000000000
 ADDRESS_MANAGER_OWNER_ADDRESS=0x0000000000000000000000000000000000000000
 ADDRESS_RESOLVER_ADDRESS=0x0000000000000000000000000000000000000000
@@ -36,6 +37,10 @@ while (( "$#" )); do
         -v|--verifier)
             IS_VERIFIER=true
             shift 1
+            ;;
+        --datadir)
+            DATADIR="$2"
+            shift 2
             ;;
         --eth1.http)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
@@ -109,6 +114,7 @@ done
 
 cmd="$REPO/build/bin/geth"
 cmd="$cmd --eth1.syncservice"
+cmd="$cmd --datadir $HOME/.ethereum"
 cmd="$cmd --eth1.http $ETH1_HTTP"
 cmd="$cmd --eth1.confirmationdepth 0"
 cmd="$cmd --eth1.networkid $ETH1_NETWORK_ID"
@@ -132,7 +138,7 @@ cmd="$cmd --nousb"
 cmd="$cmd --gcmode=archive"
 cmd="$cmd --ipcdisable"
 
-if [[ ! -z $IS_VERIFIER ]]; then
+if [ ! -z "$IS_VERIFIER" ]; then
     cmd="$cmd --rollup.verifier"
 fi
 
