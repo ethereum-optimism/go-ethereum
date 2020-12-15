@@ -39,8 +39,13 @@ while (( "$#" )); do
             shift 1
             ;;
         --datadir)
-            DATADIR="$2"
-            shift 2
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                DATADIR="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
             ;;
         --eth1.http)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
