@@ -804,29 +804,22 @@ func (s *SyncService) processHistoricalLogs() error {
 			} else {
 				sort.Sort(LogsByIndex(logs))
 				for _, ethlog := range logs {
-					var header *types.Header
-					for {
-						header, err = s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(ethlog.BlockNumber))
-						if err == nil {
-							break
-						}
-						log.Error("Cannot fetch header by number", "height", ethlog.BlockNumber, "msg", err)
-					}
-
-					if header.Number == nil {
-						errCh <- fmt.Errorf("Header has nil number")
-					}
-					headerHeight := header.Number.Uint64()
-					headerHash := header.Hash()
-
-					eth1data, err := s.ProcessETHBlock(s.ctx, header)
-					if err != nil {
-						log.Error("Cannot process block", "message", err.Error(), "height", headerHeight, "hash", headerHash.Hex())
+					// Prevent logs emitted from other contracts from being processed
+					if !bytes.Equal(ethlog.Address.Bytes(), s.CanonicalTransactionChainAddress.Bytes()) {
 						continue
 					}
-					s.Eth1Data = eth1data
-					log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
-					s.doneProcessing <- headerHeight
+					if err := s.ProcessLog(s.ctx, ethlog); err != nil {
+						log.Error("Cannot process historical log", "message", err)
+						continue
+					}
+
+					s.Eth1Data = Eth1Data{
+						BlockHash:   ethlog.BlockHash,
+						BlockHeight: ethlog.BlockNumber,
+					}
+
+					log.Info("Processed historical block", "height", ethlog.BlockNumber, "hash", ethlog.BlockHash.Hex())
+					s.doneProcessing <- ethlog.BlockNumber
 				}
 			}
 		}
