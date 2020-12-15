@@ -12,6 +12,7 @@ ETH1_NETWORK_ID=31337
 ETH1_CHAIN_ID=31337
 ETH1_CTC_DEPLOYMENT_HEIGHT=8
 ETH1_HTTP=http://localhost:9545
+TARGET_GAS_LIMIT=9000000
 
 USAGE="
 Start the Sequencer or Verifier with most configuration pre-set.
@@ -110,6 +111,15 @@ while (( "$#" )); do
                 exit 1
             fi
             ;;
+        --targetgaslimit)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                TARGET_GASLIMIT="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
         *)
             echo "Unknown argument $1" >&2
             shift
@@ -138,7 +148,6 @@ cmd="$cmd --wsorigins '*'"
 cmd="$cmd --networkid 420"
 cmd="$cmd --rpcapi 'eth,net,rollup,web3'"
 cmd="$cmd --gasprice '0'"
-cmd="$cmd --targetgaslimit 12000000"
 cmd="$cmd --nousb"
 cmd="$cmd --gcmode=archive"
 cmd="$cmd --ipcdisable"
@@ -148,4 +157,4 @@ if [ ! -z "$IS_VERIFIER" ]; then
 fi
 
 echo -e "Running:\n$cmd"
-eval env USING_OVM=true $cmd
+eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd
