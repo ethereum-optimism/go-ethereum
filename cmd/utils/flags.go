@@ -426,9 +426,10 @@ var (
 		Usage: "Comma separated HTTP URL list to notify of new work packages",
 	}
 	MinerGasTargetFlag = cli.Uint64Flag{
-		Name:  "miner.gastarget",
-		Usage: "Target gas floor for mined blocks",
-		Value: eth.DefaultConfig.Miner.GasFloor,
+		Name:   "miner.gastarget",
+		Usage:  "Target gas floor for mined blocks",
+		Value:  eth.DefaultConfig.Miner.GasFloor,
+		EnvVar: "TARGET_GAS_LIMIT",
 	}
 	MinerLegacyGasTargetFlag = cli.Uint64Flag{
 		Name:   "targetgaslimit",
@@ -1122,11 +1123,6 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(Eth1SyncServiceEnable.Name) {
 		cfg.Eth1SyncServiceEnable = ctx.GlobalBool(Eth1SyncServiceEnable.Name)
-	}
-	// Check for both the legacy and standard gas target flags, if both are
-	// set then use the standard flag.
-	if ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
-		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
 	}
 	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
 		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
