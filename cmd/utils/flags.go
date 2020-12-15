@@ -426,9 +426,10 @@ var (
 		Usage: "Comma separated HTTP URL list to notify of new work packages",
 	}
 	MinerGasTargetFlag = cli.Uint64Flag{
-		Name:  "miner.gastarget",
-		Usage: "Target gas floor for mined blocks",
-		Value: eth.DefaultConfig.Miner.GasFloor,
+		Name:   "miner.gastarget",
+		Usage:  "Target gas floor for mined blocks",
+		Value:  eth.DefaultConfig.Miner.GasFloor,
+		EnvVar: "TARGET_GAS_LIMIT",
 	}
 	MinerLegacyGasTargetFlag = cli.Uint64Flag{
 		Name:   "targetgaslimit",
@@ -1123,11 +1124,6 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(Eth1SyncServiceEnable.Name) {
 		cfg.Eth1SyncServiceEnable = ctx.GlobalBool(Eth1SyncServiceEnable.Name)
 	}
-	// Check for both the legacy and standard gas target flags, if both are
-	// set then use the standard flag.
-	if ctx.GlobalIsSet(MinerLegacyGasTargetFlag.Name) {
-		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
-	}
 	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
 		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
 	}
@@ -1725,10 +1721,14 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 			chainID = new(big.Int).SetUint64(id)
 		}
 
+		gasLimit := cfg.Rollup.GasLimit
+		if gasLimit == 0 {
+			gasLimit = params.GenesisGasLimit
+		}
 		xdomainAddress := cfg.Rollup.L1CrossDomainMessengerAddress
 		addrManagerOwnerAddress := cfg.Rollup.AddressManagerOwnerAddress
 		stateDumpPath := cfg.Rollup.StateDumpPath
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath, chainID)
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath, chainID, gasLimit)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}
