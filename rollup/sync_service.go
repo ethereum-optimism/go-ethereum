@@ -765,26 +765,61 @@ func (s *SyncService) processHistoricalLogs() error {
 				errCh <- fmt.Errorf("Eth1 chain not synced: height %d", tipHeight)
 			}
 
-			// Fetch the next header and process it
-			header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(s.Eth1Data.BlockHeight+1))
-			if err != nil {
-				errCh <- fmt.Errorf("Cannot fetch header by number %d: %w", s.Eth1Data.BlockHeight+1, err)
+			query := ethereum.FilterQuery{
+				Addresses: []common.Address{
+					s.CanonicalTransactionChainAddress,
+				},
+				FromBlock: new(big.Int).SetUint64(s.Eth1Data.BlockHeight),
+				ToBlock:   new(big.Int).SetUint64(s.Eth1Data.BlockHeight + 1000),
+				Topics:    [][]common.Hash{},
 			}
-			if header.Number == nil {
-				errCh <- fmt.Errorf("Header has nil number")
-			}
-			headerHeight := header.Number.Uint64()
-			headerHash := header.Hash()
 
-			eth1data, err := s.ProcessETHBlock(s.ctx, header)
+			logs, err := s.logClient.FilterLogs(s.ctx, query)
 			if err != nil {
-				log.Error("Cannot process block", "message", err.Error(), "height", headerHeight, "hash", headerHash.Hex())
-				time.Sleep(1 * time.Second)
+				log.Error("")
 				continue
 			}
-			s.Eth1Data = eth1data
-			log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
-			s.doneProcessing <- headerHeight
+			sort.Sort(LogsByIndex(logs))
+			if len(logs) == 0 {
+				header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(s.Eth1Data.BlockHeight+1000))
+				if err != nil {
+
+				}
+				headerHeight := header.Number.Uint64()
+				headerHash := header.Hash()
+
+				eth1data, err := s.ProcessETHBlock(s.ctx, header)
+				if err != nil {
+					log.Error("Cannot process block", "message", err.Error(), "height", headerHeight, "hash", headerHash.Hex())
+					continue
+				}
+				s.Eth1Data = eth1data
+				log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
+				s.doneProcessing <- headerHeight
+			} else {
+				for _, ethlog := range logs {
+					// Fetch the next header and process it
+					header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(ethlog.BlockNumber))
+					if err != nil {
+						errCh <- fmt.Errorf("Cannot fetch header by number %d: %w", s.Eth1Data.BlockHeight+1, err)
+					}
+
+					if header.Number == nil {
+						errCh <- fmt.Errorf("Header has nil number")
+					}
+					headerHeight := header.Number.Uint64()
+					headerHash := header.Hash()
+
+					eth1data, err := s.ProcessETHBlock(s.ctx, header)
+					if err != nil {
+						log.Error("Cannot process block", "message", err.Error(), "height", headerHeight, "hash", headerHash.Hex())
+						continue
+					}
+					s.Eth1Data = eth1data
+					log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
+					s.doneProcessing <- headerHeight
+				}
+			}
 		}
 	}(errCh)
 
