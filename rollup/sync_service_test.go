@@ -189,6 +189,7 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 // Tests that a queue batch append results in the transaction
 // from the cache is played against the state.
 func TestSyncServiceQueueBatchAppend(t *testing.T) {
+	t.Skip("Temporarily skipping while queue batch apppend is disabled")
 	service, txCh, sub, err := newTestSyncService()
 	defer sub.Unsubscribe()
 
