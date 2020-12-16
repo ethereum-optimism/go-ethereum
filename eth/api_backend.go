@@ -272,29 +272,24 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	if vm.UsingOVM {
 		to := signedTx.To()
-		if to != nil && *to == (common.Address{}) {
-			return errors.New("Cannot send transaction to zero address")
-		}
-	}
-	return b.eth.syncService.ApplyTransaction(signedTx)
-}
+		if to != nil {
+			if *to == (common.Address{}) {
+				return errors.New("Cannot send transaction to zero address")
+			}
 
-func (b *EthAPIBackend) SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error {
-	if vm.UsingOVM {
-		errs := make([]error, len(signedTxs))
-		err := false
-		for i, tx := range signedTxs {
-			to := tx.To()
-			if to != nil && bytes.Equal(to.Bytes(), common.Address{}.Bytes()) {
-				err = true
-				errs[i] = errors.New("Cannot send transaction to zero address")
+			data := signedTx.Data()
+			if len(data) >= 4 {
+				selector := data[:4]
+				// 0xa9059cbb is the selector for `Transfer(address,uint256)`
+				// Do not allow transfers on mainnet
+				if bytes.Equal(selector, []byte{0xa9, 0x05, 0x9c, 0xbb}) {
+					return errors.New("Transfers are disabled for minnet")
+				}
 			}
 		}
-		if err {
-			return errs
-		}
+
 	}
-	return b.eth.txPool.AddRemotes(signedTxs)
+	return b.eth.syncService.ApplyTransaction(signedTx)
 }
 
 func (b *EthAPIBackend) SetTimestamp(timestamp int64) {

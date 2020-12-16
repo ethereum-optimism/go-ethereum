@@ -84,7 +84,6 @@ type Backend interface {
 	SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription
 
 	// Optimism-specific API
-	SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error
 	SetTimestamp(timestamp int64)
 	IsVerifier() bool
 	RollupTransactionSender() *common.Address
