@@ -1257,6 +1257,12 @@ func (s *SyncService) ProcessQueueBatchAppendedLog(ctx context.Context, ethlog t
 	}
 	log.Debug("Queue Batch Appended Event Log", "startingQueueIndex", event.StartingQueueIndex.Uint64(), "numQueueElements", event.NumQueueElements.Uint64(), "totalElements", event.TotalElements.Uint64())
 
+	// Disable queue batch appended for minnet
+	if true {
+		log.Debug("Queue batch append disabled")
+		return nil
+	}
+
 	start := event.StartingQueueIndex.Uint64()
 	end := start + event.NumQueueElements.Uint64()
 	for i := start; i < end; i++ {
