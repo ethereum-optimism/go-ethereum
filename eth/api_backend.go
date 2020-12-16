@@ -283,10 +283,14 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 				data := signedTx.Data()
 				if len(data) >= 4 {
 					selector := data[:4]
-					// 0xa9059cbb is the selector for `transfer(address,uint256)`
-					// Do not allow transfers at first
+					// Initially prevent transfers
+					// `transfer(address,uint256)`
 					if bytes.Equal(selector, []byte{0xa9, 0x05, 0x9c, 0xbb}) {
-						return errors.New("Transfers are disabled for minnet")
+						return errors.New("transfer(address,uint256) is disabled for now")
+					}
+					// `transferFrom(address,address,uint256)`
+					if bytes.Equal(selector, []byte{0x23, 0xb8, 0x72, 0xdd}) {
+						return errors.New("transferFrom(address,address,uint256) is disabled for now")
 					}
 				}
 			}
