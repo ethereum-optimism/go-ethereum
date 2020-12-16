@@ -864,6 +864,11 @@ var (
 		Value:  eth.DefaultConfig.DiffDbCache,
 		EnvVar: "ROLLUP_DIFFDB_CACHE",
 	}
+	RollupDisableTransfersFlag = cli.BoolFlag{
+		Name:   "rollup.disabletransfers",
+		Usage:  "Disable Transfers",
+		EnvVar: "ROLLUP_DISABLE_TRANSFERS",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1161,6 +1166,9 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 		cfg.StateDumpPath = ctx.GlobalString(RollupStateDumpPathFlag.Name)
 	} else {
 		cfg.StateDumpPath = eth.DefaultConfig.Rollup.StateDumpPath
+	}
+	if ctx.GlobalIsSet(RollupDisableTransfersFlag.Name) {
+		cfg.DisableTransfers = true
 	}
 }
 

@@ -43,10 +43,11 @@ import (
 
 // EthAPIBackend implements ethapi.Backend for full nodes
 type EthAPIBackend struct {
-	extRPCEnabled bool
-	eth           *Ethereum
-	gpo           *gasprice.Oracle
-	verifier      bool
+	extRPCEnabled    bool
+	eth              *Ethereum
+	gpo              *gasprice.Oracle
+	verifier         bool
+	DisableTransfers bool
 }
 
 func (b *EthAPIBackend) RollupTransactionSender() *common.Address {
@@ -277,13 +278,16 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 				return errors.New("Cannot send transaction to zero address")
 			}
 
-			data := signedTx.Data()
-			if len(data) >= 4 {
-				selector := data[:4]
-				// 0xa9059cbb is the selector for `Transfer(address,uint256)`
-				// Do not allow transfers on mainnet
-				if bytes.Equal(selector, []byte{0xa9, 0x05, 0x9c, 0xbb}) {
-					return errors.New("Transfers are disabled for minnet")
+			// Need to add a config option here
+			if b.DisableTransfers {
+				data := signedTx.Data()
+				if len(data) >= 4 {
+					selector := data[:4]
+					// 0xa9059cbb is the selector for `Transfer(address,uint256)`
+					// Do not allow transfers on mainnet
+					if bytes.Equal(selector, []byte{0xa9, 0x05, 0x9c, 0xbb}) {
+						return errors.New("Transfers are disabled for minnet")
+					}
 				}
 			}
 		}
