@@ -43,10 +43,11 @@ import (
 
 // EthAPIBackend implements ethapi.Backend for full nodes
 type EthAPIBackend struct {
-	extRPCEnabled bool
-	eth           *Ethereum
-	gpo           *gasprice.Oracle
-	verifier      bool
+	extRPCEnabled    bool
+	eth              *Ethereum
+	gpo              *gasprice.Oracle
+	verifier         bool
+	DisableTransfers bool
 }
 
 func (b *EthAPIBackend) RollupTransactionSender() *common.Address {
@@ -272,29 +273,31 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	if vm.UsingOVM {
 		to := signedTx.To()
-		if to != nil && *to == (common.Address{}) {
-			return errors.New("Cannot send transaction to zero address")
-		}
-	}
-	return b.eth.syncService.ApplyTransaction(signedTx)
-}
+		if to != nil {
+			if *to == (common.Address{}) {
+				return errors.New("Cannot send transaction to zero address")
+			}
 
-func (b *EthAPIBackend) SendTxs(ctx context.Context, signedTxs []*types.Transaction) []error {
-	if vm.UsingOVM {
-		errs := make([]error, len(signedTxs))
-		err := false
-		for i, tx := range signedTxs {
-			to := tx.To()
-			if to != nil && bytes.Equal(to.Bytes(), common.Address{}.Bytes()) {
-				err = true
-				errs[i] = errors.New("Cannot send transaction to zero address")
+			// Need to add a config option here
+			if b.DisableTransfers {
+				data := signedTx.Data()
+				if len(data) >= 4 {
+					selector := data[:4]
+					// Initially prevent transfers
+					// `transfer(address,uint256)`
+					if bytes.Equal(selector, []byte{0xa9, 0x05, 0x9c, 0xbb}) {
+						return errors.New("transfer(address,uint256) is disabled for now")
+					}
+					// `transferFrom(address,address,uint256)`
+					if bytes.Equal(selector, []byte{0x23, 0xb8, 0x72, 0xdd}) {
+						return errors.New("transferFrom(address,address,uint256) is disabled for now")
+					}
+				}
 			}
 		}
-		if err {
-			return errs
-		}
+
 	}
-	return b.eth.txPool.AddRemotes(signedTxs)
+	return b.eth.syncService.ApplyTransaction(signedTx)
 }
 
 func (b *EthAPIBackend) SetTimestamp(timestamp int64) {

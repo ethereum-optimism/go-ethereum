@@ -36,6 +36,8 @@ type Config struct {
 	CanonicalTransactionChainDeployHeight *big.Int
 	// Path to the state dump
 	StateDumpPath string
+	// Temporary setting to disable transfers
+	DisableTransfers bool
 }
 
 func (c *Config) IsTxIngestionEnabled() bool {

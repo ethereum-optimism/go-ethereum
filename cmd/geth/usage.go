@@ -80,6 +80,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.RollupEnableVerifierFlag,
 			utils.RollupStateDumpPathFlag,
 			utils.RollupDiffDbFlag,
+			utils.RollupDisableTransfersFlag,
 		},
 	},
 	{
