@@ -65,7 +65,7 @@ func (diff *DiffDb) SetDiffKey(block *big.Int, address common.Address, key commo
 	diff.numCalls += 1
 
 	// if we had enough calls, commit it
-	if diff.numCalls == diff.cache {
+	if diff.numCalls >= diff.cache {
 		if err := diff.ForceCommit(); err != nil {
 			return err
 		}
