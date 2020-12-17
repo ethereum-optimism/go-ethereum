@@ -412,11 +412,13 @@ func (s *SyncService) pollHead() {
 			// We want to trail the tip by a confirmation number of blocks, so
 			// subtract the confirmationDepth from the tip height and fetch the
 			// block header that will be consumed.
-			blockNumber := head.Number.Sub(head.Number, new(big.Int).SetUint64(s.confirmationDepth))
-			head, err = s.ethclient.HeaderByNumber(s.ctx, blockNumber)
-			if err != nil {
-				log.Error("Cannot fetch tip", "height", blockNumber.Uint64())
-				continue
+			if s.confirmationDepth != 0 {
+				blockNumber := head.Number.Sub(head.Number, new(big.Int).SetUint64(s.confirmationDepth))
+				head, err = s.ethclient.HeaderByNumber(s.ctx, blockNumber)
+				if err != nil {
+					log.Error("Cannot fetch tip", "height", blockNumber.Uint64())
+					continue
+				}
 			}
 			// The tip is the same, do not ingest the block.
 			if bytes.Equal(head.Hash().Bytes(), s.Eth1Data.BlockHash.Bytes()) {
@@ -727,7 +729,16 @@ func (s *SyncService) processHistoricalLogs() error {
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			// Check to see if the tip is the last processed block height
+
+			if s.confirmationDepth != 0 {
+				blockNumber := tip.Number.Sub(tip.Number, new(big.Int).SetUint64(s.confirmationDepth))
+				tip, err = s.ethclient.HeaderByNumber(s.ctx, blockNumber)
+				if err != nil {
+					log.Error("Problem fetching block for historical log sync", "height", blockNumber.Uint64())
+					continue
+				}
+			}
+
 			tipHeight := tip.Number.Uint64()
 			if tipHeight == s.Eth1Data.BlockHeight {
 				log.Info("Done fetching historical logs", "height", tipHeight)
