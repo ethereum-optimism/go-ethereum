@@ -29,4 +29,5 @@ var (
 	ErrNoCompatibleInterpreter  = errors.New("no compatible interpreter")
 	ErrOvmExecutionFailed       = errors.New("ovm execution failed")
 	ErrOvmCreationFailed        = errors.New("creation called by non-Execution Manager contract")
+	ErrOvmSandboxEscape         = errors.New("ovm execution escaped from sandbox")
 )

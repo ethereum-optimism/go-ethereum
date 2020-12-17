@@ -74,11 +74,16 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 
 		// Uncomment to make Safety checker always returns true.
 		// if contract.Address() == evm.Context.SafetyChecker.Address {
-		// 	return AbiBytesTrue, nil
+		//     return AbiBytesTrue, nil
 		// }
 
 		// If we're calling the state manager, we want to use our native implementation instead.
 		if contract.Address() == evm.Context.OvmStateManager.Address {
+			// The caller must be the execution manager
+			if contract.Caller() != evm.Context.OvmExecutionManager.Address {
+				log.Error("StateManager called by non ExecutionManager", "caller", contract.Caller().Hex())
+				return []byte{}, ErrOvmSandboxEscape
+			}
 			return callStateManager(input, evm, contract)
 		}
 	}
