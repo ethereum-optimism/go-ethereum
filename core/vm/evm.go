@@ -82,7 +82,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			// The caller must be the execution manager
 			if contract.Caller() != evm.Context.OvmExecutionManager.Address {
 				log.Error("StateManager called by non ExecutionManager", "caller", contract.Caller().Hex())
-				return []byte{}, ErrOvmSandboxEscape
+				return nil, ErrOvmSandboxEscape
 			}
 			return callStateManager(input, evm, contract)
 		}
