@@ -45,7 +45,7 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 		return nil, err
 	}
 
-	gas := (msg.Gas() * 64 / 63) + 10000
+	gas := uint64(0xffffffffffffffff)
 	outputmsg, err := modMessage(
 		msg,
 		msg.From(),
