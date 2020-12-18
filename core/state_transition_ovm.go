@@ -45,12 +45,13 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 		return nil, err
 	}
 
+	gas := (msg.Gas() * 64 / 63) + 10000
 	outputmsg, err := modMessage(
 		msg,
 		msg.From(),
 		&evm.Context.OvmExecutionManager.Address,
 		ret,
-		evm.Context.GasLimit,
+		gas,
 	)
 	if err != nil {
 		return nil, err
