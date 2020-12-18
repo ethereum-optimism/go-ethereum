@@ -24,14 +24,14 @@ type ovmTransaction struct {
 }
 
 func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
+	gas := uint64(msg.Gas()*64/63 + 10000)
 	tx := ovmTransaction{
 		evm.Context.Time,
 		evm.Context.BlockNumber, // TODO (what's the correct block number?)
 		uint8(msg.QueueOrigin().Uint64()),
 		*msg.L1MessageSender(),
 		*msg.To(),
-		//big.NewInt(int64(msg.Gas())),
-		new(big.Int).SetUint64(0xffffffffffffffff),
+		new(big.Int).SetUint64(gas),
 		msg.Data(),
 	}
 
