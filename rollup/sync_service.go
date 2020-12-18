@@ -738,12 +738,18 @@ func (s *SyncService) processHistoricalLogs() error {
 				errCh <- fmt.Errorf("Eth1 chain not synced: height %d", tipHeight)
 			}
 
+			// Use the tip height as the max value
+			toBlock := s.Eth1Data.BlockHeight + 1000
+			if tipHeight < toBlock {
+				toBlock = tipHeight
+			}
+
 			query := ethereum.FilterQuery{
 				Addresses: []common.Address{
 					s.CanonicalTransactionChainAddress,
 				},
 				FromBlock: new(big.Int).SetUint64(s.Eth1Data.BlockHeight + 1),
-				ToBlock:   new(big.Int).SetUint64(s.Eth1Data.BlockHeight + 1000),
+				ToBlock:   new(big.Int).SetUint64(toBlock),
 				Topics:    [][]common.Hash{},
 			}
 
