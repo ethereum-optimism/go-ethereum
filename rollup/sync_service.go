@@ -729,11 +729,14 @@ func (s *SyncService) processHistoricalLogs() error {
 				time.Sleep(1 * time.Second)
 				continue
 			}
+
 			// Check to see if the tip is the last processed block height
 			tipHeight := tip.Number.Uint64() - headerCacheSize
 
-			// Break when we are up to the header cache size
-			if tipHeight == s.Eth1Data.BlockHeight {
+			// Break when we are up to the header cache size or if the tip
+			// number is less than the header cache size. This protects from
+			// an undeflow.
+			if tipHeight == s.Eth1Data.BlockHeight || tip.Number.Uint64() < headerCacheSize {
 				log.Info("Done fetching historical logs", "height", tipHeight)
 				errCh <- nil
 			}
@@ -774,7 +777,7 @@ func (s *SyncService) processHistoricalLogs() error {
 
 				header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(height))
 				if err != nil {
-					log.Debug("Problem fetching block: %w", err)
+					log.Debug("Problem fetching block", "messsage", err)
 					continue
 				}
 				headerHeight := header.Number.Uint64()
