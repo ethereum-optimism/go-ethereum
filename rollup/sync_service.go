@@ -742,8 +742,11 @@ func (s *SyncService) processHistoricalLogs() error {
 			}
 
 			if tipHeight < s.Eth1Data.BlockHeight {
-				log.Error("Historical block processing tip is earlier than last processed block height")
-				errCh <- fmt.Errorf("Eth1 chain not synced: height %d", tipHeight)
+				if err := s.bc.SetHead(1); err != nil {
+					log.Error("Problem syncing", "message", err)
+				}
+				s.Eth1Data = Eth1Data{BlockHeight: 1}
+				continue
 			}
 
 			// The above checks prevent `fromBlock` from being
