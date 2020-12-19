@@ -738,6 +738,11 @@ func (s *SyncService) processHistoricalLogs() error {
 				errCh <- fmt.Errorf("Eth1 chain not synced: height %d", tipHeight)
 			}
 
+			fromBlock := s.Eth1Data.BlockHeight + 1
+			if tipHeight < fromBlock {
+				fromBlock = tipHeight
+			}
+
 			// Use the tip height as the max value
 			toBlock := s.Eth1Data.BlockHeight + 1000
 			if tipHeight < toBlock {
@@ -748,7 +753,7 @@ func (s *SyncService) processHistoricalLogs() error {
 				Addresses: []common.Address{
 					s.CanonicalTransactionChainAddress,
 				},
-				FromBlock: new(big.Int).SetUint64(s.Eth1Data.BlockHeight + 1),
+				FromBlock: new(big.Int).SetUint64(fromBlock),
 				ToBlock:   new(big.Int).SetUint64(toBlock),
 				Topics:    [][]common.Hash{},
 			}
