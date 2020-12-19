@@ -31,6 +31,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+const headerCacheSize = 2048
+
 // Interface used for communicating with Ethereum 1 nodes
 type EthereumClient interface {
 	ChainID(context.Context) (*big.Int, error)
@@ -182,7 +184,7 @@ type SyncService struct {
 	Eth1Data                         Eth1Data
 	LatestL1ToL2                     LatestL1ToL2
 	confirmationDepth                uint64
-	HeaderCache                      [2048]*types.Header
+	HeaderCache                      [headerCacheSize]*types.Header
 	sequencerIngestTicker            *time.Ticker
 	ctcDeployHeight                  *big.Int
 	AddressResolverAddress           common.Address
@@ -243,7 +245,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		clearTransactionsTicker:          time.NewTicker(time.Hour),
 		sequencerIngestTicker:            time.NewTicker(15 * time.Second),
 		txCache:                          NewTransactionCache(),
-		HeaderCache:                      [2048]*types.Header{},
+		HeaderCache:                      [headerCacheSize]*types.Header{},
 	}
 	return &service, nil
 }
@@ -386,7 +388,7 @@ func (s *SyncService) getCommonAncestor(index *big.Int, list *[]*types.Header) (
 	if number == s.ctcDeployHeight.Uint64() {
 		return number, nil
 	}
-	cached := s.HeaderCache[number%2048]
+	cached := s.HeaderCache[number%headerCacheSize]
 	if cached != nil && bytes.Equal(header.Hash().Bytes(), cached.Hash().Bytes()) {
 		return number, nil
 	}
@@ -728,21 +730,22 @@ func (s *SyncService) processHistoricalLogs() error {
 				continue
 			}
 			// Check to see if the tip is the last processed block height
-			tipHeight := tip.Number.Uint64()
+			tipHeight := tip.Number.Uint64() - headerCacheSize
+
+			// Break when we are up to the header cache size
 			if tipHeight == s.Eth1Data.BlockHeight {
 				log.Info("Done fetching historical logs", "height", tipHeight)
 				errCh <- nil
 			}
+
 			if tipHeight < s.Eth1Data.BlockHeight {
 				log.Error("Historical block processing tip is earlier than last processed block height")
 				errCh <- fmt.Errorf("Eth1 chain not synced: height %d", tipHeight)
 			}
 
+			// The above checks prevent `fromBlock` from being
+			// greater than the tip
 			fromBlock := s.Eth1Data.BlockHeight + 1
-			if tipHeight < fromBlock {
-				fromBlock = tipHeight
-			}
-
 			// Use the tip height as the max value
 			toBlock := s.Eth1Data.BlockHeight + 1000
 			if tipHeight < toBlock {
@@ -804,6 +807,14 @@ func (s *SyncService) processHistoricalLogs() error {
 
 					log.Info("Processed historical block", "height", ethlog.BlockNumber, "hash", ethlog.BlockHash.Hex())
 					s.doneProcessing <- ethlog.BlockNumber
+				}
+			}
+			// Set the last processed header in the cache
+			for {
+				processed, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(toBlock))
+				if err == nil {
+					s.HeaderCache[processed.Number.Uint64()%headerCacheSize] = processed
+					break
 				}
 			}
 		}
@@ -887,7 +898,7 @@ func (s *SyncService) ProcessETHBlock(ctx context.Context, header *types.Header)
 	// Write to the database for term persistence
 	rawdb.WriteHeadEth1HeaderHash(s.db, header.Hash())
 	rawdb.WriteHeadEth1HeaderHeight(s.db, blockHeight)
-	s.HeaderCache[blockHeight%2048] = header
+	s.HeaderCache[blockHeight%headerCacheSize] = header
 
 	return Eth1Data{
 		BlockHash:   blockHash,
