@@ -766,7 +766,7 @@ func (s *SyncService) processHistoricalLogs() error {
 
 			logs, err := s.logClient.FilterLogs(s.ctx, query)
 			if err != nil {
-				log.Error("Cannot query logs", "message", err)
+				log.Error("Cannot query logs", "from", fromBlock, "to", toBlock, "message", err)
 				continue
 			}
 			if len(logs) == 0 {
