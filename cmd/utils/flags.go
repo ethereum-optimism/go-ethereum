@@ -806,7 +806,7 @@ var (
 	Eth1SequencerDecompressionAddressFlag = cli.StringFlag{
 		Name:   "eth1.sequencerdecompressionaddress",
 		Usage:  "Deployment address of the sequencer decompression contract",
-		EnvVar: "ETH1_DECOMPRESSION_ADDRESS",
+		EnvVar: "ETH1_ADDRESS_MANAGER_ADDRESS
 	}
 	Eth1AddressResolverAddressFlag = cli.StringFlag{
 		Name:   "eth1.addressresolveraddress",
