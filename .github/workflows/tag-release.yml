@@ -33,16 +33,15 @@ jobs:
 
       - name: Get the version
         id: get_version
-        run: echo ::set-output name=VERSION::$(echo $GITHUB_REF | cut -d / -f 3)
+        run: echo ::set-output name=VERSION::v$(echo $GITHUB_REF | cut -d / -f 3)
 
       - name: Build and push Optimistic Ethereum Node image to DockerHub
         run: |
           git clone https://github.com/ethereum-optimism/docker.git \
               $HOME/docker
           cd $HOME/docker
-          TAG=${{ steps.get_version.outputs.VERSION }}
-          ./build.sh -s go-ethereum -b "v$TAG"
-          docker push ethereumoptimism/go-ethereum:$TAG
+          ./build.sh -s go-ethereum -b ${{ steps.get_version.outputs.VERSION }}
+          docker push ethereumoptimism/go-ethereum:${{ steps.get_version.outputs.VERSION }}
 
       - name: Logout of DockerHub
         run: docker logout
