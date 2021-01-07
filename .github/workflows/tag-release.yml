@@ -1,0 +1,47 @@
+name: Create Releases on Tags
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+name: Release
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub release
+        uses: Roang-zero1/github-create-release-action@master
+        with:
+          version_regex: ^v[[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker:
+    name: Build & Push to DockerHub
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: webfactory/ssh-agent@v0.4.1
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_READ }}
+
+      - name: Login to DockerHub Registry
+        run: echo ${{ secrets.DOCKERHUB_ACCESS_TOKEN_SECRET }} | docker login -u ${{ secrets.DOCKERHUB_ACCESS_TOKEN_USERNAME}} --password-stdin
+
+      - name: Get the version
+        id: get_version
+        run: echo ::set-output name=VERSION::v$(echo $GITHUB_REF | cut -d / -f 3)
+
+      - name: Build and push Optimistic Ethereum Node image to DockerHub
+        run: |
+          git clone https://github.com/ethereum-optimism/docker.git \
+              $HOME/docker
+          cd $HOME/docker
+          ./build.sh -s go-ethereum -b ${{ steps.get_version.outputs.VERSION }}
+          docker push ethereumoptimism/go-ethereum:${{ steps.get_version.outputs.VERSION }}
+
+      - name: Logout of DockerHub
+        run: docker logout
