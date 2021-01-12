@@ -41,12 +41,4 @@ func TestGasLimit(t *testing.T) {
 	if err.Error() != fmt.Sprintf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", gasLimit, backend.GasLimit) {
 		t.Fatalf("Unexpected error type: %s", err)
 	}
-
-	// Create a new tx with a gas limit of 0
-	gasLimit = uint64(0)
-	tx = types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data, nil, nil, qo, sighash)
-	err = backend.SendTx(context.Background(), tx)
-	if err != nil {
-		t.Fatal("Transaction with too large of gas limit accepted")
-	}
 }
