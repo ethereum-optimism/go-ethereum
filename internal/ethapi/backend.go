@@ -92,6 +92,7 @@ type Backend interface {
 	GetRollupContractAddresses() map[string]*common.Address
 	GetLatestL1BlockNumber() uint64
 	GetLatestL1Timestamp() uint64
+	SetL1Head(number uint64)
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block

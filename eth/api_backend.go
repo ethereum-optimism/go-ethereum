@@ -38,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -106,6 +107,28 @@ func (b *EthAPIBackend) GetDiff(block *big.Int) (diffdb.Diff, error) {
 func (b *EthAPIBackend) SetHead(number uint64) {
 	b.eth.protocolManager.downloader.Cancel()
 	b.eth.blockchain.SetHead(number)
+
+	// Make sure to reset the LatestL1{Timestamp,BlockNumber}
+	block := b.eth.blockchain.CurrentBlock()
+	txs := block.Transactions()
+	if len(txs) == 0 {
+		log.Error("No transactions found in block", "number", number)
+		return
+	}
+
+	tx := txs[0]
+	blockNumber := tx.L1BlockNumber()
+	if blockNumber == nil {
+		log.Error("No L1BlockNumber found in transaction", "number", number)
+		return
+	}
+
+	b.eth.syncService.SetLatestL1Timestamp(tx.L1Timestamp())
+	b.eth.syncService.SetLatestL1BlockNumber(blockNumber.Uint64())
+}
+
+func (b *EthAPIBackend) SetL1Head(number uint64) {
+	b.eth.syncService.SetL1Head(number)
 }
 
 func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {

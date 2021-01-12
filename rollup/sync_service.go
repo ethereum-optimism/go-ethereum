@@ -1286,6 +1286,29 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 	return s.scope.Track(s.txFeed.Subscribe(ch))
 }
 
+// SetL1Head resets the Eth1Data
+// and the LatestL1BlockNumber and LatestL1Timestamp
+func (s *SyncService) SetL1Head(number uint64) {
+	var header *types.Header
+	var err error
+	for {
+		header, err = s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(number))
+		if err == nil {
+			break
+		}
+	}
+
+	// Reset the last synced L1 heights
+	rawdb.WriteHeadEth1HeaderHash(s.db, header.Hash())
+	rawdb.WriteHeadEth1HeaderHeight(s.db, header.Number.Uint64())
+	s.HeaderCache[number%headerCacheSize] = header
+
+	s.Eth1Data = Eth1Data{
+		BlockHeight: header.Number.Uint64(),
+		BlockHash:   header.Hash(),
+	}
+}
+
 // Adds the transaction to the mempool so that downstream services
 // can apply it to the state. This should directly play against
 // the state eventually, skipping the mempool.
