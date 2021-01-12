@@ -21,7 +21,7 @@ var funcs = map[string]stateManagerFunction{
 	"putContractStorage":                       putContractStorage,
 	"isAuthenticated":                          nativeFunctionTrue,
 	"hasAccount":                               nativeFunctionTrue,
-	"hasEmptyAccount":                          nativeFunctionTrue,
+	"hasEmptyAccount":                          hasEmptyAccount,
 	"hasContractStorage":                       nativeFunctionTrue,
 	"testAndSetAccountLoaded":                  testAndSetAccount,
 	"testAndSetAccountChanged":                 testAndSetAccount,
@@ -207,6 +207,20 @@ func testAndSetContractStorage(evm *EVM, contract *Contract, args map[string]int
 	}
 
 	log.Debug("Test and Set Contract Storage", "address", address.Hex(), "key", key.Hex(), "changed", changed)
+	return []interface{}{true}, nil
+}
+
+func hasEmptyAccount(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	address, ok := args["_address"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse address arg in hasEmptyAccount")
+	}
+
+	contractHash := evm.StateDB.GetCodeHash(address)
+	if evm.StateDB.GetNonce(address) != 0 || (contractHash != (common.Hash{}) && contractHash != emptyCodeHash) {
+		return []interface{}{false}, nil
+	}
+
 	return []interface{}{true}, nil
 }
 
