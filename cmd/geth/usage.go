@@ -65,8 +65,6 @@ var AppHelpFlagGroups = []flagGroup{
 	{
 		Name: "OPTIMISM",
 		Flags: []cli.Flag{
-			utils.TxIngestionSignerKeyHexFlag,
-			utils.TxIngestionSignerKeyFileFlag,
 			utils.Eth1SyncServiceEnable,
 			utils.Eth1AddressResolverAddressFlag,
 			utils.Eth1CanonicalTransactionChainDeployHeightFlag,
@@ -81,6 +79,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.RollupStateDumpPathFlag,
 			utils.RollupDiffDbFlag,
 			utils.RollupDisableTransfersFlag,
+			utils.RollupMaxCalldataSizeFlag,
 		},
 	},
 	{

@@ -10,6 +10,8 @@ import (
 type Config struct {
 	// TODO(mark): deprecate these config options
 	TxIngestionEnable bool
+	// Maximum calldata size for a Queue Origin Sequencer Tx
+	MaxCallDataSize int
 	// Number of confs before applying a L1 to L2 tx
 	Eth1ConfirmationDepth uint64
 	// Verifier mode

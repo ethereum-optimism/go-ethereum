@@ -65,6 +65,7 @@ var DefaultConfig = Config{
 	Rollup: rollup.Config{
 		TxIngestionEnable: false,
 		StateDumpPath:     "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/master.json",
+		MaxCallDataSize:   512,
 	},
 	DiffDbCache: 256,
 }

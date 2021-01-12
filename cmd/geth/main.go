@@ -150,9 +150,6 @@ var (
 	}
 
 	optimismFlags = []cli.Flag{
-		// Flags for the SyncService
-		utils.TxIngestionSignerKeyHexFlag,
-		utils.TxIngestionSignerKeyFileFlag,
 		utils.Eth1SyncServiceEnable,
 		utils.Eth1AddressResolverAddressFlag,
 		utils.Eth1CanonicalTransactionChainDeployHeightFlag,
@@ -169,6 +166,7 @@ var (
 		utils.RollupStateDumpPathFlag,
 		utils.RollupDiffDbFlag,
 		utils.RollupDisableTransfersFlag,
+		utils.RollupMaxCalldataSizeFlag,
 	}
 
 	rpcFlags = []cli.Flag{
