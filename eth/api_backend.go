@@ -282,7 +282,7 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			}
 
 			// Prevent transactions from being submitted if the gas limit too high
-			if signedTx.Gas() > b.GasLimit {
+			if signedTx.Gas() >= b.GasLimit {
 				return fmt.Errorf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", signedTx.Gas(), b.GasLimit)
 			}
 
