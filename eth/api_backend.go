@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -48,6 +49,8 @@ type EthAPIBackend struct {
 	gpo              *gasprice.Oracle
 	verifier         bool
 	DisableTransfers bool
+	GasLimit         uint64
+	UsingOVM         bool
 }
 
 func (b *EthAPIBackend) RollupTransactionSender() *common.Address {
@@ -271,14 +274,18 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 // Transactions originating from the RPC endpoints are added to remotes so that
 // a lock can be used around the remotes for when the sequencer is reorganizing.
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
-	if vm.UsingOVM {
+	if b.UsingOVM {
 		to := signedTx.To()
 		if to != nil {
 			if *to == (common.Address{}) {
 				return errors.New("Cannot send transaction to zero address")
 			}
 
-			// Need to add a config option here
+			// Prevent transactions from being submitted if the gas limit too high
+			if signedTx.Gas() >= b.GasLimit {
+				return fmt.Errorf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", signedTx.Gas(), b.GasLimit)
+			}
+
 			if b.DisableTransfers {
 				data := signedTx.Data()
 				if len(data) >= 4 {
@@ -295,9 +302,10 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 				}
 			}
 		}
-
+		return b.eth.syncService.ApplyTransaction(signedTx)
 	}
-	return b.eth.syncService.ApplyTransaction(signedTx)
+	// OVM Disabled
+	return b.eth.txPool.AddLocal(signedTx)
 }
 
 func (b *EthAPIBackend) SetTimestamp(timestamp int64) {
