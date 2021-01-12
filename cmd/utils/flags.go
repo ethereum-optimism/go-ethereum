@@ -438,9 +438,10 @@ var (
 		EnvVar: "TARGET_GAS_LIMIT",
 	}
 	MinerGasLimitFlag = cli.Uint64Flag{
-		Name:  "miner.gaslimit",
-		Usage: "Target gas ceiling for mined blocks",
-		Value: eth.DefaultConfig.Miner.GasCeil,
+		Name:   "miner.gaslimit",
+		Usage:  "Target gas ceiling for mined blocks",
+		Value:  eth.DefaultConfig.Miner.GasCeil,
+		EnvVar: "TARGET_GAS_LIMIT",
 	}
 	MinerGasPriceFlag = BigFlag{
 		Name:   "miner.gasprice",
