@@ -789,6 +789,7 @@ func (s *SyncService) processHistoricalLogs() error {
 					continue
 				}
 				s.Eth1Data = eth1data
+
 				log.Info("Processed historical block", "height", headerHeight, "hash", headerHash.Hex())
 				s.doneProcessing <- headerHeight
 			} else {
@@ -803,11 +804,13 @@ func (s *SyncService) processHistoricalLogs() error {
 						continue
 					}
 
+					rawdb.WriteHeadEth1HeaderHash(s.db, ethlog.BlockHash)
+					rawdb.WriteHeadEth1HeaderHeight(s.db, ethlog.BlockNumber)
+
 					s.Eth1Data = Eth1Data{
 						BlockHash:   ethlog.BlockHash,
 						BlockHeight: ethlog.BlockNumber,
 					}
-
 					log.Info("Processed historical block", "height", ethlog.BlockNumber, "hash", ethlog.BlockHash.Hex())
 					s.doneProcessing <- ethlog.BlockNumber
 				}
