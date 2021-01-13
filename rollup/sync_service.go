@@ -1288,14 +1288,15 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 
 // SetL1Head resets the Eth1Data
 // and the LatestL1BlockNumber and LatestL1Timestamp
-func (s *SyncService) SetL1Head(number uint64) {
-	var header *types.Header
-	var err error
-	for {
-		header, err = s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(number))
-		if err == nil {
-			break
-		}
+func (s *SyncService) SetL1Head(number uint64) error {
+	header, err := s.ethclient.HeaderByNumber(s.ctx, new(big.Int).SetUint64(number))
+	if err != nil {
+		return fmt.Errorf("Cannot fetch block in SetL1Head: %w", err)
+	}
+
+	// Reset the header cache
+	for i := 0; i < len(s.HeaderCache); i++ {
+		s.HeaderCache[i] = nil
 	}
 
 	// Reset the last synced L1 heights
