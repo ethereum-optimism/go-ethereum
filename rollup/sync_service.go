@@ -1308,6 +1308,7 @@ func (s *SyncService) SetL1Head(number uint64) error {
 		BlockHeight: header.Number.Uint64(),
 		BlockHash:   header.Hash(),
 	}
+	return nil
 }
 
 // Adds the transaction to the mempool so that downstream services

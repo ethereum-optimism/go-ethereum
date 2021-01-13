@@ -133,8 +133,8 @@ func (b *EthAPIBackend) SetHead(number uint64) {
 	b.eth.syncService.SetLatestL1BlockNumber(blockNumber.Uint64())
 }
 
-func (b *EthAPIBackend) SetL1Head(number uint64) {
-	b.eth.syncService.SetL1Head(number)
+func (b *EthAPIBackend) SetL1Head(number uint64) error {
+	return b.eth.syncService.SetL1Head(number)
 }
 
 func (b *EthAPIBackend) HeaderByNumber(ctx context.Context, number rpc.BlockNumber) (*types.Header, error) {
