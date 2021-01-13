@@ -870,6 +870,12 @@ var (
 		Usage:  "Disable Transfers",
 		EnvVar: "ROLLUP_DISABLE_TRANSFERS",
 	}
+	RollupMaxCalldataSizeFlag = cli.IntFlag{
+		Name:   "rollup.maxcalldatasize",
+		Usage:  "Maximum allowed calldata size for Queue Origin Sequencer Txs",
+		Value:  eth.DefaultConfig.Rollup.MaxCallDataSize,
+		EnvVar: "ROLLUP_MAX_CALLDATA_SIZE",
+	}
 )
 
 // MakeDataDir retrieves the currently requested data directory, terminating
@@ -1170,6 +1176,9 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(RollupDisableTransfersFlag.Name) {
 		cfg.DisableTransfers = true
+	}
+	if ctx.GlobalIsSet(RollupMaxCalldataSizeFlag.Name) {
+		cfg.MaxCallDataSize = ctx.GlobalInt(RollupMaxCalldataSizeFlag.Name)
 	}
 }
 

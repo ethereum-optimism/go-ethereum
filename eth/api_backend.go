@@ -52,6 +52,7 @@ type EthAPIBackend struct {
 	DisableTransfers bool
 	GasLimit         uint64
 	UsingOVM         bool
+	MaxCallDataSize  int
 }
 
 func (b *EthAPIBackend) RollupTransactionSender() *common.Address {
@@ -328,6 +329,10 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 					if bytes.Equal(selector, []byte{0x23, 0xb8, 0x72, 0xdd}) {
 						return errors.New("transferFrom(address,address,uint256) is disabled for now")
 					}
+				}
+
+				if len(signedTx.Data()) > b.MaxCallDataSize {
+					return fmt.Errorf("Calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
 				}
 			}
 		}
