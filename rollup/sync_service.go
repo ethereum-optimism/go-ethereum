@@ -413,12 +413,15 @@ func (s *SyncService) pollHead() {
 			}
 			// We want to trail the tip by a confirmation number of blocks, so
 			// subtract the confirmationDepth from the tip height and fetch the
-			// block header that will be consumed.
-			blockNumber := head.Number.Sub(head.Number, new(big.Int).SetUint64(s.confirmationDepth))
-			head, err = s.ethclient.HeaderByNumber(s.ctx, blockNumber)
-			if err != nil {
-				log.Error("Cannot fetch tip", "height", blockNumber.Uint64())
-				continue
+			// block header that will be consumed. Only do this if the
+			// confirmation depth is more than 0
+			if s.confirmationDepth != 0 {
+				blockNumber := head.Number.Sub(head.Number, new(big.Int).SetUint64(s.confirmationDepth))
+				head, err = s.ethclient.HeaderByNumber(s.ctx, blockNumber)
+				if err != nil {
+					log.Error("Cannot fetch tip", "height", blockNumber.Uint64())
+					continue
+				}
 			}
 			// The tip is the same, do not ingest the block.
 			if bytes.Equal(head.Hash().Bytes(), s.Eth1Data.BlockHash.Bytes()) {
