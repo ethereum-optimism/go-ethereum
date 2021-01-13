@@ -105,7 +105,13 @@ func (b *EthAPIBackend) GetDiff(block *big.Int) (diffdb.Diff, error) {
 }
 
 func (b *EthAPIBackend) SetHead(number uint64) {
-	b.eth.protocolManager.downloader.Cancel()
+	if number == 0 {
+		log.Info("Cannot reset to genesis")
+		return
+	}
+	if !b.UsingOVM {
+		b.eth.protocolManager.downloader.Cancel()
+	}
 	b.eth.blockchain.SetHead(number)
 
 	// Make sure to reset the LatestL1{Timestamp,BlockNumber}
