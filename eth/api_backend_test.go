@@ -17,7 +17,7 @@ func TestGasLimit(t *testing.T) {
 		gpo:              nil,
 		verifier:         false,
 		DisableTransfers: false,
-		GasLimit:         0,
+		gasLimit:         0,
 		UsingOVM:         true,
 	}
 
@@ -38,7 +38,7 @@ func TestGasLimit(t *testing.T) {
 	if err == nil {
 		t.Fatal("Transaction with too large of gas limit accepted")
 	}
-	if err.Error() != fmt.Sprintf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", gasLimit, backend.GasLimit) {
+	if err.Error() != fmt.Sprintf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", gasLimit, backend.GasLimit()) {
 		t.Fatalf("Unexpected error type: %s", err)
 	}
 }

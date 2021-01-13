@@ -93,6 +93,7 @@ type Backend interface {
 	GetLatestL1BlockNumber() uint64
 	GetLatestL1Timestamp() uint64
 	SetL1Head(number uint64) error
+	GasLimit() uint64
 
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block

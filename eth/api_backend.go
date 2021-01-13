@@ -50,7 +50,7 @@ type EthAPIBackend struct {
 	gpo              *gasprice.Oracle
 	verifier         bool
 	DisableTransfers bool
-	GasLimit         uint64
+	gasLimit         uint64
 	UsingOVM         bool
 	MaxCallDataSize  int
 }
@@ -67,6 +67,10 @@ func (b *EthAPIBackend) IsVerifier() bool {
 
 func (b *EthAPIBackend) IsSyncing() bool {
 	return b.eth.syncService.IsSyncing()
+}
+
+func (b *EthAPIBackend) GasLimit() uint64 {
+	return b.gasLimit
 }
 
 func (b *EthAPIBackend) GetLatestEth1Data() (common.Hash, uint64) {
@@ -312,8 +316,8 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			}
 
 			// Prevent transactions from being submitted if the gas limit too high
-			if signedTx.Gas() >= b.GasLimit {
-				return fmt.Errorf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", signedTx.Gas(), b.GasLimit)
+			if signedTx.Gas() >= b.gasLimit {
+				return fmt.Errorf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", signedTx.Gas(), b.gasLimit)
 			}
 
 			if b.DisableTransfers {

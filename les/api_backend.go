@@ -54,6 +54,10 @@ func (b *LesApiBackend) IsVerifier() bool {
 	return false
 }
 
+func (b *LesApiBackend) GasLimit() uint64 {
+	panic("not implemented")
+}
+
 func (b *LesApiBackend) IsSyncing() bool {
 	return false
 }
