@@ -287,10 +287,6 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 				return fmt.Errorf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", signedTx.Gas(), b.GasLimit)
 			}
 
-			if len(signedTx.Data()) > b.MaxCallDataSize {
-				return fmt.Errorf("Calldata too large")
-			}
-
 			if b.DisableTransfers {
 				data := signedTx.Data()
 				if len(data) >= 4 {
@@ -304,6 +300,10 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 					if bytes.Equal(selector, []byte{0x23, 0xb8, 0x72, 0xdd}) {
 						return errors.New("transferFrom(address,address,uint256) is disabled for now")
 					}
+				}
+
+				if len(signedTx.Data()) > b.MaxCallDataSize {
+					return fmt.Errorf("Calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
 				}
 			}
 		}

@@ -226,7 +226,10 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	eth.miner = miner.New(eth, &config.Miner, chainConfig, eth.EventMux(), eth.engine, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.Miner.ExtraData))
 
-	log.Info("Backend Config", "max-calldata-size", config.Rollup.MaxCallDataSize, "disable-transfers", config.Rollup.DisableTransfers, "gas-limit", config.Rollup.GasLimit, "is-verifier", config.Rollup.IsVerifier, "using-ovm", vm.UsingOVM)
+	log.Info("Backend Config", "disable-transfers", config.Rollup.DisableTransfers, "gas-limit", config.Rollup.GasLimit, "is-verifier", config.Rollup.IsVerifier, "using-ovm", vm.UsingOVM)
+	if config.Rollup.DisableTransfers {
+		log.Info("Transaction size restrictions", "max-calldata", config.Rollup.MaxCallDataSize)
+	}
 	eth.APIBackend = &EthAPIBackend{ctx.ExtRPCEnabled(), eth, nil, config.Rollup.IsVerifier, config.Rollup.DisableTransfers, config.Rollup.GasLimit, vm.UsingOVM, config.Rollup.MaxCallDataSize}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
