@@ -91,7 +91,7 @@ func (b *LesApiBackend) SetHead(number uint64) {
 	b.eth.blockchain.SetHead(number)
 }
 
-func (b *LesApiBackend) SetL1Head(number uint64) {
+func (b *LesApiBackend) SetL1Head(number uint64) error {
 	panic("unimplemented")
 }
 
