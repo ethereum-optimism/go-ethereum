@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.1
+
+Pre-minnet fixes.
+
+- gaslimit: fix eth_call (#186)
+- rollup: safer historical log syncing (#173)
+- config: flag for max acceptable calldata size (#181)
+- debug rpc: debug_setL1Head and better l1 timestamp management (#184)
+- Fix for hasEmptyAccount (#182)
+- gasLimit: error on gas limit too high for queue origin sequencer txs (#180)
+- Fixes issue with broken gas limit (#183)
+
 ## v0.1.0
 
 Initial Release
