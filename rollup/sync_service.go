@@ -336,10 +336,6 @@ func (s *SyncService) Start() error {
 	go s.pollHead()
 	go s.ClearTransactionLoop()
 
-	if !s.verifier {
-		go s.sequencerIngestQueue()
-	}
-
 	return nil
 }
 
@@ -525,55 +521,6 @@ func (s *SyncService) GetSigningKey() ecdsa.PublicKey {
 // IsSyncing returns the syncing status of the syncservice.
 func (s *SyncService) IsSyncing() bool {
 	return s.syncing
-}
-
-// sequencerIngestQueue will ingest transactions from the queue. This
-// is only for sequencer mode and will panic if called in verifier mode.
-func (s *SyncService) sequencerIngestQueue() {
-	if s.verifier {
-		panic("Cannot run sequencer ingestion in verifier mode")
-	}
-
-	// For now, only handle the case where syncing is true
-	for {
-		select {
-		case <-s.sequencerIngestTicker.C:
-			switch s.syncing {
-			case true:
-				opts := bind.CallOpts{Pending: false, Context: s.ctx}
-				totalElements, err := s.ctcCaller.GetTotalElements(&opts)
-				// Also check that the chain is synced to the tip
-				tip := s.bc.CurrentBlock()
-				isAtTip := tip.Number().Uint64() == totalElements.Uint64()
-
-				pending, err := s.ctcCaller.GetNumPendingQueueElements(&opts)
-				// For now always disable sync service
-				if true {
-					// TODO: Remove this
-					// Set all txs found during sync to executed
-					s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-						rtx.executed = true
-						s.txCache.Store(rtx.index, rtx)
-					})
-					s.setSyncStatus(false)
-					continue
-				}
-				if pending.Uint64() == 0 && isAtTip {
-					s.setSyncStatus(false)
-					continue
-				}
-				// Get the next queue index
-				index, err := s.ctcCaller.GetNextQueueIndex(&opts)
-				if err != nil {
-					log.Error("Cannot get next queue index", "message", err.Error())
-					continue
-				}
-				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "at-tip", isAtTip, "local-tip-height", tip.Number().Uint64(), "next-queue-index", index, "pending-queue-elements", pending.Uint64())
-			}
-		case <-s.ctx.Done():
-			return
-		}
-	}
 }
 
 // LogDoneProcessing reads from the doneProcessing channel
