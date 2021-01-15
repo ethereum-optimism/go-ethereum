@@ -31,7 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-const headerCacheSize = 2048
+const headerCacheSize = 128
 
 // Interface used for communicating with Ethereum 1 nodes
 type EthereumClient interface {
@@ -331,14 +331,11 @@ func (s *SyncService) Start() error {
 	}
 	s.gasLimit = gasLimit.Uint64()
 	log.Info("Setting max transaction gas limit", "gas limit", s.gasLimit)
+	s.setSyncStatus(false)
 
 	go s.Loop()
 	go s.pollHead()
 	go s.ClearTransactionLoop()
-
-	if !s.verifier {
-		go s.sequencerIngestQueue()
-	}
 
 	return nil
 }
@@ -398,6 +395,7 @@ func (s *SyncService) getCommonAncestor(index *big.Int, list *[]*types.Header) (
 }
 
 func (s *SyncService) pollHead() {
+	log.Info("Starting poll head loop")
 	headTicker := time.NewTicker(time.Second * 10)
 	for {
 		select {
@@ -525,55 +523,6 @@ func (s *SyncService) GetSigningKey() ecdsa.PublicKey {
 // IsSyncing returns the syncing status of the syncservice.
 func (s *SyncService) IsSyncing() bool {
 	return s.syncing
-}
-
-// sequencerIngestQueue will ingest transactions from the queue. This
-// is only for sequencer mode and will panic if called in verifier mode.
-func (s *SyncService) sequencerIngestQueue() {
-	if s.verifier {
-		panic("Cannot run sequencer ingestion in verifier mode")
-	}
-
-	// For now, only handle the case where syncing is true
-	for {
-		select {
-		case <-s.sequencerIngestTicker.C:
-			switch s.syncing {
-			case true:
-				opts := bind.CallOpts{Pending: false, Context: s.ctx}
-				totalElements, err := s.ctcCaller.GetTotalElements(&opts)
-				// Also check that the chain is synced to the tip
-				tip := s.bc.CurrentBlock()
-				isAtTip := tip.Number().Uint64() == totalElements.Uint64()
-
-				pending, err := s.ctcCaller.GetNumPendingQueueElements(&opts)
-				// For now always disable sync service
-				if true {
-					// TODO: Remove this
-					// Set all txs found during sync to executed
-					s.txCache.Range(func(index uint64, rtx *RollupTransaction) {
-						rtx.executed = true
-						s.txCache.Store(rtx.index, rtx)
-					})
-					s.setSyncStatus(false)
-					continue
-				}
-				if pending.Uint64() == 0 && isAtTip {
-					s.setSyncStatus(false)
-					continue
-				}
-				// Get the next queue index
-				index, err := s.ctcCaller.GetNextQueueIndex(&opts)
-				if err != nil {
-					log.Error("Cannot get next queue index", "message", err.Error())
-					continue
-				}
-				log.Info("Sequencer Ingest Queue Status", "syncing", s.syncing, "at-tip", isAtTip, "local-tip-height", tip.Number().Uint64(), "next-queue-index", index, "pending-queue-elements", pending.Uint64())
-			}
-		case <-s.ctx.Done():
-			return
-		}
-	}
 }
 
 // LogDoneProcessing reads from the doneProcessing channel
@@ -742,8 +691,8 @@ func (s *SyncService) processHistoricalLogs() error {
 			}
 
 			if tipHeight < s.Eth1Data.BlockHeight {
-				log.Error("Historical block processing tip is earlier than last processed block height")
-				errCh <- fmt.Errorf("Eth1 chain not synced: height %d", tipHeight)
+				log.Info("Skipping block already seen", "height", tipHeight)
+				continue
 			}
 
 			// The above checks prevent `fromBlock` from being
