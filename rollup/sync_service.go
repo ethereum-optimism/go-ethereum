@@ -31,7 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-const headerCacheSize = 2048
+const headerCacheSize = 32
 
 // Interface used for communicating with Ethereum 1 nodes
 type EthereumClient interface {
