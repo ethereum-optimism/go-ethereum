@@ -1,9 +1,5 @@
 # Changelog
 
-## v0.1.2
-
-Reduce header cache size to allow L2Geth to spin back up.
-
 ## v0.1.1
 
 Pre-minnet fixes.
