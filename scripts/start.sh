@@ -127,19 +127,36 @@ while (( "$#" )); do
     esac
 done
 
+CHAIN_ID=10
+NETWORK_ID=10
+ADDRESS_RESOLVER_ADDRESS=0x1De8CFD4C1A486200286073aE91DE6e8099519f1
+ETH1_CHAIN_ID=1
+ETH1_CONFIRMATION_DEPTH=20
+ETH1_CTC_DEPLOYMENT_HEIGHT=11650235
+ETH1_HTTP=https://eth-mainnet.alchemyapi.io/v2/FNlLpiCGqIUoxhz1ilNk5dOCN39qgDJF
+ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0x0AEBf5161A9b57349747D078c6763a0B1d67D888
+ETH1_NETWORK_ID=1
+L1_NODE_WEB3_URL=https://eth-mainnet.alchemyapi.io/v2/FNlLpiCGqIUoxhz1ilNk5dOCN39qgDJF
+ADDRESS_MANAGER_OWNER_ADDRESS=0xc6Dbc2DC7649c7d4292d955DA08A7C21a21e1528
+ROLLUP_STATE_DUMP_PATH=https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/mainnet/1.json
+TARGET_GAS_LIMIT=9000000
+
 cmd="$REPO/build/bin/geth"
 cmd="$cmd --eth1.syncservice"
 cmd="$cmd --datadir $HOME/.ethereum"
 cmd="$cmd --eth1.http $ETH1_HTTP"
-cmd="$cmd --eth1.confirmationdepth 0"
+cmd="$cmd --eth1.confirmationdepth $ETH1_CONFIRMATION_DEPTH"
 cmd="$cmd --eth1.networkid $ETH1_NETWORK_ID"
 cmd="$cmd --eth1.chainid $ETH1_CHAIN_ID"
 cmd="$cmd --eth1.l1crossdomainmessengeraddress $L1_CROSS_DOMAIN_MESSENGER_ADDRESS"
 cmd="$cmd --eth1.addressresolveraddress $ADDRESS_RESOLVER_ADDRESS"
 cmd="$cmd --rollup.addressmanagerowneraddress $ADDRESS_MANAGER_OWNER_ADDRESS"
+cmd="$cmd --rollup.statedumppath $ROLLUP_STATE_DUMP_PATH"
 cmd="$cmd --eth1.ctcdeploymentheight $ETH1_CTC_DEPLOYMENT_HEIGHT"
 cmd="$cmd --rpc"
 cmd="$cmd --dev"
+cmd="$cmd --networkid $NETWORK_ID"
+cmd="$cmd --chainid $CHAIN_ID"
 cmd="$cmd --rpcaddr 0.0.0.0"
 cmd="$cmd --rpccorsdomain '*'"
 cmd="$cmd --wsaddr 0.0.0.0"
@@ -157,4 +174,4 @@ if [ ! -z "$IS_VERIFIER" ]; then
 fi
 
 echo -e "Running:\n$cmd"
-eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd
+eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd --verbosity=6

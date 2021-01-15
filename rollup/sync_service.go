@@ -31,7 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-const headerCacheSize = 2048
+const headerCacheSize = 128
 
 // Interface used for communicating with Ethereum 1 nodes
 type EthereumClient interface {
@@ -331,6 +331,7 @@ func (s *SyncService) Start() error {
 	}
 	s.gasLimit = gasLimit.Uint64()
 	log.Info("Setting max transaction gas limit", "gas limit", s.gasLimit)
+	s.setSyncStatus(false)
 
 	go s.Loop()
 	go s.pollHead()
@@ -394,6 +395,7 @@ func (s *SyncService) getCommonAncestor(index *big.Int, list *[]*types.Header) (
 }
 
 func (s *SyncService) pollHead() {
+	log.Info("Starting poll head loop")
 	headTicker := time.NewTicker(time.Second * 10)
 	for {
 		select {
