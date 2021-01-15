@@ -75,11 +75,13 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.Eth1NetworkIdFlag,
 			utils.Eth1HTTPFlag,
 			utils.RollupAddressManagerOwnerAddressFlag,
+			utils.RollupAllowArbitraryContractDeploymentFlag,
 			utils.RollupEnableVerifierFlag,
 			utils.RollupStateDumpPathFlag,
 			utils.RollupDiffDbFlag,
 			utils.RollupDisableTransfersFlag,
 			utils.RollupMaxCalldataSizeFlag,
+			utils.RollupAllowArbitraryContractDeploymentFlag,
 		},
 	},
 	{

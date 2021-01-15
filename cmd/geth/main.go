@@ -163,10 +163,12 @@ var (
 		// Enable verifier mode
 		utils.RollupEnableVerifierFlag,
 		utils.RollupAddressManagerOwnerAddressFlag,
+		utils.RollupAllowArbitraryContractDeploymentFlag,
 		utils.RollupStateDumpPathFlag,
 		utils.RollupDiffDbFlag,
 		utils.RollupDisableTransfersFlag,
 		utils.RollupMaxCalldataSizeFlag,
+		utils.RollupAllowArbitraryContractDeploymentFlag,
 	}
 
 	rpcFlags = []cli.Flag{

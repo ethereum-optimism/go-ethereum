@@ -69,8 +69,10 @@ type Genesis struct {
 
 	// OVM Specific, used to initialize the xDomainMessengerAddress
 	// in the genesis state
-	L1CrossDomainMessengerAddress common.Address `json:"-"`
-	AddressManagerOwnerAddress    common.Address `json:"-"`
+	L1CrossDomainMessengerAddress    common.Address `json:"-"`
+	AddressManagerOwnerAddress       common.Address `json:"-"`
+	DeployWhitelistOwnerAddress      common.Address `json:"-"`
+	AllowArbitraryContractDeployment bool           `json:"-"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -264,7 +266,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 }
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
-func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDump *dump.OvmDump) {
+func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrManagerOwnerAddress, deployWhitelistOwner common.Address, contractDeployment bool, stateDump *dump.OvmDump) {
 	if len(stateDump.Accounts) == 0 {
 		return
 	}
@@ -297,6 +299,28 @@ func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrM
 		statedb.SetState(AddressManager.Address, slot, value)
 		log.Info("Setting CrossDomainMessenger in AddressManager", "address", xDomainMessengerAddress.Hex())
 	}
+	DeployerWhitelist, ok := stateDump.Accounts["OVM_DeployerWhitelist"]
+	if ok {
+		// Set initialized to true to prevent `initialize()` from being called again
+		initializedSlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000010")
+		initializedValue := common.BytesToHash([]byte{0x01})
+		statedb.SetState(DeployerWhitelist.Address, initializedSlot, initializedValue)
+		log.Info("Setting DeployerWhitelist initialized", "value", initializedValue.Hex())
+		// Set the deploy whitelist owner
+		ownerSlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000011")
+		ownerValue := common.BytesToHash(deployWhitelistOwner.Bytes())
+		statedb.SetState(DeployerWhitelist.Address, ownerSlot, ownerValue)
+		log.Info("Setting DeployerWhitelist owner", "address", "")
+		//
+		deploySlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000012")
+		val := uint8(0x00)
+		if contractDeployment {
+			val = 0x01
+		}
+		deployValue := common.BytesToHash([]byte{val})
+		statedb.SetState(DeployerWhitelist.Address, deploySlot, deployValue)
+		log.Info("Setting DeployerWhitelist arbitrary contract deployment", "value", deployValue.Hex())
+	}
 }
 
 // ToBlock creates the genesis block and writes state of a genesis specification
@@ -309,7 +333,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 
 	if vm.UsingOVM {
 		// OVM_ENABLED
-		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.Config.StateDump)
+		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.DeployWhitelistOwnerAddress, g.AllowArbitraryContractDeployment, g.Config.StateDump)
 	}
 
 	for addr, account := range g.Alloc {
@@ -436,7 +460,7 @@ func DefaultGoerliGenesisBlock() *Genesis {
 }
 
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
-func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDumpPath string, chainID *big.Int, gasLimit uint64) *Genesis {
+func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress, deployOwnerAddress common.Address, stateDumpPath string, chainID *big.Int, gasLimit uint64, arbitraryDeployment bool) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
@@ -491,8 +515,10 @@ func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrM
 			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)}, // ECScalarMul
 			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)}, // ECPairing
 		},
-		L1CrossDomainMessengerAddress: xDomainMessengerAddress,
-		AddressManagerOwnerAddress:    addrManagerOwnerAddress,
+		L1CrossDomainMessengerAddress:    xDomainMessengerAddress,
+		AddressManagerOwnerAddress:       addrManagerOwnerAddress,
+		DeployWhitelistOwnerAddress:      deployOwnerAddress,
+		AllowArbitraryContractDeployment: arbitraryDeployment,
 	}
 }
 

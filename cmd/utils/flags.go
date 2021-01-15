@@ -853,6 +853,17 @@ var (
 		Value:  "0x0000000000000000000000000000000000000000",
 		EnvVar: "ROLLUP_ADDRESS_MANAGER_OWNER_ADDRESS",
 	}
+	RollupDeployWhitelistOwnerAddressFlag = cli.StringFlag{
+		Name:   "rollup.rollupdeploywhitelistowneraddress",
+		Usage:  "Owner of the deployment whitelist",
+		Value:  "0x0000000000000000000000000000000000000000",
+		EnvVar: "ROLLUP_DEPLOYMENT_WHITELIST_OWNER_ADDRESS",
+	}
+	RollupAllowArbitraryContractDeploymentFlag = cli.BoolFlag{
+		Name:   "rollup.allowarbitrarycontractdeployment",
+		Usage:  "Enable arbitrary contract deployment",
+		EnvVar: "ROLLUP_ALLOW_ARBITRARY_CONTRACT_DEPLOYMENT",
+	}
 	RollupStateDumpPathFlag = cli.StringFlag{
 		Name:   "rollup.statedumppath",
 		Usage:  "Path to the state dump",
@@ -1179,6 +1190,13 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(RollupMaxCalldataSizeFlag.Name) {
 		cfg.MaxCallDataSize = ctx.GlobalInt(RollupMaxCalldataSizeFlag.Name)
+	}
+	if ctx.GlobalIsSet(RollupDeployWhitelistOwnerAddressFlag.Name) {
+		addr := ctx.GlobalString(RollupDeployWhitelistOwnerAddressFlag.Name)
+		cfg.DeployWhitelistOwnerAddress = addr
+	}
+	if ctx.GlobalIsSet(RollupAllowArbitraryContractDeploymentFlag.Name) {
+		cfg.AllowArbitraryContractDeployment = true
 	}
 }
 
@@ -1745,8 +1763,10 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		}
 		xdomainAddress := cfg.Rollup.L1CrossDomainMessengerAddress
 		addrManagerOwnerAddress := cfg.Rollup.AddressManagerOwnerAddress
+		deployWhitelistOwnerAddress := cfg.Rollup.DeployWhitelistOwnerAddress
+		allowArbitraryContractDeployment := cfg.Rollup.AllowArbitraryContractDeployment
 		stateDumpPath := cfg.Rollup.StateDumpPath
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath, chainID, gasLimit)
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, deployWhitelistOwnerAddress, stateDumpPath, chainID, gasLimit, allowArbitraryContractDeployment)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}

@@ -8,7 +8,6 @@ import (
 )
 
 type Config struct {
-	// TODO(mark): deprecate these config options
 	TxIngestionEnable bool
 	// Maximum calldata size for a Queue Origin Sequencer Tx
 	MaxCallDataSize int
@@ -34,6 +33,8 @@ type Config struct {
 	SequencerDecompressionAddress    common.Address
 	L1CrossDomainMessengerAddress    common.Address
 	AddressManagerOwnerAddress       common.Address
+	DeployWhitelistOwnerAddress      common.Address
+	AllowArbitraryContractDeployment bool
 	// Deployment Height of the canonical transaction chain
 	CanonicalTransactionChainDeployHeight *big.Int
 	// Path to the state dump
