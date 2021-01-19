@@ -1301,6 +1301,8 @@ func (s *SyncService) SetL1Head(number uint64) error {
 	for i := 0; i < len(s.HeaderCache); i++ {
 		s.HeaderCache[i] = nil
 	}
+	// Be sure to add the header to the cache
+	s.HeaderCache[header.Number.Uint64()%headerCacheSize] = header
 
 	// Reset the last synced L1 heights
 	rawdb.WriteHeadEth1HeaderHash(s.db, header.Hash())
