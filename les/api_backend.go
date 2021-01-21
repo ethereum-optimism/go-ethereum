@@ -58,16 +58,20 @@ func (b *LesApiBackend) GetEthContext() (uint64, uint64) {
 	return 0, 0
 }
 
-func (b *LesApiBackend) GetRollupContext() (uint64, uint64) {
-	return 0, 0
-}
-
 func (b *LesApiBackend) IsSyncing() bool {
 	return false
 }
 
+func (b *LesApiBackend) IngestTransactions([]*types.Transaction) error {
+	panic("not implemented")
+}
+
 func (b *LesApiBackend) GetLatestEth1Data() (common.Hash, uint64) {
 	return common.Hash{}, 0
+}
+
+func (b *LesApiBackend) GetRollupContext() (uint64, uint64) {
+	return 0, 0
 }
 
 func (b *LesApiBackend) ChainConfig() *params.ChainConfig {

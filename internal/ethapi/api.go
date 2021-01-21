@@ -1996,6 +1996,47 @@ func (api *PrivateDebugAPI) SetHead(number hexutil.Uint64) {
 	api.b.SetHead(uint64(number))
 }
 
+func (api *PrivateDebugAPI) IngestTransactions(txs []*RPCTransaction) error {
+	transactions := make([]*types.Transaction, len(txs))
+
+	for i, tx := range txs {
+		nonce := uint64(tx.Nonce)
+		value := tx.Value.ToInt()
+		gasLimit := uint64(tx.Gas)
+		gasPrice := tx.GasPrice.ToInt()
+		data := tx.Input
+		l1BlockNumber := tx.L1BlockNumber.ToInt()
+		l1Timestamp := uint64(tx.L1Timestamp)
+
+		var sighashType types.SignatureHashType
+		switch tx.TxType {
+		case "EthSign":
+			sighashType = types.SighashEthSign
+		case "EIP155":
+			sighashType = types.SighashEIP155
+		default:
+			return fmt.Errorf("Transaction with unknown sighash type: %s", tx.TxType)
+		}
+
+		var queueOrigin types.QueueOrigin
+		switch tx.QueueOrigin {
+		case "sequencer":
+			queueOrigin = types.QueueOriginSequencer
+		case "l1":
+			queueOrigin = types.QueueOriginL1ToL2
+		default:
+			return fmt.Errorf("Transaction with unknown queue origin: %s", tx.TxType)
+		}
+
+		transaction := types.NewTransaction(nonce, *tx.To, value, gasLimit, gasPrice, data, tx.L1TxOrigin, l1BlockNumber, queueOrigin, sighashType)
+		transaction.SetL1BlockNumber(l1BlockNumber.Uint64())
+		transaction.SetL1Timestamp(l1Timestamp)
+
+		transactions[i] = transaction
+	}
+	return api.b.IngestTransactions(transactions)
+}
+
 // PublicNetAPI offers network related RPC methods
 type PublicNetAPI struct {
 	net            *p2p.Server
