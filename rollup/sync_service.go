@@ -1180,6 +1180,15 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				if err != nil {
 					from = common.Address{}
 					log.Error("Unable to compute from", "signature", hexutil.Encode(ethsign.Signature[:]))
+					nonce := uint64(0)
+					gasLimit := s.gasLimit
+					data := element.TxData
+					origin := common.Address{}
+					target := common.Address{}
+					l1BlockNumber := s.GetLatestL1BlockNumber()
+					l1Timestamp := s.GetLatestL1Timestamp()
+					tx = types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &origin, new(big.Int).SetUint64(l1BlockNumber), types.QueueOriginL1ToL2, types.SighashEthSign)
+					tx.SetL1Timestamp(l1Timestamp)
 				}
 				log.Debug("Deserialized CTC EthSign transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas(), "from", from.Hex())
 			default:
@@ -1337,6 +1346,9 @@ func (s *SyncService) SetL1Head(number uint64) error {
 // the state eventually, skipping the mempool.
 func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 	err := s.txpool.ValidateTx(tx)
+	if err != nil {
+		log.Error("Transaction fails pre-inclusion checks", "hash", tx.Hash().Hex())
+	}
 	// The sequencer needs to prevent transactions that fail the mempool
 	// checks. The verifier needs to play the transactions no matter what.
 	if !s.verifier {
