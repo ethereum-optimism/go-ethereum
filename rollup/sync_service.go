@@ -318,9 +318,11 @@ func (s *SyncService) Start() error {
 
 	go s.LogDoneProcessing()
 	// Catch up to the tip of the eth1 chain
-	err = s.processHistoricalLogs()
-	if err != nil {
-		return fmt.Errorf("Cannot process historical logs: %w", err)
+	if false {
+		err = s.processHistoricalLogs()
+		if err != nil {
+			return fmt.Errorf("Cannot process historical logs: %w", err)
+		}
 	}
 
 	gasLimit, err := s.mgrCaller.GetMaxTransactionGasLimit(&bind.CallOpts{
