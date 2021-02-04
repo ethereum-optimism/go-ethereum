@@ -1145,7 +1145,7 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 			case CTCTransactionTypeEthSign:
 				ethsign, ok := ctcTx.tx.(*CTCTxEthSign)
 				if !ok {
-					return fmt.Errorf("Unexpected type when parsing ctc tx eip155: %T", ctcTx.tx)
+					return fmt.Errorf("Unexpected type when parsing ctc tx ethsign: %T", ctcTx.tx)
 				}
 				nonce, gasLimit := uint64(ethsign.nonce), uint64(ethsign.gasLimit)
 				to := ethsign.target
