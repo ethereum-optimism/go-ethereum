@@ -1136,6 +1136,17 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				if err != nil {
 					from = common.Address{}
 					log.Error("Unable to compute from", "signature", hexutil.Encode(eip155.Signature[:]))
+					// Handle invalid signautes being submitted by the batch
+					// submitter. Need better nonce management
+					nonce := uint64(0)
+					gasLimit := s.gasLimit
+					data := element.TxData
+					origin := common.Address{}
+					target := common.Address{}
+					l1BlockNumber := s.GetLatestL1BlockNumber()
+					l1Timestamp := s.GetLatestL1Timestamp()
+					tx = types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &origin, new(big.Int).SetUint64(l1BlockNumber), types.QueueOriginL1ToL2, types.SighashEIP155)
+					tx.SetL1Timestamp(l1Timestamp)
 				}
 				t := "<nil>"
 				if tx.To() != nil {
@@ -1165,7 +1176,12 @@ func (s *SyncService) ProcessSequencerBatchAppendedLog(ctx context.Context, ethl
 				if err != nil {
 					return fmt.Errorf("Cannot add signature to ethsign tx: %w", err)
 				}
-				log.Debug("Deserialized CTC EthSign transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas())
+				from, err := s.signer.Sender(tx)
+				if err != nil {
+					from = common.Address{}
+					log.Error("Unable to compute from", "signature", hexutil.Encode(ethsign.Signature[:]))
+				}
+				log.Debug("Deserialized CTC EthSign transaction", "index", index, "to", tx.To().Hex(), "gasPrice", tx.GasPrice().Uint64(), "gasLimit", tx.Gas(), "from", from.Hex())
 			default:
 				// TODO(mark): still need to pass along this transaction and
 				// execute it. The `to` should be the sequencer entrypoint,
