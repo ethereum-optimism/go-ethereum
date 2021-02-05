@@ -151,18 +151,14 @@ var (
 
 	optimismFlags = []cli.Flag{
 		utils.Eth1SyncServiceEnable,
-		utils.Eth1AddressResolverAddressFlag,
 		utils.Eth1CanonicalTransactionChainDeployHeightFlag,
-		utils.Eth1CanonicalTransactionChainAddressFlag,
-		utils.Eth1SequencerDecompressionAddressFlag,
 		utils.Eth1L1CrossDomainMessengerAddressFlag,
 		utils.Eth1ChainIdFlag,
-		utils.Eth1NetworkIdFlag,
-		utils.Eth1HTTPFlag,
-		utils.Eth1ConfirmationDepth,
+		utils.RollupClientHttpFlag,
 		// Enable verifier mode
 		utils.RollupEnableVerifierFlag,
 		utils.RollupAddressManagerOwnerAddressFlag,
+		utils.RollupInitialReorgDepthFlag,
 		utils.RollupStateDumpPathFlag,
 		utils.RollupDiffDbFlag,
 		utils.RollupDisableTransfersFlag,

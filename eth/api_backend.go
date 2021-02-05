@@ -32,7 +32,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/diffdb"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
@@ -55,12 +54,6 @@ type EthAPIBackend struct {
 	MaxCallDataSize  int
 }
 
-func (b *EthAPIBackend) RollupTransactionSender() *common.Address {
-	key := b.eth.syncService.GetSigningKey()
-	addr := crypto.PubkeyToAddress(key)
-	return &addr
-}
-
 func (b *EthAPIBackend) IsVerifier() bool {
 	return b.verifier
 }
@@ -71,21 +64,6 @@ func (b *EthAPIBackend) IsSyncing() bool {
 
 func (b *EthAPIBackend) GasLimit() uint64 {
 	return b.gasLimit
-}
-
-func (b *EthAPIBackend) GetLatestEth1Data() (common.Hash, uint64) {
-	eth1data := b.eth.syncService.Eth1Data
-	return eth1data.BlockHash, eth1data.BlockHeight
-}
-
-func (b *EthAPIBackend) GetRollupContractAddresses() map[string]*common.Address {
-	return map[string]*common.Address{
-		"addressResolver":               &b.eth.syncService.AddressResolverAddress,
-		"canonicalTransactionChain":     &b.eth.syncService.CanonicalTransactionChainAddress,
-		"sequencerDecompression":        &b.eth.syncService.SequencerDecompressionAddress,
-		"stateCommitmentChain":          &b.eth.syncService.StateCommitmentChainAddress,
-		"l1CrossDomainMessengerAddress": &b.eth.syncService.L1CrossDomainMessengerAddress,
-	}
 }
 
 func (b *EthAPIBackend) GetLatestL1BlockNumber() uint64 {

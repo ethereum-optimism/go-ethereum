@@ -4,20 +4,20 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"reflect"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/go-resty/resty/v2"
 )
 
 /**
  * GET /enqueue/index/{index}
  * GET /transaction/index/{index}
- * GET /batch/transaction/index/{index}
- * GET /stateroot/index/{index}
- * GET /batch/stateroot/index/{index}
+ * GET /eth/context/latest
  */
 
 type Batch struct {
@@ -31,22 +31,10 @@ type Batch struct {
 	Submitter         common.Address `json:"submitter"`
 }
 
-type stateRoot struct {
-	Index uint64   `json:"index"`
-	Value [32]byte `json:"value"`
-}
-
-type stateRoots []stateRoot
-
-type message struct {
-	Target   common.Address `json:"target"`
-	Data     hexutil.Bytes  `json:"data"`
-	GasLimit uint64         `json:"gasLimit"`
-}
-
 type EthContext struct {
-	BlockNumber uint64 `json:"blockNumber"`
-	Timestamp   uint64 `json:"timestamp"`
+	BlockNumber uint64      `json:"blockNumber"`
+	BlockHash   common.Hash `json:"blockHash"`
+	Timestamp   uint64      `json:"timestamp"`
 }
 
 type transaction struct {
@@ -60,13 +48,13 @@ type transaction struct {
 	Data        hexutil.Bytes  `json:"data"`
 	QueueOrigin string         `json:"queueOrigin"`
 	Type        string         `json:"type"`
-	QueueIndex  uint64         `json:"queueIndex"`
+	QueueIndex  *uint64        `json:"queueIndex"`
 	Decoded     *decoded       `json:"decoded"`
 }
 
 type Enqueue struct {
 	Index       uint64         `json:"index"`
-	Message     message        `json:"message"`
+	Target      common.Address `json:"target"`
 	Data        hexutil.Bytes  `json"data"`
 	GasLimit    uint64         `json"gasLimit"`
 	Origin      common.Address `json"origin"`
@@ -77,11 +65,11 @@ type Enqueue struct {
 type signature struct {
 	R hexutil.Bytes `json:"r"`
 	S hexutil.Bytes `json:"s"`
-	V hexutil.Bytes `json:"v"`
+	V uint          `json:"v"`
 }
 
 type decoded struct {
-	Signautre signature      `json:"sig"`
+	Signature signature      `json:"sig"`
 	GasLimit  uint64         `json:"gasLimit"`
 	GasPrice  uint64         `json:"gasPrice"`
 	Nonce     uint64         `json:"nonce"`
@@ -91,30 +79,27 @@ type decoded struct {
 
 type Client struct {
 	client *resty.Client
+	signer *types.OVMSigner
 }
 
 type TransactionResponse struct {
-	Transaction transaction `json:"transaction"`
-	Batch       Batch       `json:"batch"`
+	Transaction *transaction `json:"transaction"`
+	Batch       *Batch       `json:"batch"`
 }
 
-type BatchResponse struct {
-	Batch        Batch         `json:"batch"`
-	Transactions []transaction `json:"transactions"`
-}
-
-func NewClient(url string, confirmations uint) *Client {
+func NewClient(url string, chainID *big.Int) *Client {
 	client := resty.New()
 	client.SetHostURL(url)
-	s := strconv.Itoa(int(confirmations))
-	client.SetQueryParam("confirmations", s)
+	signer := types.NewOVMSigner(chainID)
 
 	return &Client{
 		client: client,
+		signer: &signer,
 	}
 }
 
-func (c *Client) GetEnqueue(index uint64) (*Enqueue, error) {
+// This needs to return a transaction instead
+func (c *Client) GetEnqueue(index uint64) (*types.Transaction, error) {
 	str := strconv.FormatUint(index, 10)
 	response, err := c.client.R().
 		SetPathParams(map[string]string{
@@ -128,28 +113,69 @@ func (c *Client) GetEnqueue(index uint64) (*Enqueue, error) {
 	}
 	enqueue, ok := response.Result().(*Enqueue)
 	if !ok {
-		return nil, errors.New("")
+		return nil, fmt.Errorf("Cannot fetch enqueue %d", index)
 	}
-	return enqueue, nil
+
+	if enqueue == nil {
+		return nil, fmt.Errorf("Cannot deserialize enqueue %d", index)
+	}
+
+	// If it is the zero value of enqueue, return nil
+	if reflect.DeepEqual(*enqueue, Enqueue{}) {
+		return nil, nil
+	}
+
+	tx := enqueueToTransaction(enqueue)
+	return tx, nil
 }
 
-func (c *Client) GetTransaction(index uint64) (*types.Transaction, error) {
-	str := strconv.FormatUint(index, 10)
+func enqueueToTransaction(enqueue *Enqueue) *types.Transaction {
+	nonce := enqueue.Index
+	target := enqueue.Target
+	value := big.NewInt(0)
+	gasLimit := enqueue.GasLimit
+	data := enqueue.Data
+	origin := enqueue.Origin
+	blockNumber := new(big.Int).SetUint64(enqueue.BlockNumber)
+	tx := types.NewTransaction(nonce, target, value, gasLimit, big.NewInt(0), data, &origin, blockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
+
+	meta := types.TransactionMeta{
+		L1BlockNumber:     blockNumber,
+		L1Timestamp:       enqueue.Timestamp,
+		L1MessageSender:   &origin,
+		SignatureHashType: types.SighashEIP155,
+		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
+		Index:             nil,
+		QueueIndex:        &enqueue.Index,
+	}
+	tx.SetTransactionMeta(&meta)
+
+	return tx
+}
+
+func (c *Client) GetLatestEnqueue() (*types.Transaction, error) {
 	response, err := c.client.R().
-		SetPathParams(map[string]string{
-			"index": str,
-		}).
-		SetResult(&TransactionResponse{}).
-		Get("/transaction/index/{index}")
+		SetResult(&Enqueue{}).
+		Get("/enqueue/latest")
 
 	if err != nil {
 		return nil, err
 	}
-	res, ok := response.Result().(*TransactionResponse)
+	enqueue, ok := response.Result().(*Enqueue)
 	if !ok {
-		return nil, errors.New("")
+		return nil, errors.New("Cannot fetch latest enqueue")
 	}
+	tx := enqueueToTransaction(enqueue)
+	return tx, nil
+}
 
+func transactionResponseToTransaction(res *TransactionResponse, signer *types.OVMSigner) (*types.Transaction, error) {
+	// `nil` transactions are not found
+	if res.Transaction == nil {
+		return nil, nil
+	}
+	// Transactions that have been decoded are
+	// Queue Origin Sequencer transactions
 	if res.Transaction.Decoded != nil {
 		nonce := res.Transaction.Decoded.Nonce
 		to := res.Transaction.Target
@@ -179,17 +205,99 @@ func (c *Client) GetTransaction(index uint64) (*types.Transaction, error) {
 		var sighashType types.SignatureHashType
 		if res.Transaction.Type == "EIP155" {
 			sighashType = types.SighashEIP155
-		} else if res.Transaction.Type == "ETH_Sign" {
+		} else if res.Transaction.Type == "ETH_SIGN" {
 			sighashType = types.SighashEthSign
 		} else {
 			return nil, fmt.Errorf("Unknown transaction type: %s", res.Transaction.Type)
 		}
 
 		tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data, &l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
+
+		meta := types.TransactionMeta{
+			L1BlockNumber:     new(big.Int).SetUint64(res.Transaction.BlockNumber),
+			L1Timestamp:       res.Transaction.Timestamp,
+			L1MessageSender:   &res.Transaction.Origin,
+			SignatureHashType: types.SighashEIP155,
+			QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
+			Index:             &res.Transaction.Index,
+			QueueIndex:        res.Transaction.QueueIndex,
+		}
+		tx.SetTransactionMeta(&meta)
+
+		r, s := res.Transaction.Decoded.Signature.R, res.Transaction.Decoded.Signature.S
+		sig := make([]byte, crypto.SignatureLength)
+		copy(sig[32-len(r):32], r)
+		copy(sig[64-len(s):64], s)
+		sig[64] = byte(res.Transaction.Decoded.Signature.V)
+
+		tx, err := tx.WithSignature(signer, sig[:])
+		if err != nil {
+			return nil, fmt.Errorf("Cannot add signature to transaction: %w", err)
+		}
 		return tx, nil
 	}
 
-	return nil, fmt.Errorf("No decoded transaction: %s", res.Transaction.Type)
+	// If Decoded is `nil`, it should be a Queue Origin l1 tx
+	if res.Transaction.QueueOrigin == "l1" {
+		nonce := res.Transaction.Index
+		target := res.Transaction.Target
+		gasLimit := res.Transaction.GasLimit
+		data := res.Transaction.Data
+		origin := res.Transaction.Origin
+		blockNumber := new(big.Int).SetUint64(res.Transaction.BlockNumber)
+		tx := types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &origin, blockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
+
+		meta := types.TransactionMeta{
+			L1BlockNumber:     blockNumber,
+			L1Timestamp:       res.Transaction.Timestamp,
+			L1MessageSender:   &origin,
+			SignatureHashType: types.SighashEIP155,
+			QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
+			Index:             &res.Transaction.Index,
+			QueueIndex:        res.Transaction.QueueIndex,
+		}
+		tx.SetTransactionMeta(&meta)
+
+		return tx, nil
+	}
+
+	return nil, fmt.Errorf("Unknown transaction: %s", res.Transaction.Type)
+}
+
+func (c *Client) GetTransaction(index uint64) (*types.Transaction, error) {
+	str := strconv.FormatUint(index, 10)
+	response, err := c.client.R().
+		SetPathParams(map[string]string{
+			"index": str,
+		}).
+		SetResult(&TransactionResponse{}).
+		Get("/transaction/index/{index}")
+
+	if err != nil {
+		return nil, err
+	}
+	res, ok := response.Result().(*TransactionResponse)
+	if !ok {
+		return nil, errors.New("")
+	}
+
+	return transactionResponseToTransaction(res, c.signer)
+}
+
+func (c *Client) GetLatestTransaction() (*types.Transaction, error) {
+	response, err := c.client.R().
+		SetResult(&TransactionResponse{}).
+		Get("/transaction/latest")
+
+	if err != nil {
+		return nil, err
+	}
+	res, ok := response.Result().(*TransactionResponse)
+	if !ok {
+		return nil, errors.New("")
+	}
+
+	return transactionResponseToTransaction(res, c.signer)
 }
 
 func (c *Client) GetEthContext(index uint64) (*EthContext, error) {
@@ -198,6 +306,23 @@ func (c *Client) GetEthContext(index uint64) (*EthContext, error) {
 		SetPathParams(map[string]string{
 			"index": str,
 		}).
+		SetResult(&EthContext{}).
+		Get("/eth/context/index/{index}")
+
+	if err != nil {
+		return nil, err
+	}
+
+	context, ok := response.Result().(*EthContext)
+	if !ok {
+		return nil, errors.New("Cannot parse EthContext")
+	}
+
+	return context, nil
+}
+
+func (c *Client) GetLatestEthContext() (*EthContext, error) {
+	response, err := c.client.R().
 		SetResult(&EthContext{}).
 		Get("/eth/context/latest")
 

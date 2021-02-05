@@ -1601,6 +1601,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, errors.New("Cannot send raw transaction in verifier mode")
 	}
 
+	if s.b.IsSyncing() {
+		return common.Hash{}, errors.New("Cannot send raw transaction while syncing")
+	}
+
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
@@ -1618,6 +1622,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	if s.b.IsVerifier() {
 		return common.Hash{}, errors.New("Cannot send raw ethsign transaction in verifier mode")
+	}
+
+	if s.b.IsSyncing() {
+		return common.Hash{}, errors.New("Cannot send raw transaction while syncing")
 	}
 
 	tx := new(types.Transaction)
@@ -1771,65 +1779,22 @@ func NewPublicRollupAPI(b Backend) *PublicRollupAPI {
 	return &PublicRollupAPI{b: b}
 }
 
-// rollupAddressses holds the addresses of the layer one contracts
-// that the layer two is configured to use.
-type rollupAddresses struct {
-	AddressResolver           string `json:"addressResolver"`
-	CanonicalTransactionChain string `json:"canonicalTransactionChain"`
-	SequencerDecompression    string `json:"sequencerDecompression"`
-	StateCommitmentChain      string `json:"stateCommitmentChain"`
-	L1CrossDomainMessenger    string `json:"l1CrossDomainMessenger"`
-}
-
 type rollupInfo struct {
-	Signer        *common.Address `json:"signer"`
-	Mode          string          `json:"mode"`
-	Syncing       bool            `json:"syncing"`
-	L1BlockHash   common.Hash     `json:"l1BlockHash"`
-	L1BlockHeight uint64          `json:"l1BlockHeight"`
-	Addresses     rollupAddresses `json:"addresses"`
+	Signer  *common.Address `json:"signer"`
+	Mode    string          `json:"mode"`
+	Syncing bool            `json:"syncing"`
 }
 
 func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
-	addr := api.b.RollupTransactionSender()
 	mode := "sequencer"
 	if v := api.b.IsVerifier(); v {
 		mode = "verifier"
 	}
 	syncing := api.b.IsSyncing()
-	blockHash, blockHeight := api.b.GetLatestEth1Data()
-
-	addrs := api.b.GetRollupContractAddresses()
-	rollupAddrs := rollupAddresses{}
-
-	resolver := addrs["addressResolver"]
-	if resolver != nil {
-		rollupAddrs.AddressResolver = resolver.Hex()
-	}
-	ctc := addrs["canonicalTransactionChain"]
-	if ctc != nil {
-		rollupAddrs.CanonicalTransactionChain = ctc.Hex()
-	}
-	sdc := addrs["sequencerDecompression"]
-	if sdc != nil {
-		rollupAddrs.SequencerDecompression = sdc.Hex()
-	}
-	scc := addrs["stateCommitmentChain"]
-	if scc != nil {
-		rollupAddrs.StateCommitmentChain = scc.Hex()
-	}
-	xdomain := addrs["l1CrossDomainMessengerAddress"]
-	if xdomain != nil {
-		rollupAddrs.L1CrossDomainMessenger = xdomain.Hex()
-	}
 
 	return rollupInfo{
-		Signer:        addr,
-		Mode:          mode,
-		Syncing:       syncing,
-		L1BlockHash:   blockHash,
-		L1BlockHeight: blockHeight,
-		Addresses:     rollupAddrs,
+		Mode:    mode,
+		Syncing: syncing,
 	}
 }
 

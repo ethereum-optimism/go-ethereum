@@ -5,14 +5,14 @@ REPO=$DIR/..
 
 IS_VERIFIER=
 DATADIR=$HOME/.ethereum
-L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0x0000000000000000000000000000000000000000
-ADDRESS_MANAGER_OWNER_ADDRESS=0x0000000000000000000000000000000000000000
-ADDRESS_RESOLVER_ADDRESS=0x0000000000000000000000000000000000000000
-ETH1_NETWORK_ID=31337
-ETH1_CHAIN_ID=31337
-ETH1_CTC_DEPLOYMENT_HEIGHT=8
-ETH1_HTTP=http://localhost:9545
+ETH1_CHAIN_ID=1
 TARGET_GAS_LIMIT=9000000
+CHAIN_ID=10
+ETH1_CTC_DEPLOYMENT_HEIGHT=11650235
+ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0x0AEBf5161A9b57349747D078c6763a0B1d67D888
+ADDRESS_MANAGER_OWNER_ADDRESS=0xc6Dbc2DC7649c7d4292d955DA08A7C21a21e1528
+ROLLUP_STATE_DUMP_PATH=https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/mainnet/1.json
+ROLLUP_CLIENT_HTTP=http://localhost:7878
 
 USAGE="
 Start the Sequencer or Verifier with most configuration pre-set.
@@ -20,12 +20,11 @@ Start the Sequencer or Verifier with most configuration pre-set.
 CLI Arguments:
   -h|--help                              - help message
   -v|--verifier                          - start in verifier mode
-  --eth1.http                            - eth1 http endpoint
-  --eth1.networkid                       - eth1 network id
+  --datadir                              - data directory to use
+  --chainid                              - layer two chain id to use, must match contracts on L1
   --eth1.chainid                         - eth1 chain id
   --eth1.ctcdeploymentheight             - eth1 ctc deploy height
   --eth1.l1crossdomainmessengeraddress   - eth1 l1 xdomain messenger address
-  --eth1.addressresolveraddress          - eth1 address resolver address
   --eth1.ctcdeploymentheight             - eth1 ctc deployment height
 "
 
@@ -48,18 +47,9 @@ while (( "$#" )); do
                 exit 1
             fi
             ;;
-        --eth1.http)
+        --chainid)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-                ETH1_HTTP="$2"
-                shift 2
-            else
-                echo "Error: Argument for $1 is missing" >&2
-                exit 1
-            fi
-            ;;
-        --eth1.networkid)
-            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-                ETH1_NETWORK_ID="$2"
+                CHAIN_ID="$2"
                 shift 2
             else
                 echo "Error: Argument for $1 is missing" >&2
@@ -86,16 +76,7 @@ while (( "$#" )); do
             ;;
         --eth1.l1crossdomainmessengeraddress)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-                L1_CROSS_DOMAIN_MESSENGER_ADDRESS="$2"
-                shift 2
-            else
-                echo "Error: Argument for $1 is missing" >&2
-                exit 1
-            fi
-            ;;
-        --eth1.addressresolveraddress)
-            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-                ADDRESS_RESOLVER_ADDRESS="$2"
+                ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS="$2"
                 shift 2
             else
                 echo "Error: Argument for $1 is missing" >&2
@@ -105,6 +86,24 @@ while (( "$#" )); do
         --eth1.ctcdeploymentheight)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
                 ADDRESS_MANAGER_OWNER_ADDRESS="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
+        --rollup.statedumppath)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                ROLLUP_STATE_DUMP_PATH="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
+        --rollup.clienthttp)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                ROLLUP_CLIENT_HTTP="$2"
                 shift 2
             else
                 echo "Error: Argument for $1 is missing" >&2
@@ -130,31 +129,28 @@ done
 cmd="$REPO/build/bin/geth"
 cmd="$cmd --eth1.syncservice"
 cmd="$cmd --datadir $HOME/.ethereum"
-cmd="$cmd --eth1.http $ETH1_HTTP"
-cmd="$cmd --eth1.confirmationdepth 0"
-cmd="$cmd --eth1.networkid $ETH1_NETWORK_ID"
 cmd="$cmd --eth1.chainid $ETH1_CHAIN_ID"
-cmd="$cmd --eth1.l1crossdomainmessengeraddress $L1_CROSS_DOMAIN_MESSENGER_ADDRESS"
-cmd="$cmd --eth1.addressresolveraddress $ADDRESS_RESOLVER_ADDRESS"
+cmd="$cmd --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"
 cmd="$cmd --rollup.addressmanagerowneraddress $ADDRESS_MANAGER_OWNER_ADDRESS"
+cmd="$cmd --rollup.statedumppath $ROLLUP_STATE_DUMP_PATH"
 cmd="$cmd --eth1.ctcdeploymentheight $ETH1_CTC_DEPLOYMENT_HEIGHT"
+cmd="$cmd --rollup.clienthttp $ROLLUP_CLIENT_HTTP"
 cmd="$cmd --rpc"
 cmd="$cmd --dev"
+cmd="$cmd --chainid $CHAIN_ID"
 cmd="$cmd --rpcaddr 0.0.0.0"
 cmd="$cmd --rpccorsdomain '*'"
 cmd="$cmd --wsaddr 0.0.0.0"
 cmd="$cmd --wsport 8546"
 cmd="$cmd --wsorigins '*'"
-cmd="$cmd --networkid 420"
-cmd="$cmd --rpcapi 'eth,net,rollup,web3'"
+cmd="$cmd --rpcapi 'eth,net,rollup,web3,debug'"
 cmd="$cmd --gasprice '0'"
 cmd="$cmd --nousb"
 cmd="$cmd --gcmode=archive"
 cmd="$cmd --ipcdisable"
-
 if [ ! -z "$IS_VERIFIER" ]; then
     cmd="$cmd --rollup.verifier"
 fi
 
 echo -e "Running:\n$cmd"
-eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd
+eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd --verbosity=6

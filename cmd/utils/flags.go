@@ -778,17 +778,6 @@ var (
 		Usage: "External EVM configuration (default = built-in interpreter)",
 		Value: "",
 	}
-	// The god key
-	TxIngestionSignerKeyHexFlag = cli.StringFlag{
-		Name:   "txingestion.signerkey",
-		Usage:  "Hex private key to authenticate L1 to L2 txs",
-		EnvVar: "TX_INGESTION_SIGNER_KEY",
-	}
-	TxIngestionSignerKeyFileFlag = cli.StringFlag{
-		Name:  "txingestion.signerkeyfile",
-		Usage: "File holding key to authenticate L1 to L2 txs",
-	}
-	// New Transaction Ingestion Flags
 	Eth1SyncServiceEnable = cli.BoolFlag{
 		Name:   "eth1.syncservice",
 		Usage:  "Enable the sync service",
@@ -798,22 +787,6 @@ var (
 		Name:   "eth1.ctcdeploymentheight",
 		Usage:  "Deployment of the canonical transaction chain",
 		EnvVar: "ETH1_CTC_DEPLOYMENT_HEIGHT",
-	}
-	Eth1CanonicalTransactionChainAddressFlag = cli.StringFlag{
-		Name:   "eth1.ctcaddress",
-		Usage:  "Deployment address of the canonical transaction chain",
-		EnvVar: "ETH1_CTC_ADDRESS",
-	}
-	Eth1SequencerDecompressionAddressFlag = cli.StringFlag{
-		Name:   "eth1.sequencerdecompressionaddress",
-		Usage:  "Deployment address of the sequencer decompression contract",
-		EnvVar: "ETH1_DECOMPRESSION_ADDRESS",
-	}
-	Eth1AddressResolverAddressFlag = cli.StringFlag{
-		Name:   "eth1.addressresolveraddress",
-		Usage:  "Deployment address of the address resolver contract",
-		Value:  "0x0000000000000000000000000000000000000000",
-		EnvVar: "ETH1_ADDRESS_RESOLVER_ADDRESS",
 	}
 	Eth1L1CrossDomainMessengerAddressFlag = cli.StringFlag{
 		Name:   "eth1.l1crossdomainmessengeraddress",
@@ -826,20 +799,17 @@ var (
 		Usage:  "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
 		EnvVar: "ETH1_CHAINID",
 	}
-	Eth1NetworkIdFlag = cli.Uint64Flag{
-		Name:   "eth1.networkid",
-		Usage:  "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
-		EnvVar: "ETH1_NETWORKID",
+	RollupClientHttpFlag = cli.StringFlag{
+		Name:   "rollup.clienthttp",
+		Usage:  "HTTP endpoint for the rollup client",
+		Value:  "http://localhost:7878",
+		EnvVar: "ROLLUP_CLIENT_HTTP",
 	}
-	Eth1HTTPFlag = cli.StringFlag{
-		Name:   "eth1.http",
-		Usage:  "HTTP endpoint of an eth 1 node",
-		EnvVar: "ETH1_HTTP",
-	}
-	Eth1ConfirmationDepth = cli.Uint64Flag{
-		Name:   "eth1.confirmationdepth",
-		Usage:  "Number of confirmations before ingesting L1 tx",
-		EnvVar: "ETH1_CONFIRMATION_DEPTH",
+	RollupInitialReorgDepthFlag = cli.Uint64Flag{
+		Name:   "rollup.initialreorgdepth",
+		Usage:  "Initial number of blocks to reorg on start",
+		Value:  0,
+		EnvVar: "ROLLUP_INITIAL_REORG_DEPTH",
 	}
 	// Flag to enable verifier mode
 	RollupEnableVerifierFlag = cli.BoolFlag{
@@ -1105,18 +1075,6 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 		height := ctx.GlobalUint64(Eth1CanonicalTransactionChainDeployHeightFlag.Name)
 		cfg.CanonicalTransactionChainDeployHeight = new(big.Int).SetUint64(height)
 	}
-	if ctx.GlobalIsSet(Eth1AddressResolverAddressFlag.Name) {
-		addr := ctx.GlobalString(Eth1AddressResolverAddressFlag.Name)
-		cfg.AddressResolverAddress = common.HexToAddress(addr)
-	}
-	if ctx.GlobalIsSet(Eth1CanonicalTransactionChainAddressFlag.Name) {
-		addr := ctx.GlobalString(Eth1CanonicalTransactionChainAddressFlag.Name)
-		cfg.CanonicalTransactionChainAddress = common.HexToAddress(addr)
-	}
-	if ctx.GlobalIsSet(Eth1SequencerDecompressionAddressFlag.Name) {
-		addr := ctx.GlobalString(Eth1SequencerDecompressionAddressFlag.Name)
-		cfg.SequencerDecompressionAddress = common.HexToAddress(addr)
-	}
 	if ctx.GlobalIsSet(Eth1L1CrossDomainMessengerAddressFlag.Name) {
 		addr := ctx.GlobalString(Eth1L1CrossDomainMessengerAddressFlag.Name)
 		cfg.L1CrossDomainMessengerAddress = common.HexToAddress(addr)
@@ -1124,40 +1082,11 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(Eth1ChainIdFlag.Name) {
 		cfg.Eth1ChainId = ctx.GlobalUint64(Eth1ChainIdFlag.Name)
 	}
-	if ctx.GlobalIsSet(Eth1NetworkIdFlag.Name) {
-		cfg.Eth1NetworkId = ctx.GlobalUint64(Eth1NetworkIdFlag.Name)
-	}
-	if ctx.GlobalIsSet(Eth1HTTPFlag.Name) {
-		cfg.Eth1HTTPEndpoint = ctx.GlobalString(Eth1HTTPFlag.Name)
-	}
-	if ctx.GlobalIsSet(Eth1ConfirmationDepth.Name) {
-		cfg.Eth1ConfirmationDepth = ctx.GlobalUint64(Eth1ConfirmationDepth.Name)
-	}
 	if ctx.GlobalIsSet(Eth1SyncServiceEnable.Name) {
 		cfg.Eth1SyncServiceEnable = ctx.GlobalBool(Eth1SyncServiceEnable.Name)
 	}
 	if ctx.GlobalIsSet(MinerGasTargetFlag.Name) {
 		cfg.GasLimit = ctx.GlobalUint64(MinerGasTargetFlag.Name)
-	}
-	var (
-		hex  = ctx.GlobalString(TxIngestionSignerKeyHexFlag.Name)
-		file = ctx.GlobalString(TxIngestionSignerKeyFileFlag.Name)
-		key  *ecdsa.PrivateKey
-		err  error
-	)
-	switch {
-	case file != "" && hex != "":
-		Fatalf("Options %q and %q are mutually exclusive", TxIngestionSignerKeyFileFlag.Name, TxIngestionSignerKeyHexFlag.Name)
-	case file != "":
-		if key, err = crypto.LoadECDSA(file); err != nil {
-			Fatalf("Option %q: %v", NodeKeyFileFlag.Name, err)
-		}
-		cfg.TxIngestionSignerKey = key
-	case hex != "":
-		if key, err = crypto.HexToECDSA(hex); err != nil {
-			Fatalf("Option %q: %v", NodeKeyHexFlag.Name, err)
-		}
-		cfg.TxIngestionSignerKey = key
 	}
 }
 
@@ -1179,6 +1108,12 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	}
 	if ctx.GlobalIsSet(RollupMaxCalldataSizeFlag.Name) {
 		cfg.MaxCallDataSize = ctx.GlobalInt(RollupMaxCalldataSizeFlag.Name)
+	}
+	if ctx.GlobalIsSet(RollupClientHttpFlag.Name) {
+		cfg.RollupClientHttp = ctx.GlobalString(RollupClientHttpFlag.Name)
+	}
+	if ctx.GlobalIsSet(RollupInitialReorgDepthFlag.Name) {
+		cfg.InitialReorgDepth = ctx.GlobalUint64(RollupInitialReorgDepthFlag.Name)
 	}
 }
 

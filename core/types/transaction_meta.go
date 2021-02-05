@@ -28,7 +28,10 @@ type TransactionMeta struct {
 	L1MessageSender   *common.Address   `json:"l1MessageSender" gencodec:"required"`
 	SignatureHashType SignatureHashType `json:"signatureHashType" gencodec:"required"`
 	QueueOrigin       *big.Int          `json:"queueOrigin" gencodec:"required"`
-	Index             *uint64           `json:"index" gencodec:"required"`
+	// The canonical transaction chain index
+	Index *uint64 `json:"index" gencodec:"required"`
+	// The queue index, nil for queue origin sequencer transactions
+	QueueIndex *uint64 `json"queueIndex" gencodec:"required"`
 }
 
 // NewTransactionMeta creates a TransactionMeta
