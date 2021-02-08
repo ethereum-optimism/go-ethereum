@@ -77,6 +77,15 @@ type decoded struct {
 	Data      hexutil.Bytes  `json:"data"`
 }
 
+type RollupClient interface {
+	GetEnqueue(index uint64) (*types.Transaction, error)
+	GetLatestEnqueue() (*types.Transaction, error)
+	GetTransaction(index uint64) (*types.Transaction, error)
+	GetLatestTransaction() (*types.Transaction, error)
+	GetEthContext(index uint64) (*EthContext, error)
+	GetLatestEthContext() (*EthContext, error)
+}
+
 type Client struct {
 	client *resty.Client
 	signer *types.OVMSigner

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,7 +32,6 @@ type SyncService struct {
 	ctx               context.Context
 	cancel            context.CancelFunc
 	verifier          bool
-	txLock            sync.Mutex
 	db                ethdb.Database
 	scope             event.SubscriptionScope
 	txFeed            event.Feed
@@ -41,10 +39,11 @@ type SyncService struct {
 	eth1ChainId       uint64
 	bc                *core.BlockChain
 	txpool            *core.TxPool
-	client            *Client
+	client            RollupClient
 	syncing           bool
 	LatestL1ToL2      LatestL1ToL2
 	confirmationDepth uint64
+	pollInterval      time.Duration
 }
 
 // NewSyncService returns an initialized sync service
@@ -77,6 +76,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		eth1ChainId:       cfg.Eth1ChainId,
 		client:            client,
 		db:                db,
+		pollInterval:      time.Second,
 	}
 
 	// Initial sync service setup if it is enabled. This code depends on
@@ -201,6 +201,7 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 			meta := enqueue.GetMeta()
 			if meta.Index != nil {
 				s.SetLatestEnqueueIndex(*meta.Index)
+				break
 			}
 			// TODO: double check that the Index does not go below zero
 			next, err := s.client.GetEnqueue(*meta.Index - 1)
@@ -259,7 +260,6 @@ func (s *SyncService) Loop() {
 				log.Error("Cannot get latest enqueue")
 				continue
 			}
-
 			// TODO: queue index should not be a pointer since all
 			// enqueue transactions should have a queue index.
 			// index is the ctc index and should be a pointer since
@@ -276,6 +276,7 @@ func (s *SyncService) Loop() {
 				if index != nil {
 					break
 				}
+				// TODO: prevent this from underflowing
 				enqueue, err := s.client.GetEnqueue(*queueIndex - 1)
 				if err != nil {
 					log.Error("Cannot fetch enqueue in Loop", "index", *queueIndex-1)
@@ -284,11 +285,12 @@ func (s *SyncService) Loop() {
 				index = enqueue.GetMeta().Index
 				queueIndex = enqueue.GetMeta().QueueIndex
 			}
-			for i := *queueIndex; i < *latest.GetMeta().QueueIndex; i++ {
+			for i := *queueIndex; i <= *latest.GetMeta().QueueIndex; i++ {
 				tx, err := s.client.GetEnqueue(i)
 				if err != nil {
 					log.Error("")
 				}
+				// This should be extending the chain for the sequencer
 				err = s.applyTransaction(tx)
 				if err != nil {
 					log.Error("")
@@ -308,13 +310,14 @@ func (s *SyncService) Loop() {
 		if blockNumber == 0 {
 			blockNumber++
 		}
+
 		// The index in geth vs the index in the ctc is off by one
 		// so account for that here.
 		err := s.syncTransaction(block.Number().Uint64() - 1)
 		if err != nil {
 			log.Error("Cannot sync transaction: %w", err)
 		}
-		time.Sleep(time.Second * 10)
+		time.Sleep(s.pollInterval)
 	}
 }
 
@@ -329,8 +332,8 @@ func (s *SyncService) syncTransaction(index uint64) error {
 		log.Trace("Transaction in ctc does not yet exist", "index", index)
 		return nil
 	}
-
-	err = s.applyTransaction(tx)
+	err = s.maybeApplyTransaction(tx)
+	//err = s.applyTransaction(tx)
 	if err != nil {
 		return fmt.Errorf("Cannot apply transaction: %w", err)
 	}
@@ -356,8 +359,7 @@ func (s *SyncService) syncTransactionsToTip() error {
 }
 
 // Methods for safely accessing and storing the latest
-// L1 blocknumber and timestamp. These are held in
-// memory.
+// L1 blocknumber and timestamp. These are held in memory.
 func (s *SyncService) GetLatestL1Timestamp() uint64 {
 	return atomic.LoadUint64(&s.LatestL1ToL2.timestamp)
 }
@@ -409,7 +411,8 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 	return s.scope.Track(s.txFeed.Subscribe(ch))
 }
 
-// TODO: fix this
+// TODO: This function needs to be rethought, its no longer
+// easily possible to say "start syncing from L1 height x"
 func (s *SyncService) SetL1Head(number uint64) error {
 	return nil
 }
@@ -422,7 +425,9 @@ func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
 	if index == nil {
 		return fmt.Errorf("nil index in maybeApplyTransaction")
 	}
-	block := s.bc.GetBlockByNumber(*index - 1)
+	// The CTC index is one less than the index here because the genesis block
+	// is not represented in the canonical transaction chain in geth
+	block := s.bc.GetBlockByNumber(*index + 1)
 	// The transaction has yet to be played, so it is safe to apply
 	if block == nil {
 		return s.applyTransaction(tx)
