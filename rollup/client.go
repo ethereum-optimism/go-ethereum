@@ -53,13 +53,14 @@ type transaction struct {
 }
 
 type Enqueue struct {
-	Index       uint64         `json:"index"`
+	Index       *uint64        `json:"ctcIndex"`
 	Target      common.Address `json:"target"`
 	Data        hexutil.Bytes  `json"data"`
 	GasLimit    uint64         `json"gasLimit"`
 	Origin      common.Address `json"origin"`
 	BlockNumber uint64         `json"blockNumber"`
 	Timestamp   uint64         `json"timestamp"`
+	QueueIndex  uint64         `json:"index"`
 }
 
 type signature struct {
@@ -139,7 +140,7 @@ func (c *Client) GetEnqueue(index uint64) (*types.Transaction, error) {
 }
 
 func enqueueToTransaction(enqueue *Enqueue) *types.Transaction {
-	nonce := enqueue.Index
+	nonce := enqueue.QueueIndex
 	target := enqueue.Target
 	value := big.NewInt(0)
 	gasLimit := enqueue.GasLimit
@@ -154,8 +155,8 @@ func enqueueToTransaction(enqueue *Enqueue) *types.Transaction {
 		L1MessageSender:   &origin,
 		SignatureHashType: types.SighashEIP155,
 		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
-		Index:             nil,
-		QueueIndex:        &enqueue.Index,
+		Index:             enqueue.Index,
+		QueueIndex:        &enqueue.QueueIndex,
 	}
 	tx.SetTransactionMeta(&meta)
 

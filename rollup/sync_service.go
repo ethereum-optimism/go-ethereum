@@ -21,7 +21,8 @@ import (
 type LatestL1ToL2 struct {
 	blockNumber uint64
 	timestamp   uint64
-	queueIndex  uint64
+	queueIndex  *uint64
+	index       *uint64
 }
 
 // TODO: update timestamp/blocknumber logic
@@ -76,7 +77,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		eth1ChainId:       cfg.Eth1ChainId,
 		client:            client,
 		db:                db,
-		pollInterval:      time.Second,
+		pollInterval:      time.Second * 15,
 	}
 
 	// Initial sync service setup if it is enabled. This code depends on
@@ -116,6 +117,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		if err != nil {
 			return nil, fmt.Errorf("Cannot initialize latest L1 data: %w", err)
 		}
+		log.Info("Initialized Latest L1 Info")
 	}
 
 	// The sequencer needs to sync to the tip at start up
@@ -164,11 +166,8 @@ func (s *SyncService) Start() error {
 // transaction processed. This must complete before transactions
 // are accepted via RPC when running as a sequencer.
 func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
-	block := s.bc.CurrentBlock()
-	if block == nil {
-		return errors.New("Current block is nil")
-	}
-	if block == s.bc.Genesis() {
+	index := s.GetLatestIndex()
+	if index == nil {
 		if ctcDeployHeight == nil {
 			return errors.New("Must configure with canonical transaction chain deploy height")
 		}
@@ -178,10 +177,8 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		}
 		s.SetLatestL1Timestamp(context.Timestamp)
 		s.SetLatestL1BlockNumber(context.BlockNumber)
-		// There has yet to be any enqueued transactions
-		// TODO: note- when querying enqueue txs, make sure to not double play
-		s.SetLatestEnqueueIndex(0)
 	} else {
+		block := s.bc.GetBlockByNumber(*index + 1)
 		txs := block.Transactions()
 		if len(txs) != 1 {
 			log.Error("Unexpected number of transactions in block: %d", len(txs))
@@ -189,30 +186,33 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		tx := txs[0]
 		s.SetLatestL1Timestamp(tx.L1Timestamp())
 		s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
-		// Set the last enqueue index for the sequencer
-		// to properly begin syncing L1 to L2 transactions from
-		enqueue, err := s.client.GetLatestEnqueue()
-		if err != nil {
-			return fmt.Errorf("Cannot get latest enqueue: %w", err)
-		}
-		for {
-			// When the ctc index is not nil then the enqueue has
-			// been included in the chain already
-			meta := enqueue.GetMeta()
-			if meta.Index != nil {
-				s.SetLatestEnqueueIndex(*meta.Index)
-				break
-			}
-			// TODO: double check that the Index does not go below zero
-			next, err := s.client.GetEnqueue(*meta.Index - 1)
-			if err != nil {
-				log.Error("Cannot get enqueue", "index", *meta.Index)
-				continue
-			}
-			enqueue = next
-		}
+
 	}
-	return nil
+	// Set the last enqueue index for the sequencer
+	// to properly begin syncing L1 to L2 transactions from
+	enqueue, err := s.client.GetLatestEnqueue()
+	if err != nil {
+		return fmt.Errorf("Cannot get latest enqueue: %w", err)
+	}
+	if enqueue == nil {
+		s.SetLatestEnqueueIndex(nil)
+		return nil
+	}
+	for {
+		// When the ctc index is not nil then the enqueue has
+		// been included in the chain already
+		meta := enqueue.GetMeta()
+		if meta.Index != nil {
+			s.SetLatestEnqueueIndex(meta.QueueIndex)
+			return nil
+		}
+		next, err := s.client.GetEnqueue(*meta.QueueIndex - 1)
+		if err != nil {
+			log.Error("Cannot get enqueue", "index", *meta.Index)
+			continue
+		}
+		enqueue = next
+	}
 }
 
 // setSyncStatus sets the `syncing` field as well as prevents
@@ -248,52 +248,54 @@ func (s *SyncService) Stop() error {
 func (s *SyncService) Loop() {
 	log.Info("Starting Tip processing loop")
 	for {
+		log.Info("Start loop")
+
 		// Only the sequencer needs to poll for enqueue transactions
 		// and then can choose when to apply them. We choose to apply
 		// transactions such that it makes for efficient batch submitting.
 		// Place as many L1ToL2 transactions in the same context as possible
 		// by executing them one after another.
 		if !s.verifier {
-			// Get latest
 			latest, err := s.client.GetLatestEnqueue()
 			if err != nil {
 				log.Error("Cannot get latest enqueue")
 				continue
 			}
-			// TODO: queue index should not be a pointer since all
-			// enqueue transactions should have a queue index.
-			// index is the ctc index and should be a pointer since
-			// a nil value should represent not being included in
-			// the ctc yet.
+			// This should never happen unless the backend is empty
+			if latest == nil {
+				log.Error("Latest enqueue is nil in Loop")
+				continue
+			}
+			// Compare the remote latest queue index to the local latest
+			// queue index. If the remote latest queue index is greater
+			// than the local latest queue index, be sure to ingest more
+			// enqueued transactions
+			var start uint64
+			if s.GetLatestEnqueueIndex() == nil {
+				start = 0
+			} else {
+				start = *s.GetLatestEnqueueIndex() + 1
+			}
+			end := *latest.GetMeta().QueueIndex
 
-			// Find the queue index of the first transaction that
-			// has been confirmed in the ctc. This is done by working
-			// backwards from the tip of enqueued transactions. A confirmed
-			// enqueue transaction will have a non nil index.
-			index := latest.GetMeta().Index
-			queueIndex := latest.GetMeta().QueueIndex
-			for {
-				if index != nil {
-					break
-				}
-				// TODO: prevent this from underflowing
-				enqueue, err := s.client.GetEnqueue(*queueIndex - 1)
+			log.Info("loop enqueue", "start", start, "end", end)
+			for i := start; i <= end; i++ {
+				enqueue, err := s.client.GetEnqueue(i)
 				if err != nil {
-					log.Error("Cannot fetch enqueue in Loop", "index", *queueIndex-1)
+					log.Error("Cannot get enqueue in loop", "index", i)
 					continue
 				}
-				index = enqueue.GetMeta().Index
-				queueIndex = enqueue.GetMeta().QueueIndex
-			}
-			for i := *queueIndex; i <= *latest.GetMeta().QueueIndex; i++ {
-				tx, err := s.client.GetEnqueue(i)
+				log.Info("loop enqueue apply tx", "index", i, "hash", enqueue.Hash().Hex())
+				err = s.applyTransaction(enqueue)
 				if err != nil {
-					log.Error("")
+					log.Error("Cannot apply transaction", "msg", err)
 				}
-				// This should be extending the chain for the sequencer
-				err = s.applyTransaction(tx)
-				if err != nil {
-					log.Error("")
+				s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
+				if enqueue.GetMeta().Index == nil {
+					index := *s.GetLatestIndex() + 1
+					s.SetLatestIndex(&index)
+				} else {
+					s.SetLatestIndex(enqueue.GetMeta().Index)
 				}
 			}
 		}
@@ -303,59 +305,99 @@ func (s *SyncService) Loop() {
 		// the verifier, ctc transactions are extending the chain.
 		// The sequencer essentially runs a verifier to make sure that
 		// it reflects the ultimate source of truth which is the L1 contracts.
-		block := s.bc.CurrentBlock()
-		// Read the tip from chain to know the current block height
-		blockNumber := block.Number().Uint64()
-		// Handle special case for genesis block
-		if blockNumber == 0 {
-			blockNumber++
+		latest, err := s.client.GetLatestTransaction()
+		if err != nil {
+			log.Error("Cannot fetch transaction")
+			continue
 		}
 
-		// The index in geth vs the index in the ctc is off by one
-		// so account for that here.
-		err := s.syncTransaction(block.Number().Uint64() - 1)
-		if err != nil {
-			log.Error("Cannot sync transaction: %w", err)
+		var start uint64
+		if s.GetLatestIndex() == nil {
+			start = 0
+		} else {
+			start = *s.GetLatestIndex() + 1
 		}
+		// TODO: end if broken here
+		end := *latest.GetMeta().Index
+
+		log.Info("loop transaction", "start", start, "end", end)
+		for i := start; i < end; i++ {
+			tx, err := s.client.GetTransaction(i)
+			if err != nil {
+				log.Error("Cannot get tx in loop", "index", i)
+				continue
+			}
+			log.Info("loop apply tx", "index", i, "hash", tx.Hash().Hex())
+			err = s.applyTransaction(tx)
+			if err != nil {
+				log.Error("Cannot apply transaction", "msg", err)
+			}
+			s.SetLatestIndex(&i)
+		}
+
 		time.Sleep(s.pollInterval)
+		log.Info("End loop")
 	}
 }
 
-func (s *SyncService) syncTransaction(index uint64) error {
-	tx, err := s.client.GetTransaction(index)
-	if err != nil {
-		return fmt.Errorf("Cannot get transaction: %w", err)
-	}
-
-	// The transaction does not yet exist in the ctc
-	if tx == nil {
-		log.Trace("Transaction in ctc does not yet exist", "index", index)
-		return nil
-	}
-	err = s.maybeApplyTransaction(tx)
-	//err = s.applyTransaction(tx)
-	if err != nil {
-		return fmt.Errorf("Cannot apply transaction: %w", err)
-	}
-
-	return nil
-}
-
+// This function must sync all the way to the tip
 func (s *SyncService) syncTransactionsToTip() error {
-	latest, err := s.client.GetLatestTransaction()
-	if err != nil {
-		return fmt.Errorf("Cannot get latest transaction: %w", err)
-	}
-	block := s.bc.CurrentBlock()
-	tipHeight := latest.GetMeta().Index
-
-	for i := block.Number().Uint64(); i < *tipHeight; i++ {
-		err = s.syncTransaction(i)
+	// Then set up a while loop that only breaks when the latest
+	// transaction does not change through two runs of the loop.
+	// The latest transaction can change during the timeframe of
+	// all of the transactions being sync'd.
+	for {
+		// This function must be sure to sync all the way to the tip.
+		// First query the latest transaction
+		latest, err := s.client.GetLatestTransaction()
 		if err != nil {
-			log.Error("Cannot ingest transaction", "index", i)
+			return fmt.Errorf("Cannot get latest transaction: %w", err)
+		}
+		tipHeight := latest.GetMeta().Index
+		block := s.bc.CurrentBlock()
+		start := block.Number().Uint64()
+		if start != 0 {
+			start = start - 1
+		}
+
+		log.Info("Syncing transactions to tip", "start", start, "end", *tipHeight)
+		for i := start; i <= *tipHeight; i++ {
+			tx, err := s.client.GetTransaction(i)
+			if err != nil {
+				return fmt.Errorf("Cannot get transaction: %w", err)
+			}
+			// The transaction does not yet exist in the ctc
+			if tx == nil {
+				log.Trace("Transaction in ctc does not yet exist", "index", i)
+				return nil
+			}
+			err = s.maybeApplyTransaction(tx)
+			if err != nil {
+				return fmt.Errorf("Cannot apply transaction: %w", err)
+			}
+			if err != nil {
+				log.Error("Cannot ingest transaction", "index", i)
+			}
+			s.SetLatestIndex(tx.GetMeta().Index)
+			if types.QueueOrigin(tx.QueueOrigin().Uint64()) == types.QueueOriginSequencer {
+				queueIndex := tx.GetMeta().QueueIndex
+				log.Info("queue index", "index", queueIndex)
+				s.SetLatestEnqueueIndex(queueIndex)
+			}
+		}
+		// Be sure to check that no transactions came in while
+		// the above loop was running
+		post, err := s.client.GetLatestTransaction()
+		if err != nil {
+			return fmt.Errorf("Cannot get latest transaction: %w", err)
+		}
+		// These transactions should always have an index since they
+		// are already in the ctc.
+		if *latest.GetMeta().Index == *post.GetMeta().Index {
+			log.Info("Done syncing transactions to tip")
+			return nil
 		}
 	}
-	return nil
 }
 
 // Methods for safely accessing and storing the latest
@@ -368,10 +410,6 @@ func (s *SyncService) GetLatestL1BlockNumber() uint64 {
 	return atomic.LoadUint64(&s.LatestL1ToL2.blockNumber)
 }
 
-func (s *SyncService) GetLatestEnqueueIndex() uint64 {
-	return atomic.LoadUint64(&s.LatestL1ToL2.queueIndex)
-}
-
 func (s *SyncService) SetLatestL1Timestamp(ts uint64) {
 	atomic.StoreUint64(&s.LatestL1ToL2.timestamp, ts)
 }
@@ -380,20 +418,52 @@ func (s *SyncService) SetLatestL1BlockNumber(bn uint64) {
 	atomic.StoreUint64(&s.LatestL1ToL2.blockNumber, bn)
 }
 
-func (s *SyncService) SetLatestEnqueueIndex(index uint64) {
-	atomic.StoreUint64(&s.LatestL1ToL2.queueIndex, index)
+// TODO: move to db
+func (s *SyncService) GetLatestEnqueueIndex() *uint64 {
+	if s.LatestL1ToL2.queueIndex == nil {
+		return nil
+	}
+	cpy := *s.LatestL1ToL2.queueIndex
+	return &cpy
 }
 
-// reorganize will reorganize to directly behind the index passed
-// or the earlist QueueOriginL1ToL2 to tx behind it.
-// It is most safe to only allow reorgs to QueueOriginL1ToL2 txs
-// to ensure that the database stays in sync when it comes to
-// resyncing the L1 chain. Make sure to take into account the
-// of by one with the CTC and geth when calling this. Geth is
-// one ahead of the CTC because the geth genesis block is not
-// in the CTC
+// TODO: move to db
+func (s *SyncService) SetLatestEnqueueIndex(index *uint64) {
+	if index == nil {
+		s.LatestL1ToL2.queueIndex = nil
+	} else {
+		if s.LatestL1ToL2.queueIndex == nil {
+			s.LatestL1ToL2.queueIndex = index
+		} else {
+			*s.LatestL1ToL2.queueIndex = *index
+		}
+	}
+}
 
-// TODO: caller must handle offset
+// TODO: move to db
+func (s *SyncService) SetLatestIndex(index *uint64) {
+	if index == nil {
+		s.LatestL1ToL2.index = nil
+	} else {
+		if s.LatestL1ToL2.index == nil {
+			s.LatestL1ToL2.index = index
+		} else {
+			*s.LatestL1ToL2.index = *index
+		}
+	}
+}
+
+// TODO: move to db
+func (s *SyncService) GetLatestIndex() *uint64 {
+	if s.LatestL1ToL2.index == nil {
+		return nil
+	}
+	cpy := *s.LatestL1ToL2.index
+	return &cpy
+}
+
+// reorganize will reorganize to directly to the index passed in.
+// The caller must handle the offset relative to the ctc.
 func (s *SyncService) reorganize(index uint64) error {
 	if index == 0 {
 		return nil
@@ -425,9 +495,12 @@ func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
 	if index == nil {
 		return fmt.Errorf("nil index in maybeApplyTransaction")
 	}
-	// The CTC index is one less than the index here because the genesis block
-	// is not represented in the canonical transaction chain in geth
+	// Handle off by one
 	block := s.bc.GetBlockByNumber(*index + 1)
+
+	// TODO: temp debug
+	log.Info("maybeApplyTransaction", "index", *index)
+
 	// The transaction has yet to be played, so it is safe to apply
 	if block == nil {
 		return s.applyTransaction(tx)
@@ -436,6 +509,7 @@ func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
 	// for its equality.
 	txs := block.Transactions()
 	if len(txs) != 1 {
+		log.Info("block", "txs", len(txs), "number", block.Number().Uint64())
 		return fmt.Errorf("More than 1 transaction in block")
 	}
 	if isCtcTxEqual(tx, txs[0]) {
