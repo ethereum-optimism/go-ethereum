@@ -61,6 +61,10 @@ var (
 	// headEth1HeightKey tracks the latest processed Eth1 Height
 	headEth1HeightKey = []byte("LastEth1Height")
 
+	// foo
+	headIndexKey      = []byte("LastIndex")
+	headQueueIndexKey = []byte("LastQueueIndex")
+
 	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
 	configPrefix   = []byte("ethereum-config-") // config prefix for the db
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
 
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -30,22 +32,26 @@ type LatestL1ToL2 struct {
 // SyncService implements the verifier functionality as well as the reorg
 // protection for the sequencer.
 type SyncService struct {
-	ctx               context.Context
-	cancel            context.CancelFunc
-	verifier          bool
-	db                ethdb.Database
-	scope             event.SubscriptionScope
-	txFeed            event.Feed
-	enable            bool
-	eth1ChainId       uint64
-	bc                *core.BlockChain
-	txpool            *core.TxPool
-	client            RollupClient
-	syncing           bool
-	LatestL1ToL2      LatestL1ToL2
-	confirmationDepth uint64
-	pollInterval      time.Duration
+	ctx                       context.Context
+	cancel                    context.CancelFunc
+	verifier                  bool
+	db                        ethdb.Database
+	scope                     event.SubscriptionScope
+	txFeed                    event.Feed
+	enable                    bool
+	eth1ChainId               uint64
+	bc                        *core.BlockChain
+	txpool                    *core.TxPool
+	client                    RollupClient
+	syncing                   bool
+	LatestL1ToL2              LatestL1ToL2
+	confirmationDepth         uint64
+	pollInterval              time.Duration
+	timestampRefreshThreshold time.Duration
 }
+
+// It still isn't super stable when coming back online, it appears to replay
+// some transactions again
 
 // NewSyncService returns an initialized sync service
 func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *core.BlockChain, db ethdb.Database) (*SyncService, error) {
@@ -66,18 +72,20 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 	chainID := bc.Config().ChainID
 	// Initialize the rollup client
 	client := NewClient(cfg.RollupClientHttp, chainID)
+	log.Info("Configured rollup client", "url", cfg.RollupClientHttp, "chain-id", chainID.Uint64())
 	service := SyncService{
-		ctx:               ctx,
-		cancel:            cancel,
-		verifier:          cfg.IsVerifier,
-		enable:            cfg.Eth1SyncServiceEnable,
-		confirmationDepth: cfg.Eth1ConfirmationDepth,
-		bc:                bc,
-		txpool:            txpool,
-		eth1ChainId:       cfg.Eth1ChainId,
-		client:            client,
-		db:                db,
-		pollInterval:      time.Second * 15,
+		ctx:                       ctx,
+		cancel:                    cancel,
+		verifier:                  cfg.IsVerifier,
+		enable:                    cfg.Eth1SyncServiceEnable,
+		confirmationDepth:         cfg.Eth1ConfirmationDepth,
+		bc:                        bc,
+		txpool:                    txpool,
+		eth1ChainId:               cfg.Eth1ChainId,
+		client:                    client,
+		db:                        db,
+		pollInterval:              time.Second * 15,
+		timestampRefreshThreshold: time.Second * 10,
 	}
 
 	// Initial sync service setup if it is enabled. This code depends on
@@ -97,15 +105,18 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		if block == nil {
 			return nil, errors.New("Current block is nil")
 		}
-		if block != service.bc.Genesis() {
-			// Roll back the chain to force some amount of resync
-			depth := block.Number().Uint64() - cfg.InitialReorgDepth
-			if depth > block.Number().Uint64() {
-				return nil, fmt.Errorf("Overflow with initial reorg depth %d and tip %d", cfg.InitialReorgDepth, block.Number().Uint64())
-			}
-			err = service.reorganize(depth)
-			if err != nil {
-				return nil, fmt.Errorf("Cannot reorg with depth %d: %w", cfg.InitialReorgDepth, err)
+		// TODO: temporary disable this logic on startup
+		if false {
+			if block != service.bc.Genesis() {
+				// Roll back the chain to force some amount of resync
+				depth := block.Number().Uint64() - cfg.InitialReorgDepth
+				if depth > block.Number().Uint64() {
+					return nil, fmt.Errorf("Overflow with initial reorg depth %d and tip %d", cfg.InitialReorgDepth, block.Number().Uint64())
+				}
+				err = service.reorganize(depth)
+				if err != nil {
+					return nil, fmt.Errorf("Cannot reorg with depth %d: %w", cfg.InitialReorgDepth, err)
+				}
 			}
 		}
 
@@ -117,10 +128,30 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		if err != nil {
 			return nil, fmt.Errorf("Cannot initialize latest L1 data: %w", err)
 		}
-		log.Info("Initialized Latest L1 Info")
+
+		bn := service.GetLatestL1BlockNumber()
+		ts := service.GetLatestL1Timestamp()
+		log.Info("Initialized Latest L1 Info", "blocknumber", bn, "timestamp", ts)
+
+		var i, q string
+		index := service.GetLatestIndex()
+		queueIndex := service.GetLatestEnqueueIndex()
+		if index == nil {
+			i = "<nil>"
+		} else {
+			i = strconv.FormatUint(*index, 10)
+		}
+		if queueIndex == nil {
+			q = "<nil>"
+		} else {
+			q = strconv.FormatUint(*queueIndex, 10)
+		}
+		log.Info("Initialized Eth Context", "index", i, "queue-index", q)
 	}
 
 	// The sequencer needs to sync to the tip at start up
+	// By setting the sync status to true, it will prevent RPC calls.
+	// Be sure this is set to false later.
 	if !service.verifier {
 		service.setSyncStatus(true)
 	}
@@ -178,7 +209,8 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		s.SetLatestL1Timestamp(context.Timestamp)
 		s.SetLatestL1BlockNumber(context.BlockNumber)
 	} else {
-		block := s.bc.GetBlockByNumber(*index + 1)
+		block := s.bc.GetBlockByNumber(*index - 1)
+		//block := s.bc.GetBlockByNumber(*index + 1)
 		txs := block.Transactions()
 		if len(txs) != 1 {
 			log.Error("Unexpected number of transactions in block: %d", len(txs))
@@ -188,31 +220,12 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
 
 	}
-	// Set the last enqueue index for the sequencer
-	// to properly begin syncing L1 to L2 transactions from
-	enqueue, err := s.client.GetLatestEnqueue()
+	enqueue, err := s.client.GetLastConfirmedEnqueue()
 	if err != nil {
-		return fmt.Errorf("Cannot get latest enqueue: %w", err)
+		return err
 	}
-	if enqueue == nil {
-		s.SetLatestEnqueueIndex(nil)
-		return nil
-	}
-	for {
-		// When the ctc index is not nil then the enqueue has
-		// been included in the chain already
-		meta := enqueue.GetMeta()
-		if meta.Index != nil {
-			s.SetLatestEnqueueIndex(meta.QueueIndex)
-			return nil
-		}
-		next, err := s.client.GetEnqueue(*meta.QueueIndex - 1)
-		if err != nil {
-			log.Error("Cannot get enqueue", "index", *meta.Index)
-			continue
-		}
-		enqueue = next
-	}
+	s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
+	return nil
 }
 
 // setSyncStatus sets the `syncing` field as well as prevents
@@ -248,8 +261,6 @@ func (s *SyncService) Stop() error {
 func (s *SyncService) Loop() {
 	log.Info("Starting Tip processing loop")
 	for {
-		log.Info("Start loop")
-
 		// Only the sequencer needs to poll for enqueue transactions
 		// and then can choose when to apply them. We choose to apply
 		// transactions such that it makes for efficient batch submitting.
@@ -278,14 +289,13 @@ func (s *SyncService) Loop() {
 			}
 			end := *latest.GetMeta().QueueIndex
 
-			log.Info("loop enqueue", "start", start, "end", end)
+			log.Info("Polling enqueued transactions", "start", start, "end", end)
 			for i := start; i <= end; i++ {
 				enqueue, err := s.client.GetEnqueue(i)
 				if err != nil {
 					log.Error("Cannot get enqueue in loop", "index", i)
 					continue
 				}
-				log.Info("loop enqueue apply tx", "index", i, "hash", enqueue.Hash().Hex())
 				err = s.applyTransaction(enqueue)
 				if err != nil {
 					log.Error("Cannot apply transaction", "msg", err)
@@ -317,17 +327,14 @@ func (s *SyncService) Loop() {
 		} else {
 			start = *s.GetLatestIndex() + 1
 		}
-		// TODO: end if broken here
 		end := *latest.GetMeta().Index
-
-		log.Info("loop transaction", "start", start, "end", end)
+		log.Info("Polling transactions", "start", start, "end", end)
 		for i := start; i < end; i++ {
 			tx, err := s.client.GetTransaction(i)
 			if err != nil {
 				log.Error("Cannot get tx in loop", "index", i)
 				continue
 			}
-			log.Info("loop apply tx", "index", i, "hash", tx.Hash().Hex())
 			err = s.applyTransaction(tx)
 			if err != nil {
 				log.Error("Cannot apply transaction", "msg", err)
@@ -335,8 +342,24 @@ func (s *SyncService) Loop() {
 			s.SetLatestIndex(&i)
 		}
 
+		// if a certain amount of time has passed and the timestamp
+		// and blocknumber have not been updated, update them
+		if !s.verifier {
+			context, err := s.client.GetLatestEthContext()
+			if err != nil {
+				log.Error("Cannot get latest eth context", "msg", err)
+				continue
+			}
+			current := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
+			next := time.Unix(int64(context.Timestamp), 0).Add(-s.timestampRefreshThreshold)
+			if next.Before(current) {
+				log.Info("Updating Eth Context", "timetamp", context.Timestamp, "blocknumber", context.BlockNumber)
+				s.SetLatestL1BlockNumber(context.BlockNumber)
+				s.SetLatestL1Timestamp(context.Timestamp)
+			}
+		}
+
 		time.Sleep(s.pollInterval)
-		log.Info("End loop")
 	}
 }
 
@@ -368,7 +391,7 @@ func (s *SyncService) syncTransactionsToTip() error {
 			}
 			// The transaction does not yet exist in the ctc
 			if tx == nil {
-				log.Trace("Transaction in ctc does not yet exist", "index", i)
+				log.Info("Transaction in ctc does not yet exist", "index", i)
 				return nil
 			}
 			err = s.maybeApplyTransaction(tx)
@@ -381,7 +404,6 @@ func (s *SyncService) syncTransactionsToTip() error {
 			s.SetLatestIndex(tx.GetMeta().Index)
 			if types.QueueOrigin(tx.QueueOrigin().Uint64()) == types.QueueOriginSequencer {
 				queueIndex := tx.GetMeta().QueueIndex
-				log.Info("queue index", "index", queueIndex)
 				s.SetLatestEnqueueIndex(queueIndex)
 			}
 		}
@@ -418,48 +440,24 @@ func (s *SyncService) SetLatestL1BlockNumber(bn uint64) {
 	atomic.StoreUint64(&s.LatestL1ToL2.blockNumber, bn)
 }
 
-// TODO: move to db
 func (s *SyncService) GetLatestEnqueueIndex() *uint64 {
-	if s.LatestL1ToL2.queueIndex == nil {
-		return nil
-	}
-	cpy := *s.LatestL1ToL2.queueIndex
-	return &cpy
+	return rawdb.ReadHeadQueueIndex(s.db)
 }
 
-// TODO: move to db
 func (s *SyncService) SetLatestEnqueueIndex(index *uint64) {
-	if index == nil {
-		s.LatestL1ToL2.queueIndex = nil
-	} else {
-		if s.LatestL1ToL2.queueIndex == nil {
-			s.LatestL1ToL2.queueIndex = index
-		} else {
-			*s.LatestL1ToL2.queueIndex = *index
-		}
+	if index != nil {
+		rawdb.WriteHeadQueueIndex(s.db, *index)
 	}
 }
 
-// TODO: move to db
 func (s *SyncService) SetLatestIndex(index *uint64) {
-	if index == nil {
-		s.LatestL1ToL2.index = nil
-	} else {
-		if s.LatestL1ToL2.index == nil {
-			s.LatestL1ToL2.index = index
-		} else {
-			*s.LatestL1ToL2.index = *index
-		}
+	if index != nil {
+		rawdb.WriteHeadIndex(s.db, *index)
 	}
 }
 
-// TODO: move to db
 func (s *SyncService) GetLatestIndex() *uint64 {
-	if s.LatestL1ToL2.index == nil {
-		return nil
-	}
-	cpy := *s.LatestL1ToL2.index
-	return &cpy
+	return rawdb.ReadHeadIndex(s.db)
 }
 
 // reorganize will reorganize to directly to the index passed in.
@@ -472,6 +470,20 @@ func (s *SyncService) reorganize(index uint64) error {
 	if err != nil {
 		return fmt.Errorf("Cannot reorganize in syncservice: %w", err)
 	}
+
+	// TODO: make sure no off by one error here
+	s.SetLatestIndex(&index)
+
+	// When in sequencer mode, be sure to roll back the latest queue
+	// index as well.
+	if !s.verifier {
+		enqueue, err := s.client.GetLastConfirmedEnqueue()
+		if err != nil {
+			return fmt.Errorf("cannot reorganize: %w", err)
+		}
+		s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
+	}
+	log.Info("Reorganizing", "height", index)
 	return nil
 }
 
@@ -498,12 +510,13 @@ func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
 	// Handle off by one
 	block := s.bc.GetBlockByNumber(*index + 1)
 
-	// TODO: temp debug
-	log.Info("maybeApplyTransaction", "index", *index)
-
 	// The transaction has yet to be played, so it is safe to apply
 	if block == nil {
-		return s.applyTransaction(tx)
+		err := s.applyTransaction(tx)
+		if err != nil {
+			return fmt.Errorf("Maybe apply transaction failed on index %d: %w", *index, err)
+		}
+		return nil
 	}
 	// There is already a transaction at that index, so check
 	// for its equality.
@@ -520,24 +533,31 @@ func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
 	return nil
 }
 
-// Adds the transaction to the mempool so that downstream services
-// can apply it to the state. This should directly play against
-// the state eventually, skipping the mempool.
+// Lower level API used to apply a transaction, must only be used with
+// transactions that came from L1.
 func (s *SyncService) applyTransaction(tx *types.Transaction) error {
-	err := s.txpool.ValidateTx(tx)
-	// The sequencer needs to prevent transactions that fail the mempool
-	// checks. The verifier needs to play the transactions no matter what
-	if !s.verifier {
-		qo := tx.QueueOrigin()
-		if err != nil && qo.Uint64() == uint64(types.QueueOriginSequencer) {
-			return fmt.Errorf("invalid transaction: %w", err)
-		}
-	}
 	txs := types.Transactions{tx}
 	s.txFeed.Send(core.NewTxsEvent{Txs: txs})
 	return nil
 }
 
+// Higher level API for applying transactions. Should only be called for
+// queue origin sequencer transactions, as the contracts on L1 manage the same
+// validity checks that are done here.
 func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
+	if s.verifier {
+		return errors.New("Verifier does not accept transactions out of band")
+	}
+	qo := tx.QueueOrigin()
+	if qo == nil {
+		return errors.New("invalid transaction with no queue origin")
+	}
+	if qo.Uint64() != uint64(types.QueueOriginSequencer) {
+		return fmt.Errorf("invalid transaction with queue origin %d", qo.Uint64())
+	}
+	err := s.txpool.ValidateTx(tx)
+	if err != nil {
+		return fmt.Errorf("invalid transaction: %w", err)
+	}
 	return s.applyTransaction(tx)
 }

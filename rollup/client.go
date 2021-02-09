@@ -85,6 +85,7 @@ type RollupClient interface {
 	GetLatestTransaction() (*types.Transaction, error)
 	GetEthContext(index uint64) (*EthContext, error)
 	GetLatestEthContext() (*EthContext, error)
+	GetLastConfirmedEnqueue() (*types.Transaction, error)
 }
 
 type Client struct {
@@ -228,7 +229,7 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 			L1Timestamp:       res.Transaction.Timestamp,
 			L1MessageSender:   &res.Transaction.Origin,
 			SignatureHashType: types.SighashEIP155,
-			QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
+			QueueOrigin:       big.NewInt(int64(queueOrigin)),
 			Index:             &res.Transaction.Index,
 			QueueIndex:        res.Transaction.QueueIndex,
 		}
@@ -244,6 +245,7 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		if err != nil {
 			return nil, fmt.Errorf("Cannot add signature to transaction: %w", err)
 		}
+
 		return tx, nil
 	}
 
@@ -346,4 +348,32 @@ func (c *Client) GetLatestEthContext() (*EthContext, error) {
 	}
 
 	return context, nil
+}
+
+func (c *Client) GetLastConfirmedEnqueue() (*types.Transaction, error) {
+	enqueue, err := c.GetLatestEnqueue()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot get latest enqueue: %w", err)
+	}
+	// This should only happen if the database is empty
+	if enqueue == nil {
+		return nil, nil
+	}
+	// Work backwards looking for the first enqueue
+	// to have an index, which means it has been included
+	// in the canonical transaction chain.
+	for {
+		meta := enqueue.GetMeta()
+		if meta.Index != nil {
+			return enqueue, nil
+		}
+		if meta.QueueIndex == nil {
+			return nil, fmt.Errorf("queue index is nil")
+		}
+		next, err := c.GetEnqueue(*meta.QueueIndex - 1)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get enqueue %d: %w", *meta.Index, err)
+		}
+		enqueue = next
+	}
 }
