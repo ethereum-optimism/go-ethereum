@@ -210,7 +210,6 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		s.SetLatestL1BlockNumber(context.BlockNumber)
 	} else {
 		block := s.bc.GetBlockByNumber(*index - 1)
-		//block := s.bc.GetBlockByNumber(*index + 1)
 		txs := block.Transactions()
 		if len(txs) != 1 {
 			log.Error("Unexpected number of transactions in block: %d", len(txs))
@@ -220,11 +219,18 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
 
 	}
-	enqueue, err := s.client.GetLastConfirmedEnqueue()
-	if err != nil {
-		return err
+	// Only the sequencer cares about latest queue index
+	if !s.verifier {
+		queueIndex := s.GetLatestEnqueueIndex()
+		if queueIndex == nil {
+			enqueue, err := s.client.GetLastConfirmedEnqueue()
+			if err != nil {
+				return err
+			}
+			queueIndex = enqueue.GetMeta().QueueIndex
+		}
+		s.SetLatestEnqueueIndex(queueIndex)
 	}
-	s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
 	return nil
 }
 
