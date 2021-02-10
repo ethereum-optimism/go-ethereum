@@ -18,16 +18,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
-// TODO: rename this to OVMContext
-// LatestL1ToL2 represents the latest blocknumber and timestamp.
-type LatestL1ToL2 struct {
+// OVMContext represents the blocknumber and timestamp
+// that exist during L2 execution
+type OVMContext struct {
 	blockNumber uint64
 	timestamp   uint64
-	queueIndex  *uint64
-	index       *uint64
 }
-
-// TODO: update timestamp/blocknumber logic
 
 // SyncService implements the verifier functionality as well as the reorg
 // protection for the sequencer.
@@ -43,8 +39,8 @@ type SyncService struct {
 	bc                        *core.BlockChain
 	txpool                    *core.TxPool
 	client                    RollupClient
-	syncing                   bool
-	LatestL1ToL2              LatestL1ToL2
+	syncing                   atomic.Value
+	OVMContext                OVMContext
 	confirmationDepth         uint64
 	pollInterval              time.Duration
 	timestampRefreshThreshold time.Duration
@@ -79,6 +75,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		verifier:                  cfg.IsVerifier,
 		enable:                    cfg.Eth1SyncServiceEnable,
 		confirmationDepth:         cfg.Eth1ConfirmationDepth,
+		syncing:                   atomic.Value{},
 		bc:                        bc,
 		txpool:                    txpool,
 		eth1ChainId:               cfg.Eth1ChainId,
@@ -239,12 +236,18 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 // `syncing` should never be set directly outside of this function.
 func (s *SyncService) setSyncStatus(status bool) {
 	log.Info("Setting sync status", "status", status)
-	s.syncing = status
+	s.syncing.Store(status)
 }
 
 // IsSyncing returns the syncing status of the syncservice.
+// Returns false if not yet set.
 func (s *SyncService) IsSyncing() bool {
-	return s.syncing
+	value := s.syncing.Load()
+	val, ok := value.(bool)
+	if !ok {
+		return false
+	}
+	return val
 }
 
 // Stop will close the open channels and cancel the goroutines
@@ -349,6 +352,7 @@ func (s *SyncService) Loop() {
 			s.SetLatestIndex(&i)
 		}
 
+		// TODO: this is broken
 		// if a certain amount of time has passed and the timestamp
 		// and blocknumber have not been updated, update them
 		if !s.verifier {
@@ -432,19 +436,19 @@ func (s *SyncService) syncTransactionsToTip() error {
 // Methods for safely accessing and storing the latest
 // L1 blocknumber and timestamp. These are held in memory.
 func (s *SyncService) GetLatestL1Timestamp() uint64 {
-	return atomic.LoadUint64(&s.LatestL1ToL2.timestamp)
+	return atomic.LoadUint64(&s.OVMContext.timestamp)
 }
 
 func (s *SyncService) GetLatestL1BlockNumber() uint64 {
-	return atomic.LoadUint64(&s.LatestL1ToL2.blockNumber)
+	return atomic.LoadUint64(&s.OVMContext.blockNumber)
 }
 
 func (s *SyncService) SetLatestL1Timestamp(ts uint64) {
-	atomic.StoreUint64(&s.LatestL1ToL2.timestamp, ts)
+	atomic.StoreUint64(&s.OVMContext.timestamp, ts)
 }
 
 func (s *SyncService) SetLatestL1BlockNumber(bn uint64) {
-	atomic.StoreUint64(&s.LatestL1ToL2.blockNumber, bn)
+	atomic.StoreUint64(&s.OVMContext.blockNumber, bn)
 }
 
 func (s *SyncService) GetLatestEnqueueIndex() *uint64 {

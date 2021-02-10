@@ -189,7 +189,7 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 	// Queue Origin Sequencer transactions
 	if res.Transaction.Decoded != nil {
 		nonce := res.Transaction.Decoded.Nonce
-		to := res.Transaction.Target
+		to := res.Transaction.Decoded.Target
 		value := new(big.Int)
 		// Note: there are two gas limits, one top level and
 		// another on the raw transaction itself. Maybe maxGasLimit
@@ -222,7 +222,13 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 			return nil, fmt.Errorf("Unknown transaction type: %s", res.Transaction.Type)
 		}
 
-		tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data, &l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
+		// TODO: if queue origin Sequencer, set L1MessageSender to nil
+		var tx *types.Transaction
+		if to == (common.Address{}) {
+			tx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, data, &l1MessageSender, l1BlockNumber, queueOrigin)
+		} else {
+			tx = types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data, &l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
+		}
 
 		meta := types.TransactionMeta{
 			L1BlockNumber:     new(big.Int).SetUint64(res.Transaction.BlockNumber),
@@ -251,7 +257,10 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 
 	// If Decoded is `nil`, it should be a Queue Origin l1 tx
 	if res.Transaction.QueueOrigin == "l1" {
-		nonce := res.Transaction.Index
+		if res.Transaction.QueueIndex == nil {
+			return nil, errors.New("")
+		}
+		nonce := *res.Transaction.QueueIndex
 		target := res.Transaction.Target
 		gasLimit := res.Transaction.GasLimit
 		data := res.Transaction.Data
