@@ -66,12 +66,24 @@ func (b *EthAPIBackend) GasLimit() uint64 {
 	return b.gasLimit
 }
 
-func (b *EthAPIBackend) GetLatestL1BlockNumber() uint64 {
-	return b.eth.syncService.GetLatestL1BlockNumber()
+func (b *EthAPIBackend) GetEthContext() (uint64, uint64) {
+	bn := b.eth.syncService.GetLatestL1BlockNumber()
+	ts := b.eth.syncService.GetLatestL1Timestamp()
+	return bn, ts
 }
 
-func (b *EthAPIBackend) GetLatestL1Timestamp() uint64 {
-	return b.eth.syncService.GetLatestL1Timestamp()
+func (b *EthAPIBackend) GetRollupContext() (uint64, uint64) {
+	i := uint64(0)
+	q := uint64(0)
+	index := b.eth.syncService.GetLatestIndex()
+	if index != nil {
+		i = *index
+	}
+	queueIndex := b.eth.syncService.GetLatestEnqueueIndex()
+	if queueIndex != nil {
+		q = *queueIndex
+	}
+	return i, q
 }
 
 // ChainConfig returns the active chain configuration.

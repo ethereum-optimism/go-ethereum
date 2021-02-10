@@ -87,8 +87,8 @@ type Backend interface {
 	SetTimestamp(timestamp int64)
 	IsVerifier() bool
 	IsSyncing() bool
-	GetLatestL1BlockNumber() uint64
-	GetLatestL1Timestamp() uint64
+	GetEthContext() (uint64, uint64)
+	GetRollupContext() (uint64, uint64)
 	SetL1Head(number uint64) error
 	GasLimit() uint64
 
