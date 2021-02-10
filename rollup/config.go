@@ -6,11 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// restart reorg height - depth to reorg at startup
-
 type Config struct {
-	// TODO(mark): deprecate these config options
-	TxIngestionEnable bool
 	// Maximum calldata size for a Queue Origin Sequencer Tx
 	MaxCallDataSize int
 	// Number of confs before applying a L1 to L2 tx
@@ -32,10 +28,7 @@ type Config struct {
 	// Path to the state dump
 	StateDumpPath string
 	// Temporary setting to disable transfers
-	DisableTransfers  bool
+	DisableTransfers bool
+	// Number of blocks to reorganize and resync on boot
 	InitialReorgDepth uint64
-}
-
-func (c *Config) IsTxIngestionEnabled() bool {
-	return c.TxIngestionEnable
 }

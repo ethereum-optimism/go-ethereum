@@ -276,6 +276,7 @@ func (s *SyncService) Loop() {
 			latest, err := s.client.GetLatestEnqueue()
 			if err != nil {
 				log.Error("Cannot get latest enqueue")
+				time.Sleep(s.pollInterval)
 				continue
 			}
 			// This should never happen unless the backend is empty
