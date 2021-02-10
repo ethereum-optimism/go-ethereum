@@ -56,13 +56,9 @@ var (
 	// Optimism specific
 	txMetaPrefix = []byte("x") // txMetaPrefix + hash -> transaction metadata
 
-	// headEth1HeaderKey tracks the latest processed Eth1 Block
-	headEth1HeaderKey = []byte("LastEth1Header")
-	// headEth1HeightKey tracks the latest processed Eth1 Height
-	headEth1HeightKey = []byte("LastEth1Height")
-
-	// foo
-	headIndexKey      = []byte("LastIndex")
+	// headIndexKey tracks the last processed ctc index
+	headIndexKey = []byte("LastIndex")
+	// headQueueIndexKey tracks th last processed queue index
 	headQueueIndexKey = []byte("LastQueueIndex")
 
 	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
