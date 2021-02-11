@@ -66,6 +66,9 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 
 	// Layer 2 chainid
 	chainID := bc.Config().ChainID
+	if chainID == nil {
+		return nil, errors.New("Must configure with chain id")
+	}
 	// Initialize the rollup client
 	client := NewClient(cfg.RollupClientHttp, chainID)
 	log.Info("Configured rollup client", "url", cfg.RollupClientHttp, "chain-id", chainID.Uint64())
@@ -101,20 +104,6 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		block := service.bc.CurrentBlock()
 		if block == nil {
 			return nil, errors.New("Current block is nil")
-		}
-		// TODO: temporary disable this logic on startup
-		if false {
-			if block != service.bc.Genesis() {
-				// Roll back the chain to force some amount of resync
-				depth := block.Number().Uint64() - cfg.InitialReorgDepth
-				if depth > block.Number().Uint64() {
-					return nil, fmt.Errorf("Overflow with initial reorg depth %d and tip %d", cfg.InitialReorgDepth, block.Number().Uint64())
-				}
-				err = service.reorganize(depth)
-				if err != nil {
-					return nil, fmt.Errorf("Cannot reorg with depth %d: %w", cfg.InitialReorgDepth, err)
-				}
-			}
 		}
 
 		// Initialize the latest L1 data here to make sure that
@@ -375,6 +364,7 @@ func (s *SyncService) Loop() {
 }
 
 // This function must sync all the way to the tip
+// TODO: it should then sync all of the enqueue transactions
 func (s *SyncService) syncTransactionsToTip() error {
 	// Then set up a while loop that only breaks when the latest
 	// transaction does not change through two runs of the loop.

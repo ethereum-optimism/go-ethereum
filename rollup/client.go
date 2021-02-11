@@ -255,34 +255,33 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		return tx, nil
 	}
 
-	// If Decoded is `nil`, it should be a Queue Origin l1 tx
+	// The transaction is  either an L1 to L2 transaction or it does not have a
+	// known deserialization
+	nonce := uint64(0)
 	if res.Transaction.QueueOrigin == "l1" {
 		if res.Transaction.QueueIndex == nil {
 			return nil, errors.New("")
 		}
-		nonce := *res.Transaction.QueueIndex
-		target := res.Transaction.Target
-		gasLimit := res.Transaction.GasLimit
-		data := res.Transaction.Data
-		origin := res.Transaction.Origin
-		blockNumber := new(big.Int).SetUint64(res.Transaction.BlockNumber)
-		tx := types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &origin, blockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
-
-		meta := types.TransactionMeta{
-			L1BlockNumber:     blockNumber,
-			L1Timestamp:       res.Transaction.Timestamp,
-			L1MessageSender:   &origin,
-			SignatureHashType: types.SighashEIP155,
-			QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
-			Index:             &res.Transaction.Index,
-			QueueIndex:        res.Transaction.QueueIndex,
-		}
-		tx.SetTransactionMeta(&meta)
-
-		return tx, nil
+		nonce = *res.Transaction.QueueIndex
 	}
+	target := res.Transaction.Target
+	gasLimit := res.Transaction.GasLimit
+	data := res.Transaction.Data
+	origin := res.Transaction.Origin // TODO: maybe make nil
+	blockNumber := new(big.Int).SetUint64(res.Transaction.BlockNumber)
+	tx := types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &origin, blockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
 
-	return nil, fmt.Errorf("Unknown transaction: %s", res.Transaction.Type)
+	meta := types.TransactionMeta{
+		L1BlockNumber:     blockNumber,
+		L1Timestamp:       res.Transaction.Timestamp,
+		L1MessageSender:   &origin,
+		SignatureHashType: types.SighashEIP155,
+		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
+		Index:             &res.Transaction.Index,
+		QueueIndex:        res.Transaction.QueueIndex,
+	}
+	tx.SetTransactionMeta(&meta)
+	return tx, nil
 }
 
 func (c *Client) GetTransaction(index uint64) (*types.Transaction, error) {

@@ -1159,6 +1159,8 @@ type RPCTransaction struct {
 	L1TxOrigin       *common.Address `json:"l1TxOrigin"`
 	L1BlockNumber    *hexutil.Big    `json:"l1BlockNumber"`
 	L1Timestamp      hexutil.Uint64  `json:"l1Timestamp"`
+	Index            *uint64         `json:"index"`
+	QueueIndex       *uint64         `json:"queueIndex"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1205,6 +1207,9 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 				result.QueueOrigin = "l1"
 			}
 		}
+
+		result.Index = meta.Index
+		result.QueueIndex = meta.QueueIndex
 
 		switch meta.SignatureHashType {
 		case types.SighashEthSign:
@@ -1525,6 +1530,9 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+	if !tx.Protected() {
+		return common.Hash{}, errors.New("Cannot submit unprotected transaction")
+	}
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}

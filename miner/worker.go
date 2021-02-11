@@ -1050,7 +1050,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 
 			txs := block.Transactions()
 			if len(txs) != 1 {
-				return fmt.Errorf("Block created with not 1 transaction", "count", len(txs), "number", block.Number())
+				return fmt.Errorf("Block created with not %d transactions at %d", len(txs), block.NumberU64())
 			}
 			tx := txs[0]
 			log.Info("New block", "number", block.Number(), "tx-hash", tx.Hash().Hex(),

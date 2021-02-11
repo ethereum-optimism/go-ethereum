@@ -101,6 +101,24 @@ func TxMetaDecode(input []byte) (*TransactionMeta, error) {
 	binary.Read(bytes.NewReader(l), binary.LittleEndian, &l1Timestamp)
 	meta.L1Timestamp = l1Timestamp
 
+	i, err := common.ReadVarBytes(b, 0, 1024, "Index")
+	if err != nil {
+		return nil, err
+	}
+	if !isNullValue(i) {
+		index := new(big.Int).SetBytes(i).Uint64()
+		meta.Index = &index
+	}
+
+	qi, err := common.ReadVarBytes(b, 0, 1024, "QueueIndex")
+	if err != nil {
+		return nil, err
+	}
+	if !isNullValue(qi) {
+		queueIndex := new(big.Int).SetBytes(qi).Uint64()
+		meta.QueueIndex = &queueIndex
+	}
+
 	return &meta, nil
 }
 
@@ -142,6 +160,24 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 	l := new(bytes.Buffer)
 	binary.Write(l, binary.LittleEndian, &meta.L1Timestamp)
 	common.WriteVarBytes(b, 0, l.Bytes())
+
+	index := meta.Index
+	if index == nil {
+		common.WriteVarBytes(b, 0, getNullValue())
+	} else {
+		i := new(bytes.Buffer)
+		binary.Write(i, binary.LittleEndian, *index)
+		common.WriteVarBytes(b, 0, i.Bytes())
+	}
+
+	queueIndex := meta.QueueIndex
+	if queueIndex == nil {
+		common.WriteVarBytes(b, 0, getNullValue())
+	} else {
+		qi := new(bytes.Buffer)
+		binary.Write(qi, binary.LittleEndian, *queueIndex)
+		common.WriteVarBytes(b, 0, qi.Bytes())
+	}
 
 	return b.Bytes()
 }
