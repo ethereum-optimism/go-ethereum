@@ -56,10 +56,10 @@ type Enqueue struct {
 	Index       *uint64        `json:"ctcIndex"`
 	Target      common.Address `json:"target"`
 	Data        hexutil.Bytes  `json"data"`
-	GasLimit    uint64         `json"gasLimit"`
-	Origin      common.Address `json"origin"`
-	BlockNumber uint64         `json"blockNumber"`
-	Timestamp   uint64         `json"timestamp"`
+	GasLimit    uint64         `json:"gasLimit"`
+	Origin      common.Address `json:"origin"`
+	BlockNumber uint64         `json:"blockNumber"`
+	Timestamp   uint64         `json:"timestamp"`
 	QueueIndex  uint64         `json:"index"`
 }
 

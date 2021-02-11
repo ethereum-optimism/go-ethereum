@@ -31,7 +31,7 @@ type TransactionMeta struct {
 	// The canonical transaction chain index
 	Index *uint64 `json:"index" gencodec:"required"`
 	// The queue index, nil for queue origin sequencer transactions
-	QueueIndex *uint64 `json"queueIndex" gencodec:"required"`
+	QueueIndex *uint64 `json:"queueIndex" gencodec:"required"`
 }
 
 // NewTransactionMeta creates a TransactionMeta
