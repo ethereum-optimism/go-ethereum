@@ -1159,8 +1159,8 @@ type RPCTransaction struct {
 	L1TxOrigin       *common.Address `json:"l1TxOrigin"`
 	L1BlockNumber    *hexutil.Big    `json:"l1BlockNumber"`
 	L1Timestamp      hexutil.Uint64  `json:"l1Timestamp"`
-	Index            *uint64         `json:"index"`
-	QueueIndex       *uint64         `json:"queueIndex"`
+	Index            *hexutil.Uint64 `json:"index"`
+	QueueIndex       *hexutil.Uint64 `json:"queueIndex"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1208,8 +1208,8 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 			}
 		}
 
-		result.Index = meta.Index
-		result.QueueIndex = meta.QueueIndex
+		result.Index = (*hexutil.Uint64)(meta.Index)
+		result.QueueIndex = (*hexutil.Uint64)(meta.QueueIndex)
 
 		switch meta.SignatureHashType {
 		case types.SighashEthSign:
