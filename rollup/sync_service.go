@@ -100,10 +100,18 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 			return nil, fmt.Errorf("Rollup client unable to connect: %w", err)
 		}
 
-		// Initialization logic
-		block := service.bc.CurrentBlock()
-		if block == nil {
-			return nil, errors.New("Current block is nil")
+		// Ensure that the remote is still not syncing
+		for {
+			status, err := service.client.SyncStatus()
+			if err != nil {
+				log.Error("Cannot get sync status")
+				continue
+			}
+			if status.Syncing == false {
+				break
+			}
+			log.Info("Still syncing", "block", status.CurrentBlock, "tip", status.HighestKnownBlock)
+			time.Sleep(10 * time.Second)
 		}
 
 		// Initialize the latest L1 data here to make sure that

@@ -320,3 +320,9 @@ func (m *mockClient) GetLatestEthContext() (*EthContext, error) {
 func (m *mockClient) GetLastConfirmedEnqueue() (*types.Transaction, error) {
 	return nil, nil
 }
+
+func (m *mockClient) SyncStatus() (*SyncStatus, error) {
+	return &SyncStatus{
+		Syncing: false,
+	}, nil
+}

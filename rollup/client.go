@@ -37,6 +37,12 @@ type EthContext struct {
 	Timestamp   uint64      `json:"timestamp"`
 }
 
+type SyncStatus struct {
+	Syncing           bool   `json:"syncing"`
+	HighestKnownBlock uint64 `json:"highestKnownBlock"`
+	CurrentBlock      uint64 `json:"currentBlock"`
+}
+
 type transaction struct {
 	Index       uint64         `json:"index"`
 	BatchIndex  uint64         `json:"batchIndex"`
@@ -86,6 +92,7 @@ type RollupClient interface {
 	GetEthContext(index uint64) (*EthContext, error)
 	GetLatestEthContext() (*EthContext, error)
 	GetLastConfirmedEnqueue() (*types.Transaction, error)
+	SyncStatus() (*SyncStatus, error)
 }
 
 type Client struct {
@@ -384,4 +391,21 @@ func (c *Client) GetLastConfirmedEnqueue() (*types.Transaction, error) {
 		}
 		enqueue = next
 	}
+}
+
+func (c *Client) SyncStatus() (*SyncStatus, error) {
+	response, err := c.client.R().
+		SetResult(&SyncStatus{}).
+		Get("/eth/syncing")
+
+	if err != nil {
+		return nil, fmt.Errorf("Cannot fetch sync status: %w", err)
+	}
+
+	status, ok := response.Result().(*SyncStatus)
+	if !ok {
+		return nil, fmt.Errorf("Cannot parse sync status")
+	}
+
+	return status, nil
 }
