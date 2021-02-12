@@ -14,17 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
-)
-
-// These variables represent the event signatures
-var (
-	transactionEnqueuedEventSignature      = crypto.Keccak256([]byte("TransactionEnqueued(address,address,uint256,bytes,uint256,uint256)"))
-	queueBatchAppendedEventSignature       = crypto.Keccak256([]byte("QueueBatchAppended(uint256,uint256,uint256)"))
-	sequencerBatchAppendedEventSignature   = crypto.Keccak256([]byte("SequencerBatchAppended(uint256,uint256,uint256)"))
-	transactionBatchAppendedEventSignature = crypto.Keccak256([]byte("TransactionBatchAppended(uint256,bytes32,uint256,uint256,bytes)"))
 )
 
 // Test that the `RollupTransaction` ends up in the transaction cache

@@ -107,7 +107,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 				log.Error("Cannot get sync status")
 				continue
 			}
-			if status.Syncing == false {
+			if !status.Syncing {
 				break
 			}
 			log.Info("Still syncing", "block", status.CurrentBlock, "tip", status.HighestKnownBlock)
