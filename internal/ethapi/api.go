@@ -1208,8 +1208,14 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 			}
 		}
 
-		result.Index = (*hexutil.Uint64)(meta.Index)
-		result.QueueIndex = (*hexutil.Uint64)(meta.QueueIndex)
+		if meta.Index != nil {
+			index := (hexutil.Uint64)(*meta.Index)
+			result.Index = &index
+		}
+		if meta.QueueIndex != nil {
+			queueIndex := (hexutil.Uint64)(*meta.QueueIndex)
+			result.QueueIndex = &queueIndex
+		}
 
 		switch meta.SignatureHashType {
 		case types.SighashEthSign:

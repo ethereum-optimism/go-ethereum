@@ -166,7 +166,7 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 		common.WriteVarBytes(b, 0, getNullValue())
 	} else {
 		i := new(bytes.Buffer)
-		binary.Write(i, binary.LittleEndian, *index)
+		binary.Write(i, binary.LittleEndian, new(big.Int).SetUint64(*index).Bytes())
 		common.WriteVarBytes(b, 0, i.Bytes())
 	}
 
@@ -175,7 +175,7 @@ func TxMetaEncode(meta *TransactionMeta) []byte {
 		common.WriteVarBytes(b, 0, getNullValue())
 	} else {
 		qi := new(bytes.Buffer)
-		binary.Write(qi, binary.LittleEndian, *queueIndex)
+		binary.Write(qi, binary.LittleEndian, new(big.Int).SetUint64(*queueIndex).Bytes())
 		common.WriteVarBytes(b, 0, qi.Bytes())
 	}
 
