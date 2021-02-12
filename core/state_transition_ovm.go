@@ -64,7 +64,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 
 	if err != nil {
 		// This should only be allowed to pass if the transaction is in the ctc
-		// already. The presense of `Index` should specify this.
+		// already. The presence of `Index` should specify this.
 		index := tx.GetMeta().Index
 		if index == nil {
 			return msg, fmt.Errorf("Cannot conver tx to message in asOvmMessage: %w", err)
