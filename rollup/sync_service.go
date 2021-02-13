@@ -121,9 +121,8 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 			if !status.Syncing {
 				break
 			}
-			log.Info("Still syncing", "block", status.CurrentBlock, "tip", status.HighestKnownBlock)
+			log.Info("Still syncing", "index", status.CurrentTransactionIndex, "tip", status.HighestKnownTransactionIndex)
 			time.Sleep(10 * time.Second)
-			break
 		}
 
 		// Initialize the latest L1 data here to make sure that
@@ -421,10 +420,10 @@ func (s *SyncService) syncTransactionsToTip() error {
 			return fmt.Errorf("Cannot get latest transaction: %w", err)
 		}
 		tipHeight := latest.GetMeta().Index
-		block := s.bc.CurrentBlock()
-		start := block.Number().Uint64()
-		if start != 0 {
-			start = start - 1
+		index := rawdb.ReadHeadIndex(s.db)
+		start := uint64(0)
+		if index != nil {
+			start = *index
 		}
 
 		log.Info("Syncing transactions to tip", "start", start, "end", *tipHeight)

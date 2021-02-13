@@ -38,9 +38,9 @@ type EthContext struct {
 }
 
 type SyncStatus struct {
-	Syncing           bool   `json:"syncing"`
-	HighestKnownBlock uint64 `json:"highestKnownBlock"`
-	CurrentBlock      uint64 `json:"currentBlock"`
+	Syncing                      bool   `json:"syncing"`
+	HighestKnownTransactionIndex uint64 `json:"highestKnownTransactionIndex"`
+	CurrentTransactionIndex      uint64 `json:"currentTransactionIndex"`
 }
 
 type transaction struct {
