@@ -821,6 +821,12 @@ var (
 		Value:  "0x0000000000000000000000000000000000000000",
 		EnvVar: "ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS",
 	}
+	Eth1ETHGatewayAddressFlag = cli.StringFlag{
+		Name:   "eth1.l1ethgatewayaddress",
+		Usage:  "Deployment address of the L1 cross domain messenger",
+		Value:  "0x0000000000000000000000000000000000000000",
+		EnvVar: "ETH1_L1_ETH_GATEWAY_ADDRESS",
+	}
 	Eth1ChainIdFlag = cli.Uint64Flag{
 		Name:   "eth1.chainid",
 		Usage:  "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
@@ -1120,6 +1126,10 @@ func setEth1(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(Eth1L1CrossDomainMessengerAddressFlag.Name) {
 		addr := ctx.GlobalString(Eth1L1CrossDomainMessengerAddressFlag.Name)
 		cfg.L1CrossDomainMessengerAddress = common.HexToAddress(addr)
+	}
+	if ctx.GlobalIsSet(Eth1ETHGatewayAddressFlag.Name) {
+		addr := ctx.GlobalString(Eth1ETHGatewayAddressFlag.Name)
+		cfg.L1ETHGatewayAddress = common.HexToAddress(addr)
 	}
 	if ctx.GlobalIsSet(Eth1ChainIdFlag.Name) {
 		cfg.Eth1ChainId = ctx.GlobalUint64(Eth1ChainIdFlag.Name)
@@ -1745,8 +1755,9 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *eth.Config) {
 		}
 		xdomainAddress := cfg.Rollup.L1CrossDomainMessengerAddress
 		addrManagerOwnerAddress := cfg.Rollup.AddressManagerOwnerAddress
+		l1ETHGatewayAddress := cfg.Rollup.L1ETHGatewayAddress
 		stateDumpPath := cfg.Rollup.StateDumpPath
-		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, addrManagerOwnerAddress, stateDumpPath, chainID, gasLimit)
+		cfg.Genesis = core.DeveloperGenesisBlock(uint64(ctx.GlobalInt(DeveloperPeriodFlag.Name)), developer.Address, xdomainAddress, l1ETHGatewayAddress, addrManagerOwnerAddress, stateDumpPath, chainID, gasLimit)
 		if !ctx.GlobalIsSet(MinerGasPriceFlag.Name) && !ctx.GlobalIsSet(MinerLegacyGasPriceFlag.Name) {
 			cfg.Miner.GasPrice = big.NewInt(1)
 		}

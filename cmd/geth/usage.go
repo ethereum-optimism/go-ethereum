@@ -71,6 +71,7 @@ var AppHelpFlagGroups = []flagGroup{
 			utils.Eth1CanonicalTransactionChainAddressFlag,
 			utils.Eth1SequencerDecompressionAddressFlag,
 			utils.Eth1L1CrossDomainMessengerAddressFlag,
+			utils.Eth1ETHGatewayAddressFlag,
 			utils.Eth1ChainIdFlag,
 			utils.Eth1NetworkIdFlag,
 			utils.Eth1HTTPFlag,
