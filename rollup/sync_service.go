@@ -283,7 +283,7 @@ func (s *SyncService) Stop() error {
 // batch contexts. Note that this function assumes that the historical
 // state has already been synced.
 func (s *SyncService) Loop() {
-	log.Info("Starting Tip processing loop")
+	log.Info("Starting Tip processing loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
 	for {
 		// Only the sequencer needs to poll for enqueue transactions
 		// and then can choose when to apply them. We choose to apply
@@ -365,6 +365,11 @@ func (s *SyncService) Loop() {
 		latest, err := s.client.GetLatestTransaction()
 		if err != nil {
 			log.Error("Cannot fetch transaction")
+			continue
+		}
+
+		if latest == nil {
+			time.Sleep(s.pollInterval)
 			continue
 		}
 
