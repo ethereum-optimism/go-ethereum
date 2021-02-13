@@ -2,6 +2,7 @@ package rollup
 
 import (
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -29,6 +30,8 @@ type Config struct {
 	StateDumpPath string
 	// Temporary setting to disable transfers
 	DisableTransfers bool
-	// Number of blocks to reorganize and resync on boot
-	InitialReorgDepth uint64
+	// Polling interval for rollup client
+	PollInterval time.Duration
+	// Interval for updating the timestamp
+	TimestampRefreshThreshold time.Duration
 }

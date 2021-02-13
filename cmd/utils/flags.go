@@ -384,9 +384,10 @@ var (
 	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
-		Name:  "cache",
-		Usage: "Megabytes of memory allocated to internal caching (default = 4096 mainnet full node, 128 light mode)",
-		Value: 1024,
+		Name:   "cache",
+		Usage:  "Megabytes of memory allocated to internal caching (default = 4096 mainnet full node, 128 light mode)",
+		EnvVar: "CACHE",
+		Value:  1024,
 	}
 	CacheDatabaseFlag = cli.IntFlag{
 		Name:  "cache.database",
@@ -806,11 +807,17 @@ var (
 		Value:  "http://localhost:7878",
 		EnvVar: "ROLLUP_CLIENT_HTTP",
 	}
-	RollupInitialReorgDepthFlag = cli.Uint64Flag{
-		Name:   "rollup.initialreorgdepth",
-		Usage:  "Initial number of blocks to reorg on start",
-		Value:  0,
-		EnvVar: "ROLLUP_INITIAL_REORG_DEPTH",
+	RollupPollIntervalFlag = cli.DurationFlag{
+		Name:   "rollup.pollinterval",
+		Usage:  "Interval for polling with the rollup http client",
+		Value:  time.Second * 10,
+		EnvVar: "ROLLUP_POLL_INTERVAL_FLAG",
+	}
+	RollupTimstampRefreshFlag = cli.DurationFlag{
+		Name:   "rollup.timestamprefresh",
+		Usage:  "Interval for refreshing the timestamp",
+		Value:  time.Minute * 15,
+		EnvVar: "ROLLUP_TIMESTAMP_REFRESH",
 	}
 	// Flag to enable verifier mode
 	RollupEnableVerifierFlag = cli.BoolFlag{
@@ -1113,8 +1120,11 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 	if ctx.GlobalIsSet(RollupClientHttpFlag.Name) {
 		cfg.RollupClientHttp = ctx.GlobalString(RollupClientHttpFlag.Name)
 	}
-	if ctx.GlobalIsSet(RollupInitialReorgDepthFlag.Name) {
-		cfg.InitialReorgDepth = ctx.GlobalUint64(RollupInitialReorgDepthFlag.Name)
+	if ctx.GlobalIsSet(RollupPollIntervalFlag.Name) {
+		cfg.PollInterval = ctx.GlobalDuration(RollupPollIntervalFlag.Name)
+	}
+	if ctx.GlobalIsSet(RollupTimstampRefreshFlag.Name) {
+		cfg.TimestampRefreshThreshold = ctx.GlobalDuration(RollupTimstampRefreshFlag.Name)
 	}
 }
 

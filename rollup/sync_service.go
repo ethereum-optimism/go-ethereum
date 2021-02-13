@@ -64,6 +64,17 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		log.Info("Running in sequencer mode")
 	}
 
+	pollInterval := cfg.PollInterval
+	if pollInterval == 0 {
+		log.Info("Sanitizing poll interval to 15 seconds")
+		pollInterval = time.Second * 15
+	}
+	timestampRefreshThreshold := cfg.TimestampRefreshThreshold
+	if timestampRefreshThreshold == 0 {
+		log.Info("Sanitizing timestamp refresh threshold to 15 minutes")
+		timestampRefreshThreshold = time.Minute * 15
+	}
+
 	// Layer 2 chainid
 	chainID := bc.Config().ChainID
 	if chainID == nil {
@@ -84,8 +95,8 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		eth1ChainId:               cfg.Eth1ChainId,
 		client:                    client,
 		db:                        db,
-		pollInterval:              time.Second * 15,
-		timestampRefreshThreshold: time.Second * 10,
+		pollInterval:              pollInterval,
+		timestampRefreshThreshold: timestampRefreshThreshold,
 	}
 
 	// Initial sync service setup if it is enabled. This code depends on
@@ -112,6 +123,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 			}
 			log.Info("Still syncing", "block", status.CurrentBlock, "tip", status.HighestKnownBlock)
 			time.Sleep(10 * time.Second)
+			break
 		}
 
 		// Initialize the latest L1 data here to make sure that
@@ -178,6 +190,8 @@ func (s *SyncService) Start() error {
 		if err != nil {
 			return fmt.Errorf("Cannot sync transactions to the tip: %w", err)
 		}
+		// TODO: This should also sync the enqueue'd transactions that have not
+		// been synced yet
 		s.setSyncStatus(false)
 	}
 
@@ -303,6 +317,23 @@ func (s *SyncService) Loop() {
 					log.Error("Cannot get enqueue in loop", "index", i)
 					continue
 				}
+
+				// This should never happen
+				if enqueue.L1BlockNumber() == nil {
+					log.Error("No blocknumber for enqueue", "index", i, "timestamp", enqueue.L1Timestamp(), "blocknumber", enqueue.L1BlockNumber())
+					continue
+				}
+
+				// Update the timestamp and blocknumber based on the enqueued
+				// transactions
+				if enqueue.L1Timestamp() > s.GetLatestL1Timestamp() {
+					ts := enqueue.L1Timestamp()
+					bn := enqueue.L1BlockNumber().Uint64()
+					s.SetLatestL1Timestamp(ts)
+					s.SetLatestL1BlockNumber(bn)
+					log.Info("Updated Eth Context from enqueue", "index", i, "timestamp", ts, "blocknumber", bn)
+				}
+
 				err = s.applyTransaction(enqueue)
 				if err != nil {
 					log.Error("Cannot apply transaction", "msg", err)
@@ -349,9 +380,8 @@ func (s *SyncService) Loop() {
 			s.SetLatestIndex(&i)
 		}
 
-		// TODO: this is broken
-		// if a certain amount of time has passed and the timestamp
-		// and blocknumber have not been updated, update them
+		// Update the execution context's timestamp and blocknumber
+		// over time. This is only necessary for the sequencer.
 		if !s.verifier {
 			context, err := s.client.GetLatestEthContext()
 			if err != nil {
@@ -359,8 +389,8 @@ func (s *SyncService) Loop() {
 				continue
 			}
 			current := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
-			next := time.Unix(int64(context.Timestamp), 0).Add(-s.timestampRefreshThreshold)
-			if next.Before(current) {
+			next := time.Unix(int64(context.Timestamp), 0)
+			if next.Sub(current) > s.timestampRefreshThreshold {
 				log.Info("Updating Eth Context", "timetamp", context.Timestamp, "blocknumber", context.BlockNumber)
 				s.SetLatestL1BlockNumber(context.BlockNumber)
 				s.SetLatestL1Timestamp(context.Timestamp)

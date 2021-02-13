@@ -158,7 +158,8 @@ var (
 		// Enable verifier mode
 		utils.RollupEnableVerifierFlag,
 		utils.RollupAddressManagerOwnerAddressFlag,
-		utils.RollupInitialReorgDepthFlag,
+		utils.RollupTimstampRefreshFlag,
+		utils.RollupPollIntervalFlag,
 		utils.RollupStateDumpPathFlag,
 		utils.RollupDiffDbFlag,
 		utils.RollupDisableTransfersFlag,

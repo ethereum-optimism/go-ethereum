@@ -13,6 +13,9 @@ ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0x0AEBf5161A9b57349747D078c6763a0B1d67D88
 ADDRESS_MANAGER_OWNER_ADDRESS=0xc6Dbc2DC7649c7d4292d955DA08A7C21a21e1528
 ROLLUP_STATE_DUMP_PATH=https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/mainnet/1.json
 ROLLUP_CLIENT_HTTP=http://localhost:7878
+ROLLUP_POLL_INTERVAL=15s
+ROLLUP_TIMESTAMP_REFRESH=15m
+CACHE=1024
 
 USAGE="
 Start the Sequencer or Verifier with most configuration pre-set.
@@ -26,6 +29,12 @@ CLI Arguments:
   --eth1.ctcdeploymentheight             - eth1 ctc deploy height
   --eth1.l1crossdomainmessengeraddress   - eth1 l1 xdomain messenger address
   --eth1.ctcdeploymentheight             - eth1 ctc deployment height
+  --rollup.statedumppath                 - http path to the initial state dump
+  --rollup.clienthttp                    - rollup client http
+  --rollup.pollinterval                  - polling interval for the rollup client
+  --rollup.timestamprefresh              - timestamp refresh interval
+  --cache                                - geth cache size
+  --targetgaslimit                       - gas per block
 "
 
 while (( "$#" )); do
@@ -110,6 +119,33 @@ while (( "$#" )); do
                 exit 1
             fi
             ;;
+        --rollup.pollinterval)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                ROLLUP_POLL_INTERVAL="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
+        --rollup.timestamprefresh)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                ROLLUP_TIMESTAMP_REFRESH="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
+        --cache)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                CACHE="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
         --targetgaslimit)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
                 TARGET_GASLIMIT="$2"
@@ -128,13 +164,16 @@ done
 
 cmd="$REPO/build/bin/geth"
 cmd="$cmd --eth1.syncservice"
-cmd="$cmd --datadir $HOME/.ethereum"
+cmd="$cmd --datadir $DATADIR"
 cmd="$cmd --eth1.chainid $ETH1_CHAIN_ID"
 cmd="$cmd --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"
 cmd="$cmd --rollup.addressmanagerowneraddress $ADDRESS_MANAGER_OWNER_ADDRESS"
 cmd="$cmd --rollup.statedumppath $ROLLUP_STATE_DUMP_PATH"
 cmd="$cmd --eth1.ctcdeploymentheight $ETH1_CTC_DEPLOYMENT_HEIGHT"
 cmd="$cmd --rollup.clienthttp $ROLLUP_CLIENT_HTTP"
+cmd="$cmd --rollup.pollinterval $ROLLUP_POLL_INTERVAL"
+cmd="$cmd --rollup.timestamprefresh $ROLLUP_TIMESTAMP_REFRESH"
+cmd="$cmd --cache $CACHE"
 cmd="$cmd --rpc"
 cmd="$cmd --dev"
 cmd="$cmd --chainid $CHAIN_ID"
