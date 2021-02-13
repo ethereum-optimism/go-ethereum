@@ -24,6 +24,7 @@ type Config struct {
 	RollupClientHttp              string
 	L1CrossDomainMessengerAddress common.Address
 	AddressManagerOwnerAddress    common.Address
+	L1ETHGatewayAddress           common.Address
 	// Deployment Height of the canonical transaction chain
 	CanonicalTransactionChainDeployHeight *big.Int
 	// Path to the state dump

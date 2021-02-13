@@ -71,6 +71,7 @@ type Genesis struct {
 	// in the genesis state
 	L1CrossDomainMessengerAddress common.Address `json:"-"`
 	AddressManagerOwnerAddress    common.Address `json:"-"`
+	L1ETHGatewayAddress    common.Address `json:"-"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -264,7 +265,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 }
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
-func ApplyOvmStateToState(statedb *state.StateDB, l1XDomainMessengerAddress common.Address, addrManagerOwnerAddress common.Address, stateDump *dump.OvmDump) {
+func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump , l1XDomainMessengerAddress common.Address, l1ETHGatewayAddress common.Address, addrManagerOwnerAddress common.Address) {
 	if len(stateDump.Accounts) == 0 {
 		return
 	}
@@ -300,9 +301,9 @@ func ApplyOvmStateToState(statedb *state.StateDB, l1XDomainMessengerAddress comm
 	}
 	OVM_ETH, ok := stateDump.Accounts["OVM_ETH"]
 	if ok {
-		log.Info("Setting OVM_L1WETHGateway in OVM_ETH", "address", l1XDomainMessengerAddress.Hex()) // TODO: actual var from .env, not the messenger!
+		log.Info("Setting OVM_L1WETHGateway in OVM_ETH", "address", l1ETHGatewayAddress.Hex())
 		l1GatewaySlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000008")
-		l1GatewayValue := common.BytesToHash(l1XDomainMessengerAddress.Bytes()) // TODO: actual var from .env, not the messenger!
+		l1GatewayValue := common.BytesToHash(l1ETHGatewayAddress.Bytes())
 		statedb.SetState(OVM_ETH.Address, l1GatewaySlot, l1GatewayValue)
 	}
 }
@@ -317,7 +318,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 
 	if vm.UsingOVM {
 		// OVM_ENABLED
-		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.Config.StateDump)
+		ApplyOvmStateToState(statedb, g.Config.StateDump, g.L1CrossDomainMessengerAddress, g.L1ETHGatewayAddress, g.AddressManagerOwnerAddress)
 	}
 
 	for addr, account := range g.Alloc {
@@ -444,7 +445,7 @@ func DefaultGoerliGenesisBlock() *Genesis {
 }
 
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
-func DeveloperGenesisBlock(period uint64, faucet, l1XDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDumpPath string, chainID *big.Int, gasLimit uint64) *Genesis {
+func DeveloperGenesisBlock(period uint64, faucet, l1XDomainMessengerAddress common.Address, l1ETHGatewayAddress common.Address, addrManagerOwnerAddress common.Address, stateDumpPath string, chainID *big.Int, gasLimit uint64) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
@@ -501,6 +502,7 @@ func DeveloperGenesisBlock(period uint64, faucet, l1XDomainMessengerAddress, add
 		},
 		L1CrossDomainMessengerAddress: l1XDomainMessengerAddress,
 		AddressManagerOwnerAddress:    addrManagerOwnerAddress,
+		L1ETHGatewayAddress: l1ETHGatewayAddress,
 	}
 }
 
