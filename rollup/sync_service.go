@@ -419,6 +419,10 @@ func (s *SyncService) syncTransactionsToTip() error {
 		if err != nil {
 			return fmt.Errorf("Cannot get latest transaction: %w", err)
 		}
+		if latest == nil {
+			log.Info("No transactions to sync")
+			return nil
+		}
 		tipHeight := latest.GetMeta().Index
 		index := rawdb.ReadHeadIndex(s.db)
 		start := uint64(0)
