@@ -322,6 +322,11 @@ func (s *SyncService) Loop() {
 					continue
 				}
 
+				if enqueue == nil {
+					log.Debug("Enqueue is nil", "index", i)
+					break
+				}
+
 				// This should never happen
 				if enqueue.L1BlockNumber() == nil {
 					log.Error("No blocknumber for enqueue", "index", i, "timestamp", enqueue.L1Timestamp(), "blocknumber", enqueue.L1BlockNumber())
