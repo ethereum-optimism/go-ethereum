@@ -349,7 +349,11 @@ func (s *SyncService) Loop() {
 				}
 				s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
 				if enqueue.GetMeta().Index == nil {
-					index := *s.GetLatestIndex() + 1
+					latest := s.GetLatestIndex()
+					index := uint64(0)
+					if latest != nil {
+						index = *latest + 1
+					}
 					s.SetLatestIndex(&index)
 				} else {
 					s.SetLatestIndex(enqueue.GetMeta().Index)
