@@ -385,6 +385,9 @@ func (c *Client) GetLastConfirmedEnqueue() (*types.Transaction, error) {
 		if meta.QueueIndex == nil {
 			return nil, fmt.Errorf("queue index is nil")
 		}
+		if meta.QueueIndex == 0 {
+			return enqueue, nil
+		}
 		next, err := c.GetEnqueue(*meta.QueueIndex - 1)
 		if err != nil {
 			return nil, fmt.Errorf("cannot get enqueue %d: %w", *meta.Index, err)

@@ -235,6 +235,11 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 			if err != nil {
 				return err
 			}
+			// There are no enqueues yet
+			if enqueue == nil {
+				log.Info("No enqueue'd transactions yet")
+				return nil
+			}
 			queueIndex = enqueue.GetMeta().QueueIndex
 		}
 		s.SetLatestEnqueueIndex(queueIndex)
