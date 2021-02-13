@@ -82,7 +82,7 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 	}
 	// Initialize the rollup client
 	client := NewClient(cfg.RollupClientHttp, chainID)
-	log.Info("Configured rollup client", "url", cfg.RollupClientHttp, "chain-id", chainID.Uint64())
+	log.Info("Configured rollup client", "url", cfg.RollupClientHttp, "chain-id", chainID.Uint64(), "ctc-deploy-height", cfg.CanonicalTransactionChainDeployHeight)
 	service := SyncService{
 		ctx:                       ctx,
 		cancel:                    cancel,

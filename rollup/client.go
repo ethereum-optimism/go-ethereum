@@ -327,14 +327,14 @@ func (c *Client) GetLatestTransaction() (*types.Transaction, error) {
 	return transactionResponseToTransaction(res, c.signer)
 }
 
-func (c *Client) GetEthContext(index uint64) (*EthContext, error) {
-	str := strconv.FormatUint(index, 10)
+func (c *Client) GetEthContext(blockNumber uint64) (*EthContext, error) {
+	str := strconv.FormatUint(blockNumber, 10)
 	response, err := c.client.R().
 		SetPathParams(map[string]string{
-			"index": str,
+			"blocknumber": str,
 		}).
 		SetResult(&EthContext{}).
-		Get("/eth/context/index/{index}")
+		Get("/eth/context/blocknumber/{blocknumber}")
 
 	if err != nil {
 		return nil, err

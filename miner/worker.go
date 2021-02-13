@@ -1053,7 +1053,7 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 				return fmt.Errorf("Block created with not %d transactions at %d", len(txs), block.NumberU64())
 			}
 			tx := txs[0]
-			log.Info("New block", "number", block.Number(), "tx-hash", tx.Hash().Hex(),
+			log.Info("New block", "index", block.Number().Uint64()-uint64(1), "timestamp", block.Time(), "tx-hash", tx.Hash().Hex(),
 				"gas", block.GasUsed(), "fees", feesEth, "elapsed", common.PrettyDuration(time.Since(start)))
 
 		case <-w.exitCh:
