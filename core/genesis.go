@@ -264,7 +264,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 }
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
-func ApplyOvmStateToState(statedb *state.StateDB, l1XDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDump *dump.OvmDump) {
+func ApplyOvmStateToState(statedb *state.StateDB, l1XDomainMessengerAddress common.Address, addrManagerOwnerAddress common.Address, stateDump *dump.OvmDump) {
 	if len(stateDump.Accounts) == 0 {
 		return
 	}
@@ -286,18 +286,24 @@ func ApplyOvmStateToState(statedb *state.StateDB, l1XDomainMessengerAddress, add
 	AddressManager, ok := stateDump.Accounts["Lib_AddressManager"]
 	if ok {
 		// Set the owner of the address manager
+		log.Info("Setting owner of AddressManager to address(0)")
 		ownerSlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 		ownerValue := common.BytesToHash(addrManagerOwnerAddress.Bytes())
 		statedb.SetState(AddressManager.Address, ownerSlot, ownerValue)
 		log.Info("Setting AddressManager Owner", "owner", addrManagerOwnerAddress.Hex())
 		// Set the storage slot associated with the cross domain messenger
 		// to the cross domain messenger address.
-		slot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
-		value := common.BytesToHash(l1XDomainMessengerAddress.Bytes())
-		statedb.SetState(AddressManager.Address, slot, value)
 		log.Info("Setting CrossDomainMessenger in AddressManager", "address", l1XDomainMessengerAddress.Hex())
-
-		log.Info("I am a custom build!")
+		l1MessengerSlot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
+		l1MessengerValue := common.BytesToHash(l1XDomainMessengerAddress.Bytes())
+		statedb.SetState(AddressManager.Address, l1MessengerSlot, l1MessengerValue)
+	}
+	OVM_ETH, ok := stateDump.Accounts["OVM_ETH"]
+	if ok {
+		log.Info("Setting OVM_L1WETHGateway in OVM_ETH", "address", l1XDomainMessengerAddress.Hex()) // TODO: actual var from .env, not the messenger!
+		l1GatewaySlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000008")
+		l1GatewayValue := common.BytesToHash(l1XDomainMessengerAddress.Bytes()) // TODO: actual var from .env, not the messenger!
+		statedb.SetState(OVM_ETH.Address, l1GatewaySlot, l1GatewayValue)
 	}
 }
 
