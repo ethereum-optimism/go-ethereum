@@ -63,9 +63,8 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	Rollup: rollup.Config{
-		TxIngestionEnable: false,
-		StateDumpPath:     "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/master.json",
-		MaxCallDataSize:   512,
+		StateDumpPath:   "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/master.json",
+		MaxCallDataSize: 512,
 	},
 	DiffDbCache: 256,
 }

@@ -3,39 +3,36 @@ package rawdb
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// ReadHeadEth1HeaderHash reads the last processed Eth1 header hash
-func ReadHeadEth1HeaderHash(db ethdb.KeyValueReader) common.Hash {
-	data, _ := db.Get(headEth1HeaderKey)
+func ReadHeadIndex(db ethdb.KeyValueReader) *uint64 {
+	data, _ := db.Get(headIndexKey)
 	if len(data) == 0 {
-		return common.Hash{}
+		return nil
 	}
-	return common.BytesToHash(data)
+	ret := new(big.Int).SetBytes(data).Uint64()
+	return &ret
 }
 
-// WriteHeadEth1HeaderHash writes the last processed Eth1 header hash
-func WriteHeadEth1HeaderHash(db ethdb.KeyValueWriter, hash common.Hash) {
-	if err := db.Put(headEth1HeaderKey, hash.Bytes()); err != nil {
-		log.Crit("Failed to store last eth1 header hash", "err", err)
+func WriteHeadIndex(db ethdb.KeyValueWriter, index uint64) {
+	if err := db.Put(headIndexKey, new(big.Int).SetUint64(index).Bytes()); err != nil {
+		log.Crit("Failed to store index", "err", err)
 	}
 }
 
-// ReadHeadEth1HeightKey reads the last processed Eth1 header height
-func ReadHeadEth1HeaderHeight(db ethdb.KeyValueReader) uint64 {
-	data, _ := db.Get(headEth1HeightKey)
+func ReadHeadQueueIndex(db ethdb.KeyValueReader) *uint64 {
+	data, _ := db.Get(headQueueIndexKey)
 	if len(data) == 0 {
-		return 0
+		return nil
 	}
-	return new(big.Int).SetBytes(data).Uint64()
+	ret := new(big.Int).SetBytes(data).Uint64()
+	return &ret
 }
 
-// WriteHeadEth1HeightKey writes the last processed Eth1 header height
-func WriteHeadEth1HeaderHeight(db ethdb.KeyValueWriter, height uint64) {
-	if err := db.Put(headEth1HeightKey, new(big.Int).SetUint64(height).Bytes()); err != nil {
-		log.Crit("Failed to store eth1 header height", "err", err)
+func WriteHeadQueueIndex(db ethdb.KeyValueWriter, index uint64) {
+	if err := db.Put(headQueueIndexKey, new(big.Int).SetUint64(index).Bytes()); err != nil {
+		log.Crit("Failed to store queue index", "err", err)
 	}
 }
