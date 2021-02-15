@@ -294,13 +294,14 @@ func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump , l1XD
 		log.Info("Setting AddressManager Owner", "owner", addrManagerOwnerAddress.Hex())
 		// Set the storage slot associated with the cross domain messenger
 		// to the cross domain messenger address.
-		log.Info("Setting CrossDomainMessenger in AddressManager", "address", l1XDomainMessengerAddress.Hex())
+		log.Info("Setting OVM_L1CrossDomainMessenger in AddressManager", "address", l1XDomainMessengerAddress.Hex())
 		l1MessengerSlot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
 		l1MessengerValue := common.BytesToHash(l1XDomainMessengerAddress.Bytes())
 		statedb.SetState(AddressManager.Address, l1MessengerSlot, l1MessengerValue)
 	}
 	OVM_ETH, ok := stateDump.Accounts["OVM_ETH"]
 	if ok {
+		// Set the gateway of OVM_ETH
 		log.Info("Setting OVM_L1WETHGateway in OVM_ETH", "address", l1ETHGatewayAddress.Hex())
 		l1GatewaySlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000008")
 		l1GatewayValue := common.BytesToHash(l1ETHGatewayAddress.Bytes())
