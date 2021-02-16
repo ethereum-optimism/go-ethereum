@@ -839,10 +839,11 @@ func (s *PublicBlockChainAPI) GetBlockRange(ctx context.Context, startNumber rpc
 	// For each block in range, get block and append to array.
 	for number := startNumber; number <= endNumber; number++ {
 		block, err := s.GetBlockByNumber(ctx, number, fullTx)
-		if block != nil && err == nil {
-			blocks = append(blocks, block)
+		if block == nil || err != nil {
+			return nil, err
 		}
-		return nil, err
+
+		blocks = append(blocks, block)
 	}
 
 	return blocks, nil
