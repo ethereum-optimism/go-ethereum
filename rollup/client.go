@@ -192,6 +192,28 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 	if res.Transaction == nil {
 		return nil, nil
 	}
+	// The queue origin must be either sequencer of l1, otherwise
+	// it is considered an unknown queue origin and will not be processed
+	var queueOrigin types.QueueOrigin
+	if res.Transaction.QueueOrigin == "sequencer" {
+		queueOrigin = types.QueueOriginSequencer
+	} else if res.Transaction.QueueOrigin == "l1" {
+		queueOrigin = types.QueueOriginL1ToL2
+	} else {
+		return nil, fmt.Errorf("Unknown queue origin: %s", res.Transaction.QueueOrigin)
+	}
+	// The transaction type must be EIP155 or EthSign. Throughout this
+	// codebase, it is referred to as "sighash type" but it could actually
+	// be generalized to transaction type. Right now the only different
+	// types use a different signature hashing scheme.
+	var sighashType types.SignatureHashType
+	if res.Transaction.Type == "EIP155" {
+		sighashType = types.SighashEIP155
+	} else if res.Transaction.Type == "ETH_SIGN" {
+		sighashType = types.SighashEthSign
+	} else {
+		return nil, fmt.Errorf("Unknown transaction type: %s", res.Transaction.Type)
+	}
 	// Transactions that have been decoded are
 	// Queue Origin Sequencer transactions
 	if res.Transaction.Decoded != nil {
@@ -206,30 +228,7 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		data := res.Transaction.Decoded.Data
 		l1MessageSender := res.Transaction.Origin
 		l1BlockNumber := new(big.Int).SetUint64(res.Transaction.BlockNumber)
-		// The queue origin must be either sequencer of l1, otherwise
-		// it is considered an unknown queue origin and will not be processed
-		var queueOrigin types.QueueOrigin
-		if res.Transaction.QueueOrigin == "sequencer" {
-			queueOrigin = types.QueueOriginSequencer
-		} else if res.Transaction.QueueOrigin == "l1" {
-			queueOrigin = types.QueueOriginL1ToL2
-		} else {
-			return nil, fmt.Errorf("Unknown queue origin: %s", res.Transaction.QueueOrigin)
-		}
-		// The transaction type must be EIP155 or EthSign. Throughout this
-		// codebase, it is referred to as "sighash type" but it could actually
-		// be generalized to transaction type. Right now the only different
-		// types use a different signature hashing scheme.
-		var sighashType types.SignatureHashType
-		if res.Transaction.Type == "EIP155" {
-			sighashType = types.SighashEIP155
-		} else if res.Transaction.Type == "ETH_SIGN" {
-			sighashType = types.SighashEthSign
-		} else {
-			return nil, fmt.Errorf("Unknown transaction type: %s", res.Transaction.Type)
-		}
 
-		// TODO: if queue origin Sequencer, set L1MessageSender to nil
 		var tx *types.Transaction
 		if to == (common.Address{}) {
 			tx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin)
@@ -241,7 +240,7 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 			L1BlockNumber:     new(big.Int).SetUint64(res.Transaction.BlockNumber),
 			L1Timestamp:       res.Transaction.Timestamp,
 			L1MessageSender:   res.Transaction.Origin,
-			SignatureHashType: types.SighashEIP155,
+			SignatureHashType: sighashType,
 			QueueOrigin:       big.NewInt(int64(queueOrigin)),
 			Index:             &res.Transaction.Index,
 			QueueIndex:        res.Transaction.QueueIndex,
@@ -267,7 +266,7 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 	nonce := uint64(0)
 	if res.Transaction.QueueOrigin == "l1" {
 		if res.Transaction.QueueIndex == nil {
-			return nil, errors.New("")
+			return nil, errors.New("Queue origin L1 to L2 without a queue index")
 		}
 		nonce = *res.Transaction.QueueIndex
 	}
@@ -282,8 +281,8 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		L1BlockNumber:     blockNumber,
 		L1Timestamp:       res.Transaction.Timestamp,
 		L1MessageSender:   origin,
-		SignatureHashType: types.SighashEIP155,
-		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
+		SignatureHashType: sighashType,
+		QueueOrigin:       big.NewInt(int64(queueOrigin)),
 		Index:             &res.Transaction.Index,
 		QueueIndex:        res.Transaction.QueueIndex,
 	}
