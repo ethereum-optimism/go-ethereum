@@ -1190,6 +1190,8 @@ type RPCTransaction struct {
 	L1TxOrigin       *common.Address `json:"l1TxOrigin"`
 	L1BlockNumber    *hexutil.Big    `json:"l1BlockNumber"`
 	L1Timestamp      hexutil.Uint64  `json:"l1Timestamp"`
+	Index            *hexutil.Uint64 `json:"index"`
+	QueueIndex       *hexutil.Uint64 `json:"queueIndex"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1235,6 +1237,15 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 			case uint64(types.QueueOriginL1ToL2):
 				result.QueueOrigin = "l1"
 			}
+		}
+
+		if meta.Index != nil {
+			index := (hexutil.Uint64)(*meta.Index)
+			result.Index = &index
+		}
+		if meta.QueueIndex != nil {
+			queueIndex := (hexutil.Uint64)(*meta.QueueIndex)
+			result.QueueIndex = &queueIndex
 		}
 
 		switch meta.SignatureHashType {
@@ -1556,6 +1567,9 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
 func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+	if !tx.Protected() {
+		return common.Hash{}, errors.New("Cannot submit unprotected transaction")
+	}
 	if err := b.SendTx(ctx, tx); err != nil {
 		return common.Hash{}, err
 	}
@@ -1632,6 +1646,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, errors.New("Cannot send raw transaction in verifier mode")
 	}
 
+	if s.b.IsSyncing() {
+		return common.Hash{}, errors.New("Cannot send raw transaction while syncing")
+	}
+
 	tx := new(types.Transaction)
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
@@ -1649,6 +1667,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context, encodedTx hexutil.Bytes) (common.Hash, error) {
 	if s.b.IsVerifier() {
 		return common.Hash{}, errors.New("Cannot send raw ethsign transaction in verifier mode")
+	}
+
+	if s.b.IsSyncing() {
+		return common.Hash{}, errors.New("Cannot send raw transaction while syncing")
 	}
 
 	tx := new(types.Transaction)
@@ -1802,77 +1824,44 @@ func NewPublicRollupAPI(b Backend) *PublicRollupAPI {
 	return &PublicRollupAPI{b: b}
 }
 
-// rollupAddressses holds the addresses of the layer one contracts
-// that the layer two is configured to use.
-type rollupAddresses struct {
-	AddressResolver           string `json:"addressResolver"`
-	CanonicalTransactionChain string `json:"canonicalTransactionChain"`
-	SequencerDecompression    string `json:"sequencerDecompression"`
-	StateCommitmentChain      string `json:"stateCommitmentChain"`
-	L1CrossDomainMessenger    string `json:"l1CrossDomainMessenger"`
+// TODO: deduplicate this
+type EthContext struct {
+	BlockNumber uint64 `json:"blockNumber"`
+	Timestamp   uint64 `json:"timestamp"`
+}
+type RollupContext struct {
+	Index      uint64 `json:"index"`
+	QueueIndex uint64 `json:"queueIndex"`
 }
 
 type rollupInfo struct {
-	Signer        *common.Address `json:"signer"`
-	Mode          string          `json:"mode"`
-	Syncing       bool            `json:"syncing"`
-	L1BlockHash   common.Hash     `json:"l1BlockHash"`
-	L1BlockHeight uint64          `json:"l1BlockHeight"`
-	Addresses     rollupAddresses `json:"addresses"`
+	Mode          string        `json:"mode"`
+	Syncing       bool          `json:"syncing"`
+	EthContext    EthContext    `json:"ethContext"`
+	RollupContext RollupContext `json:"rollupContext"`
 }
 
 func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
-	addr := api.b.RollupTransactionSender()
 	mode := "sequencer"
 	if v := api.b.IsVerifier(); v {
 		mode = "verifier"
 	}
 	syncing := api.b.IsSyncing()
-	blockHash, blockHeight := api.b.GetLatestEth1Data()
-
-	addrs := api.b.GetRollupContractAddresses()
-	rollupAddrs := rollupAddresses{}
-
-	resolver := addrs["addressResolver"]
-	if resolver != nil {
-		rollupAddrs.AddressResolver = resolver.Hex()
-	}
-	ctc := addrs["canonicalTransactionChain"]
-	if ctc != nil {
-		rollupAddrs.CanonicalTransactionChain = ctc.Hex()
-	}
-	sdc := addrs["sequencerDecompression"]
-	if sdc != nil {
-		rollupAddrs.SequencerDecompression = sdc.Hex()
-	}
-	scc := addrs["stateCommitmentChain"]
-	if scc != nil {
-		rollupAddrs.StateCommitmentChain = scc.Hex()
-	}
-	xdomain := addrs["l1CrossDomainMessengerAddress"]
-	if xdomain != nil {
-		rollupAddrs.L1CrossDomainMessenger = xdomain.Hex()
-	}
+	bn, ts := api.b.GetEthContext()
+	index, queueIndex := api.b.GetRollupContext()
 
 	return rollupInfo{
-		Signer:        addr,
-		Mode:          mode,
-		Syncing:       syncing,
-		L1BlockHash:   blockHash,
-		L1BlockHeight: blockHeight,
-		Addresses:     rollupAddrs,
+		Mode:    mode,
+		Syncing: syncing,
+		EthContext: EthContext{
+			BlockNumber: bn,
+			Timestamp:   ts,
+		},
+		RollupContext: RollupContext{
+			Index:      index,
+			QueueIndex: queueIndex,
+		},
 	}
-}
-
-type latestCrossDomainInfo struct {
-	Timestamp   uint64 `json:"timestamp"`
-	BlockNumber uint64 `json:"blockNumber"`
-}
-
-func (api *PublicRollupAPI) GetLatestCrossDomainInfo(ctx context.Context) latestCrossDomainInfo {
-	timestamp := api.b.GetLatestL1Timestamp()
-	blockNumber := api.b.GetLatestL1BlockNumber()
-	return latestCrossDomainInfo{timestamp, blockNumber}
 }
 
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public

@@ -428,10 +428,20 @@ func TestAncientStorage(t *testing.T) {
 func TestBlockMetaStorage(t *testing.T) {
 	db := NewMemoryDatabase()
 
+	index1 := uint64(1)
 	tx1 := types.NewTransaction(1, common.HexToAddress("0x1"), big.NewInt(1), 1, big.NewInt(1), nil, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
+	tx1.SetTransactionMeta(&types.TransactionMeta{
+		L1BlockNumber:     nil,
+		L1Timestamp:       0,
+		L1MessageSender:   nil,
+		SignatureHashType: types.SighashEIP155,
+		QueueOrigin:       big.NewInt(int64(types.QueueOriginSequencer)),
+		Index:             &index1,
+		QueueIndex:        nil,
+	})
 
-	WriteTransactionMeta(db, tx1.Hash(), tx1.GetMeta())
-	meta := ReadTransactionMeta(db, tx1.Hash())
+	WriteTransactionMeta(db, index1, tx1.GetMeta())
+	meta := ReadTransactionMeta(db, index1)
 
 	if meta.L1MessageSender != nil {
 		t.Fatalf("Could not recover L1MessageSender")
@@ -439,13 +449,18 @@ func TestBlockMetaStorage(t *testing.T) {
 	if meta.L1BlockNumber != nil {
 		t.Fatalf("Could not recover L1BlockNumber")
 	}
-
 	if meta.SignatureHashType != types.SighashEIP155 {
 		t.Fatalf("Could not recover sighash type")
 	}
+	if meta.Index == nil {
+		t.Fatalf("Could not recover index")
+	}
+	if *meta.Index != 1 {
+		t.Fatalf("Could not recover index")
+	}
 
-	DeleteTransactionMeta(db, tx1.Hash())
-	postDelete := ReadTransactionMeta(db, tx1.Hash())
+	DeleteTransactionMeta(db, index1)
+	postDelete := ReadTransactionMeta(db, index1)
 
 	if postDelete != nil {
 		t.Fatalf("Delete did not work")
@@ -454,10 +469,11 @@ func TestBlockMetaStorage(t *testing.T) {
 	addr := common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 	l1BlockNumber := big.NewInt(777)
 
+	index2 := uint64(2)
 	tx2 := types.NewTransaction(2, common.HexToAddress("0x02"), big.NewInt(2), 2, big.NewInt(2), nil, &addr, l1BlockNumber, types.QueueOriginSequencer, types.SighashEthSign)
 
-	WriteTransactionMeta(db, tx2.Hash(), tx2.GetMeta())
-	meta2 := ReadTransactionMeta(db, tx2.Hash())
+	WriteTransactionMeta(db, index2, tx2.GetMeta())
+	meta2 := ReadTransactionMeta(db, index2)
 
 	if !bytes.Equal(meta2.L1MessageSender.Bytes(), addr.Bytes()) {
 		t.Fatalf("Could not recover L1MessageSender")
