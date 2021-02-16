@@ -346,13 +346,7 @@ func (s *SyncService) Loop() {
 				if err != nil {
 					log.Error("Cannot apply transaction", "msg", err)
 				}
-
-				if s.GetLatestEnqueueIndex() == nil {
-					qi := uint64(0)
-					s.SetLatestEnqueueIndex(&qi)
-				} else {
-					s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
-				}
+				s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
 				if enqueue.GetMeta().Index == nil {
 					latest := s.GetLatestIndex()
 					index := uint64(0)
@@ -390,7 +384,7 @@ func (s *SyncService) Loop() {
 		}
 		end := *latest.GetMeta().Index
 		log.Info("Polling transactions", "start", start, "end", end)
-		for i := start; i < end; i++ {
+		for i := start; i <= end; i++ {
 			tx, err := s.client.GetTransaction(i)
 			if err != nil {
 				log.Error("Cannot get tx in loop", "index", i)

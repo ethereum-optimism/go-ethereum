@@ -17,7 +17,11 @@ func ReadHeadIndex(db ethdb.KeyValueReader) *uint64 {
 }
 
 func WriteHeadIndex(db ethdb.KeyValueWriter, index uint64) {
-	if err := db.Put(headIndexKey, new(big.Int).SetUint64(index).Bytes()); err != nil {
+	value := new(big.Int).SetUint64(index).Bytes()
+	if index == 0 {
+		value = []byte{0}
+	}
+	if err := db.Put(headIndexKey, value); err != nil {
 		log.Crit("Failed to store index", "err", err)
 	}
 }
@@ -32,7 +36,11 @@ func ReadHeadQueueIndex(db ethdb.KeyValueReader) *uint64 {
 }
 
 func WriteHeadQueueIndex(db ethdb.KeyValueWriter, index uint64) {
-	if err := db.Put(headQueueIndexKey, new(big.Int).SetUint64(index).Bytes()); err != nil {
+	value := new(big.Int).SetUint64(index).Bytes()
+	if index == 0 {
+		value = []byte{0}
+	}
+	if err := db.Put(headQueueIndexKey, value); err != nil {
 		log.Crit("Failed to store queue index", "err", err)
 	}
 }
