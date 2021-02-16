@@ -44,18 +44,18 @@ type SyncStatus struct {
 }
 
 type transaction struct {
-	Index       uint64         `json:"index"`
-	BatchIndex  uint64         `json:"batchIndex"`
-	BlockNumber uint64         `json:"blockNumber"`
-	Timestamp   uint64         `json:"timestamp"`
-	GasLimit    uint64         `json:"gasLimit"`
-	Target      common.Address `json:"target"`
-	Origin      common.Address `json:"origin"`
-	Data        hexutil.Bytes  `json:"data"`
-	QueueOrigin string         `json:"queueOrigin"`
-	Type        string         `json:"type"`
-	QueueIndex  *uint64        `json:"queueIndex"`
-	Decoded     *decoded       `json:"decoded"`
+	Index       uint64          `json:"index"`
+	BatchIndex  uint64          `json:"batchIndex"`
+	BlockNumber uint64          `json:"blockNumber"`
+	Timestamp   uint64          `json:"timestamp"`
+	GasLimit    uint64          `json:"gasLimit"`
+	Target      common.Address  `json:"target"`
+	Origin      *common.Address `json:"origin"`
+	Data        hexutil.Bytes   `json:"data"`
+	QueueOrigin string          `json:"queueOrigin"`
+	Type        string          `json:"type"`
+	QueueIndex  *uint64         `json:"queueIndex"`
+	Decoded     *decoded        `json:"decoded"`
 }
 
 type Enqueue struct {
@@ -232,15 +232,15 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		// TODO: if queue origin Sequencer, set L1MessageSender to nil
 		var tx *types.Transaction
 		if to == (common.Address{}) {
-			tx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, data, &l1MessageSender, l1BlockNumber, queueOrigin)
+			tx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin)
 		} else {
-			tx = types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data, &l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
+			tx = types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
 		}
 
 		meta := types.TransactionMeta{
 			L1BlockNumber:     new(big.Int).SetUint64(res.Transaction.BlockNumber),
 			L1Timestamp:       res.Transaction.Timestamp,
-			L1MessageSender:   &res.Transaction.Origin,
+			L1MessageSender:   res.Transaction.Origin,
 			SignatureHashType: types.SighashEIP155,
 			QueueOrigin:       big.NewInt(int64(queueOrigin)),
 			Index:             &res.Transaction.Index,
@@ -274,14 +274,14 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 	target := res.Transaction.Target
 	gasLimit := res.Transaction.GasLimit
 	data := res.Transaction.Data
-	origin := res.Transaction.Origin // TODO: maybe make nil
+	origin := res.Transaction.Origin
 	blockNumber := new(big.Int).SetUint64(res.Transaction.BlockNumber)
-	tx := types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &origin, blockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
+	tx := types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data, origin, blockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
 
 	meta := types.TransactionMeta{
 		L1BlockNumber:     blockNumber,
 		L1Timestamp:       res.Transaction.Timestamp,
-		L1MessageSender:   &origin,
+		L1MessageSender:   origin,
 		SignatureHashType: types.SighashEIP155,
 		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
 		Index:             &res.Transaction.Index,

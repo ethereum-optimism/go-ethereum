@@ -323,7 +323,6 @@ func (s *SyncService) Loop() {
 				}
 
 				if enqueue == nil {
-					log.Debug("Enqueue is nil", "index", i)
 					break
 				}
 
@@ -347,7 +346,13 @@ func (s *SyncService) Loop() {
 				if err != nil {
 					log.Error("Cannot apply transaction", "msg", err)
 				}
-				s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
+
+				if s.GetLatestEnqueueIndex() == nil {
+					qi := uint64(0)
+					s.SetLatestEnqueueIndex(&qi)
+				} else {
+					s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
+				}
 				if enqueue.GetMeta().Index == nil {
 					latest := s.GetLatestIndex()
 					index := uint64(0)

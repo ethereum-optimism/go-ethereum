@@ -16,6 +16,7 @@ ROLLUP_CLIENT_HTTP=http://localhost:7878
 ROLLUP_POLL_INTERVAL=15s
 ROLLUP_TIMESTAMP_REFRESH=15m
 CACHE=1024
+RPC_PORT=8545
 
 USAGE="
 Start the Sequencer or Verifier with most configuration pre-set.
@@ -59,6 +60,15 @@ while (( "$#" )); do
         --chainid)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
                 CHAIN_ID="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
+        --rpcport)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                RPC_PORT="$2"
                 shift 2
             else
                 echo "Error: Argument for $1 is missing" >&2
@@ -178,6 +188,7 @@ cmd="$cmd --rpc"
 cmd="$cmd --dev"
 cmd="$cmd --chainid $CHAIN_ID"
 cmd="$cmd --rpcaddr 0.0.0.0"
+cmd="$cmd --rpcport $RPC_PORT"
 cmd="$cmd --rpccorsdomain '*'"
 cmd="$cmd --wsaddr 0.0.0.0"
 cmd="$cmd --wsport 8546"
@@ -187,7 +198,7 @@ cmd="$cmd --gasprice '0'"
 cmd="$cmd --nousb"
 cmd="$cmd --gcmode=archive"
 cmd="$cmd --ipcdisable"
-if [ ! -z "$IS_VERIFIER" ]; then
+if [[ ! -z "$IS_VERIFIER" ]]; then
     cmd="$cmd --rollup.verifier"
 fi
 
