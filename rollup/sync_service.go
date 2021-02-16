@@ -462,7 +462,7 @@ func (s *SyncService) syncTransactionsToTip() error {
 				log.Error("Cannot ingest transaction", "index", i)
 			}
 			s.SetLatestIndex(tx.GetMeta().Index)
-			if types.QueueOrigin(tx.QueueOrigin().Uint64()) == types.QueueOriginSequencer {
+			if types.QueueOrigin(tx.QueueOrigin().Uint64()) == types.QueueOriginL1ToL2 {
 				queueIndex := tx.GetMeta().QueueIndex
 				s.SetLatestEnqueueIndex(queueIndex)
 			}
