@@ -71,7 +71,7 @@ type Genesis struct {
 	// in the genesis state
 	L1CrossDomainMessengerAddress common.Address `json:"-"`
 	AddressManagerOwnerAddress    common.Address `json:"-"`
-	L1ETHGatewayAddress    common.Address `json:"-"`
+	L1ETHGatewayAddress           common.Address `json:"-"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -265,7 +265,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 }
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
-func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump , l1XDomainMessengerAddress common.Address, l1ETHGatewayAddress common.Address, addrManagerOwnerAddress common.Address) {
+func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump, l1XDomainMessengerAddress common.Address, l1ETHGatewayAddress common.Address, addrManagerOwnerAddress common.Address) {
 	if len(stateDump.Accounts) == 0 {
 		return
 	}
@@ -503,7 +503,7 @@ func DeveloperGenesisBlock(period uint64, faucet, l1XDomainMessengerAddress comm
 		},
 		L1CrossDomainMessengerAddress: l1XDomainMessengerAddress,
 		AddressManagerOwnerAddress:    addrManagerOwnerAddress,
-		L1ETHGatewayAddress: l1ETHGatewayAddress,
+		L1ETHGatewayAddress:           l1ETHGatewayAddress,
 	}
 }
 
