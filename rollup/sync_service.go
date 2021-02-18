@@ -563,12 +563,6 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 	return s.scope.Track(s.txFeed.Subscribe(ch))
 }
 
-// TODO: This function needs to be rethought, its no longer
-// easily possible to say "start syncing from L1 height x"
-func (s *SyncService) SetL1Head(number uint64) error {
-	return nil
-}
-
 // maybeApplyTransaction will potentially apply the transaction after first
 // inspecting the local database. This is mean to prevent transactions from
 // being replayed.

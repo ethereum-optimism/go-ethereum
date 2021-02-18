@@ -1955,10 +1955,6 @@ func (api *PrivateDebugAPI) SetHead(number hexutil.Uint64) {
 	api.b.SetHead(uint64(number))
 }
 
-func (api *PrivateDebugAPI) SetL1Head(number hexutil.Uint64) {
-	api.b.SetL1Head(uint64(number))
-}
-
 // PublicNetAPI offers network related RPC methods
 type PublicNetAPI struct {
 	net            *p2p.Server
