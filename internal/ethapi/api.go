@@ -824,8 +824,8 @@ func (s *PublicBlockChainAPI) GetBlockRange(ctx context.Context, startNumber rpc
 	}
 
 	// Assert that the number of blocks is < 1k (? configurable?).
-	if endNumber - startNumber > 1000 {
-		return nil, fmt.Errorf("Requested block range is too large (max is 1000, requested %d blocks)", endNumber - startNumber)
+	if endNumber-startNumber > 1000 {
+		return nil, fmt.Errorf("Requested block range is too large (max is 1000, requested %d blocks)", endNumber-startNumber)
 	}
 
 	// Make sure the end exists. If start doesn't exist, will be caught immediately below.
@@ -835,17 +835,14 @@ func (s *PublicBlockChainAPI) GetBlockRange(ctx context.Context, startNumber rpc
 
 	// Create an empty output array.
 	blocks := make([]map[string]interface{}, 0)
-
 	// For each block in range, get block and append to array.
 	for number := startNumber; number <= endNumber; number++ {
 		block, err := s.GetBlockByNumber(ctx, number, fullTx)
 		if block == nil || err != nil {
 			return nil, err
 		}
-
 		blocks = append(blocks, block)
 	}
-
 	return blocks, nil
 }
 
