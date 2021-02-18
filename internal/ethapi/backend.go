@@ -89,7 +89,6 @@ type Backend interface {
 	IsSyncing() bool
 	GetEthContext() (uint64, uint64)
 	GetRollupContext() (uint64, uint64)
-	SetL1Head(number uint64) error
 	GasLimit() uint64
 
 	ChainConfig() *params.ChainConfig
