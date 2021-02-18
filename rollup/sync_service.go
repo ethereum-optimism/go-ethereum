@@ -450,7 +450,7 @@ func (s *SyncService) syncTransactionsToTip() error {
 		index := rawdb.ReadHeadIndex(s.db)
 		start := uint64(0)
 		if index != nil {
-			start = *index
+			start = *index + 1
 		}
 
 		log.Info("Syncing transactions to tip", "start", start, "end", *tipHeight)
