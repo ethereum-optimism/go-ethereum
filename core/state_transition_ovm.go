@@ -67,7 +67,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 		// already. The presence of `Index` should specify this.
 		index := tx.GetMeta().Index
 		if index == nil {
-			return msg, fmt.Errorf("Cannot conver tx to message in asOvmMessage: %w", err)
+			return msg, fmt.Errorf("Cannot convert tx to message in asOvmMessage: %w", err)
 		}
 	}
 
