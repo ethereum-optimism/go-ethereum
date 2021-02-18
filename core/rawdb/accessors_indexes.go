@@ -86,7 +86,7 @@ func ReadTransaction(db ethdb.Reader, hash common.Hash) (*types.Transaction, com
 	}
 	for txIndex, tx := range body.Transactions {
 		if tx.Hash() == hash {
-			txMeta := ReadTransactionMeta(db, hash)
+			txMeta := ReadTransactionMeta(db, *blockNumber)
 			if txMeta != nil {
 				tx.SetTransactionMeta(txMeta)
 			}

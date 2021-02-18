@@ -1,15 +1,13 @@
 package rollup
 
 import (
-	"crypto/ecdsa"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type Config struct {
-	// TODO(mark): deprecate these config options
-	TxIngestionEnable bool
 	// Maximum calldata size for a Queue Origin Sequencer Tx
 	MaxCallDataSize int
 	// Number of confs before applying a L1 to L2 tx
@@ -19,30 +17,22 @@ type Config struct {
 	// Enable the sync service
 	Eth1SyncServiceEnable bool
 	// Ensure that the correct layer 1 chain is being connected to
-	Eth1ChainId   uint64
-	Eth1NetworkId uint64
+	Eth1ChainId uint64
 	// Gas Limit
 	GasLimit uint64
-	// The God Key, used to sign L1 to L2 transactions
-	TxIngestionSignerKey *ecdsa.PrivateKey
-	// HTTP endpoint of Layer 1 Ethereum node
-	Eth1HTTPEndpoint string
-	// Addresses of Layer 1 contracts
-	AddressResolverAddress           common.Address
-	CanonicalTransactionChainAddress common.Address
-	L1ToL2TransactionQueueAddress    common.Address
-	SequencerDecompressionAddress    common.Address
-	L1CrossDomainMessengerAddress    common.Address
-	AddressManagerOwnerAddress       common.Address
-	L1ETHGatewayAddress       		 common.Address
+	// HTTP endpoint of the data transport layer
+	RollupClientHttp              string
+	L1CrossDomainMessengerAddress common.Address
+	L1ETHGatewayAddress           common.Address
+	AddressManagerOwnerAddress    common.Address
 	// Deployment Height of the canonical transaction chain
 	CanonicalTransactionChainDeployHeight *big.Int
 	// Path to the state dump
 	StateDumpPath string
 	// Temporary setting to disable transfers
 	DisableTransfers bool
-}
-
-func (c *Config) IsTxIngestionEnabled() bool {
-	return c.TxIngestionEnable
+	// Polling interval for rollup client
+	PollInterval time.Duration
+	// Interval for updating the timestamp
+	TimestampRefreshThreshold time.Duration
 }

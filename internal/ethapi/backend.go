@@ -86,12 +86,9 @@ type Backend interface {
 	// Optimism-specific API
 	SetTimestamp(timestamp int64)
 	IsVerifier() bool
-	RollupTransactionSender() *common.Address
 	IsSyncing() bool
-	GetLatestEth1Data() (common.Hash, uint64)
-	GetRollupContractAddresses() map[string]*common.Address
-	GetLatestL1BlockNumber() uint64
-	GetLatestL1Timestamp() uint64
+	GetEthContext() (uint64, uint64)
+	GetRollupContext() (uint64, uint64)
 	SetL1Head(number uint64) error
 	GasLimit() uint64
 

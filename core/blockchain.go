@@ -796,11 +796,6 @@ func (bc *BlockChain) GetBlock(hash common.Hash, number uint64) *types.Block {
 	if block == nil {
 		return nil
 	}
-	// Get the transaction meta and attach it to each transaction
-	for _, tx := range block.Transactions() {
-		meta := rawdb.ReadTransactionMeta(bc.db, tx.Hash())
-		tx.SetTransactionMeta(meta)
-	}
 	// Cache the found block for next time and return
 	bc.blockCache.Add(block.Hash(), block)
 	return block
@@ -1261,7 +1256,7 @@ func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain [
 			rawdb.WriteReceipts(batch, block.Hash(), block.NumberU64(), receiptChain[i])
 			rawdb.WriteTxLookupEntries(batch, block)
 			for _, tx := range block.Transactions() {
-				rawdb.WriteTransactionMeta(batch, tx.Hash(), tx.GetMeta())
+				rawdb.WriteTransactionMeta(batch, block.NumberU64(), tx.GetMeta())
 			}
 
 			// Write everything belongs to the blocks into the database. So that
@@ -1386,7 +1381,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	rawdb.WriteTd(blockBatch, block.Hash(), block.NumberU64(), externTd)
 	rawdb.WriteBlock(blockBatch, block)
 	for _, tx := range block.Transactions() {
-		rawdb.WriteTransactionMeta(blockBatch, tx.Hash(), tx.GetMeta())
+		rawdb.WriteTransactionMeta(blockBatch, block.NumberU64(), tx.GetMeta())
 	}
 	rawdb.WriteReceipts(blockBatch, block.Hash(), block.NumberU64(), receipts)
 	rawdb.WritePreimages(blockBatch, state.Preimages())

@@ -56,10 +56,10 @@ var (
 	// Optimism specific
 	txMetaPrefix = []byte("x") // txMetaPrefix + hash -> transaction metadata
 
-	// headEth1HeaderKey tracks the latest processed Eth1 Block
-	headEth1HeaderKey = []byte("LastEth1Header")
-	// headEth1HeightKey tracks the latest processed Eth1 Height
-	headEth1HeightKey = []byte("LastEth1Height")
+	// headIndexKey tracks the last processed ctc index
+	headIndexKey = []byte("LastIndex")
+	// headQueueIndexKey tracks th last processed queue index
+	headQueueIndexKey = []byte("LastQueueIndex")
 
 	preimagePrefix = []byte("secure-key-")      // preimagePrefix + hash -> preimage
 	configPrefix   = []byte("ethereum-config-") // config prefix for the db
@@ -153,9 +153,9 @@ func txLookupKey(hash common.Hash) []byte {
 	return append(txLookupPrefix, hash.Bytes()...)
 }
 
-// txMetaKey = txMetaPrefix + hash
-func txMetaKey(hash common.Hash) []byte {
-	return append(txMetaPrefix, hash.Bytes()...)
+// txMetaKey = txMetaPrefix + num (uint64 big endian)
+func txMetaKey(number uint64) []byte {
+	return append(txMetaPrefix, encodeBlockNumber(number)...)
 }
 
 // bloomBitsKey = bloomBitsPrefix + bit (uint16 big endian) + section (uint64 big endian) + hash
