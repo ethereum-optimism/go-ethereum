@@ -878,6 +878,17 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	timestamp := tx.L1Timestamp()
 
 	num := parent.Number()
+	// Fill in the index field in the tx meta if it is `nil`.
+	// This should only ever happen in the case of the sequencer
+	// receiving a queue origin sequencer transaction. The verifier
+	// should always receive transactions with an index as they
+	// have already been confirmed in the canonical transaction chain.
+	// Use the parent's block number because the CTC is 0 indexed.
+	if meta := tx.GetMeta(); meta.Index == nil {
+		index := num.Uint64()
+		meta.Index = &index
+		tx.SetTransactionMeta(meta)
+	}
 	header := &types.Header{
 		ParentHash: parent.Hash(),
 		Number:     num.Add(num, common.Big1),
