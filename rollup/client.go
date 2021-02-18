@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"reflect"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -59,14 +58,14 @@ type transaction struct {
 }
 
 type Enqueue struct {
-	Index       *uint64        `json:"ctcIndex"`
-	Target      common.Address `json:"target"`
-	Data        hexutil.Bytes  `json:"data"`
-	GasLimit    uint64         `json:"gasLimit"`
-	Origin      common.Address `json:"origin"`
-	BlockNumber uint64         `json:"blockNumber"`
-	Timestamp   uint64         `json:"timestamp"`
-	QueueIndex  uint64         `json:"index"`
+	Index       *uint64         `json:"ctcIndex"`
+	Target      *common.Address `json:"target"`
+	Data        *hexutil.Bytes  `json:"data"`
+	GasLimit    *uint64         `json:"gasLimit"`
+	Origin      *common.Address `json:"origin"`
+	BlockNumber *uint64         `json:"blockNumber"`
+	Timestamp   *uint64         `json:"timestamp"`
+	QueueIndex  *uint64         `json:"index"`
 }
 
 type signature struct {
@@ -133,42 +132,69 @@ func (c *Client) GetEnqueue(index uint64) (*types.Transaction, error) {
 	if !ok {
 		return nil, fmt.Errorf("Cannot fetch enqueue %d", index)
 	}
-
 	if enqueue == nil {
 		return nil, fmt.Errorf("Cannot deserialize enqueue %d", index)
 	}
-
-	// If it is the zero value of enqueue, return nil
-	if reflect.DeepEqual(*enqueue, Enqueue{}) {
-		return nil, nil
+	tx, err := enqueueToTransaction(enqueue)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse enqueue tx :%w", err)
 	}
-
-	tx := enqueueToTransaction(enqueue)
 	return tx, nil
 }
 
-func enqueueToTransaction(enqueue *Enqueue) *types.Transaction {
-	nonce := enqueue.QueueIndex
-	target := enqueue.Target
+func enqueueToTransaction(enqueue *Enqueue) (*types.Transaction, error) {
+	// When the queue index is nil, is means that the enqueue'd transaction
+	// does not exist.
+	if enqueue.QueueIndex == nil {
+		return nil, nil
+	}
+	// The queue index is the nonce
+	nonce := *enqueue.QueueIndex
+
+	if enqueue.Target == nil {
+		return nil, errors.New("Target not found for enqueue tx")
+	}
+	target := *enqueue.Target
+
+	if enqueue.GasLimit == nil {
+		return nil, errors.New("Gas limit not found for enqueue tx")
+	}
+	gasLimit := *enqueue.GasLimit
+	if enqueue.Origin == nil {
+		return nil, errors.New("Origin not found for enqueue tx")
+	}
+	origin := *enqueue.Origin
+	if enqueue.BlockNumber == nil {
+		return nil, errors.New("Blocknumber not found for enqueue tx")
+	}
+	blockNumber := new(big.Int).SetUint64(*enqueue.BlockNumber)
+	if enqueue.Timestamp == nil {
+		return nil, errors.New("Timestamp not found for enqueue tx")
+	}
+	timestamp := *enqueue.Timestamp
+
+	if enqueue.Data == nil {
+		return nil, errors.New("Data not found for enqueue tx")
+	}
+	data := *enqueue.Data
+
 	value := big.NewInt(0)
-	gasLimit := enqueue.GasLimit
-	data := enqueue.Data
-	origin := enqueue.Origin
-	blockNumber := new(big.Int).SetUint64(enqueue.BlockNumber)
 	tx := types.NewTransaction(nonce, target, value, gasLimit, big.NewInt(0), data, &origin, blockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
 
+	// The index does not get a check as it is allowed to be nil in the context
+	// of an enqueue transaction that has yet to be included into the CTC
 	meta := types.TransactionMeta{
 		L1BlockNumber:     blockNumber,
-		L1Timestamp:       enqueue.Timestamp,
+		L1Timestamp:       timestamp,
 		L1MessageSender:   &origin,
 		SignatureHashType: types.SighashEIP155,
 		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
 		Index:             enqueue.Index,
-		QueueIndex:        &enqueue.QueueIndex,
+		QueueIndex:        enqueue.QueueIndex,
 	}
 	tx.SetTransactionMeta(&meta)
 
-	return tx
+	return tx, nil
 }
 
 func (c *Client) GetLatestEnqueue() (*types.Transaction, error) {
@@ -183,7 +209,10 @@ func (c *Client) GetLatestEnqueue() (*types.Transaction, error) {
 	if !ok {
 		return nil, errors.New("Cannot fetch latest enqueue")
 	}
-	tx := enqueueToTransaction(enqueue)
+	tx, err := enqueueToTransaction(enqueue)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse enqueue tx :%w", err)
+	}
 	return tx, nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -34,6 +35,7 @@ type SyncService struct {
 	db                        ethdb.Database
 	scope                     event.SubscriptionScope
 	txFeed                    event.Feed
+	txLock                    sync.Mutex
 	enable                    bool
 	eth1ChainId               uint64
 	bc                        *core.BlockChain
@@ -232,11 +234,10 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		if queueIndex == nil {
 			enqueue, err := s.client.GetLastConfirmedEnqueue()
 			if err != nil {
-				return err
+				return fmt.Errorf("Cannot fetch last confirmed queue tx: %w", err)
 			}
 			// There are no enqueues yet
 			if enqueue == nil {
-				log.Info("No enqueue'd transactions yet")
 				return nil
 			}
 			queueIndex = enqueue.GetMeta().QueueIndex
@@ -291,15 +292,21 @@ func (s *SyncService) Loop() {
 		// Place as many L1ToL2 transactions in the same context as possible
 		// by executing them one after another.
 		if !s.verifier {
+			// TODO: break this routine out into a function so that lock
+			// management is more simple. For now, be sure to unlock before
+			// each outer continue
+			s.txLock.Lock()
 			latest, err := s.client.GetLatestEnqueue()
 			if err != nil {
 				log.Error("Cannot get latest enqueue")
+				s.txLock.Unlock()
 				time.Sleep(s.pollInterval)
 				continue
 			}
 			// This should never happen unless the backend is empty
 			if latest == nil {
-				log.Error("Latest enqueue is nil in Loop")
+				s.txLock.Unlock()
+				time.Sleep(s.pollInterval)
 				continue
 			}
 			// Compare the remote latest queue index to the local latest
@@ -342,10 +349,12 @@ func (s *SyncService) Loop() {
 					log.Info("Updated Eth Context from enqueue", "index", i, "timestamp", ts, "blocknumber", bn)
 				}
 
+				log.Trace("Applying enqueue transaction", "index", i)
 				err = s.applyTransaction(enqueue)
 				if err != nil {
 					log.Error("Cannot apply transaction", "msg", err)
 				}
+
 				s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
 				if enqueue.GetMeta().Index == nil {
 					latest := s.GetLatestIndex()
@@ -358,6 +367,7 @@ func (s *SyncService) Loop() {
 					s.SetLatestIndex(enqueue.GetMeta().Index)
 				}
 			}
+			s.txLock.Unlock()
 		}
 
 		// Both the verifier and the sequencer poll for ctc transactions.
@@ -390,6 +400,7 @@ func (s *SyncService) Loop() {
 				log.Error("Cannot get tx in loop", "index", i)
 				continue
 			}
+			log.Trace("Applying transaction", "index", i)
 			err = s.applyTransaction(tx)
 			if err != nil {
 				log.Error("Cannot apply transaction", "msg", err)
@@ -605,6 +616,8 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 // queue origin sequencer transactions, as the contracts on L1 manage the same
 // validity checks that are done here.
 func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
+	s.txLock.Lock()
+	defer s.txLock.Unlock()
 	if s.verifier {
 		return errors.New("Verifier does not accept transactions out of band")
 	}
