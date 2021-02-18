@@ -67,10 +67,11 @@ type Genesis struct {
 	GasUsed    uint64      `json:"gasUsed"`
 	ParentHash common.Hash `json:"parentHash"`
 
-	// OVM Specific, used to initialize the xDomainMessengerAddress
+	// OVM Specific, used to initialize the l1XDomainMessengerAddress
 	// in the genesis state
 	L1CrossDomainMessengerAddress common.Address `json:"-"`
 	AddressManagerOwnerAddress    common.Address `json:"-"`
+	L1ETHGatewayAddress           common.Address `json:"-"`
 }
 
 // GenesisAlloc specifies the initial state that is part of the genesis block.
@@ -264,7 +265,7 @@ func (g *Genesis) configOrDefault(ghash common.Hash) *params.ChainConfig {
 }
 
 // ApplyOvmStateToState applies the initial OVM state to a state object.
-func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDump *dump.OvmDump) {
+func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump, l1XDomainMessengerAddress common.Address, l1ETHGatewayAddress common.Address, addrManagerOwnerAddress common.Address) {
 	if len(stateDump.Accounts) == 0 {
 		return
 	}
@@ -292,10 +293,18 @@ func ApplyOvmStateToState(statedb *state.StateDB, xDomainMessengerAddress, addrM
 		log.Info("Setting AddressManager Owner", "owner", addrManagerOwnerAddress.Hex())
 		// Set the storage slot associated with the cross domain messenger
 		// to the cross domain messenger address.
-		slot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
-		value := common.BytesToHash(xDomainMessengerAddress.Bytes())
-		statedb.SetState(AddressManager.Address, slot, value)
-		log.Info("Setting CrossDomainMessenger in AddressManager", "address", xDomainMessengerAddress.Hex())
+		log.Info("Setting OVM_L1CrossDomainMessenger in AddressManager", "address", l1XDomainMessengerAddress.Hex())
+		l1MessengerSlot := common.HexToHash("0x515216935740e67dfdda5cf8e248ea32b3277787818ab59153061ac875c9385e")
+		l1MessengerValue := common.BytesToHash(l1XDomainMessengerAddress.Bytes())
+		statedb.SetState(AddressManager.Address, l1MessengerSlot, l1MessengerValue)
+	}
+	OVM_ETH, ok := stateDump.Accounts["OVM_ETH"]
+	if ok {
+		// Set the gateway of OVM_ETH
+		log.Info("Setting OVM_L1WETHGateway in OVM_ETH", "address", l1ETHGatewayAddress.Hex())
+		l1GatewaySlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000008")
+		l1GatewayValue := common.BytesToHash(l1ETHGatewayAddress.Bytes())
+		statedb.SetState(OVM_ETH.Address, l1GatewaySlot, l1GatewayValue)
 	}
 }
 
@@ -309,7 +318,7 @@ func (g *Genesis) ToBlock(db ethdb.Database) *types.Block {
 
 	if vm.UsingOVM {
 		// OVM_ENABLED
-		ApplyOvmStateToState(statedb, g.L1CrossDomainMessengerAddress, g.AddressManagerOwnerAddress, g.Config.StateDump)
+		ApplyOvmStateToState(statedb, g.Config.StateDump, g.L1CrossDomainMessengerAddress, g.L1ETHGatewayAddress, g.AddressManagerOwnerAddress)
 	}
 
 	for addr, account := range g.Alloc {
@@ -436,7 +445,7 @@ func DefaultGoerliGenesisBlock() *Genesis {
 }
 
 // DeveloperGenesisBlock returns the 'geth --dev' genesis block.
-func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrManagerOwnerAddress common.Address, stateDumpPath string, chainID *big.Int, gasLimit uint64) *Genesis {
+func DeveloperGenesisBlock(period uint64, faucet, l1XDomainMessengerAddress common.Address, l1ETHGatewayAddress common.Address, addrManagerOwnerAddress common.Address, stateDumpPath string, chainID *big.Int, gasLimit uint64) *Genesis {
 	// Override the default period to the user requested one
 	config := *params.AllCliqueProtocolChanges
 	config.Clique.Period = period
@@ -491,8 +500,9 @@ func DeveloperGenesisBlock(period uint64, faucet, xDomainMessengerAddress, addrM
 			common.BytesToAddress([]byte{7}): {Balance: big.NewInt(1)}, // ECScalarMul
 			common.BytesToAddress([]byte{8}): {Balance: big.NewInt(1)}, // ECPairing
 		},
-		L1CrossDomainMessengerAddress: xDomainMessengerAddress,
+		L1CrossDomainMessengerAddress: l1XDomainMessengerAddress,
 		AddressManagerOwnerAddress:    addrManagerOwnerAddress,
+		L1ETHGatewayAddress:           l1ETHGatewayAddress,
 	}
 }
 
