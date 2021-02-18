@@ -48,9 +48,6 @@ type SyncService struct {
 	timestampRefreshThreshold time.Duration
 }
 
-// It still isn't super stable when coming back online, it appears to replay
-// some transactions again
-
 // NewSyncService returns an initialized sync service
 func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *core.BlockChain, db ethdb.Database) (*SyncService, error) {
 	if bc == nil {
