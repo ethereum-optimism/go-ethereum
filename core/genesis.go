@@ -287,7 +287,6 @@ func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump, l1XDo
 	AddressManager, ok := stateDump.Accounts["Lib_AddressManager"]
 	if ok {
 		// Set the owner of the address manager
-		log.Info("Setting owner of AddressManager to address(0)")
 		ownerSlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 		ownerValue := common.BytesToHash(addrManagerOwnerAddress.Bytes())
 		statedb.SetState(AddressManager.Address, ownerSlot, ownerValue)
