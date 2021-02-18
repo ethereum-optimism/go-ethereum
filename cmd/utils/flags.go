@@ -798,7 +798,7 @@ var (
 	}
 	Eth1ETHGatewayAddressFlag = cli.StringFlag{
 		Name:   "eth1.l1ethgatewayaddress",
-		Usage:  "Deployment address of the L1 cross domain messenger",
+		Usage:  "Deployment address of the Ethereum gateway",
 		Value:  "0x0000000000000000000000000000000000000000",
 		EnvVar: "ETH1_L1_ETH_GATEWAY_ADDRESS",
 	}
