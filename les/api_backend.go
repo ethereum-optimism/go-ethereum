@@ -46,10 +46,6 @@ type LesApiBackend struct {
 	gpo           *gasprice.Oracle
 }
 
-func (b *LesApiBackend) RollupTransactionSender() *common.Address {
-	return nil
-}
-
 func (b *LesApiBackend) IsVerifier() bool {
 	return false
 }
@@ -58,24 +54,20 @@ func (b *LesApiBackend) GasLimit() uint64 {
 	panic("not implemented")
 }
 
+func (b *LesApiBackend) GetEthContext() (uint64, uint64) {
+	return 0, 0
+}
+
+func (b *LesApiBackend) GetRollupContext() (uint64, uint64) {
+	return 0, 0
+}
+
 func (b *LesApiBackend) IsSyncing() bool {
 	return false
 }
 
 func (b *LesApiBackend) GetLatestEth1Data() (common.Hash, uint64) {
 	return common.Hash{}, 0
-}
-
-func (b *LesApiBackend) GetLatestL1BlockNumber() uint64 {
-	return 0
-}
-
-func (b *LesApiBackend) GetLatestL1Timestamp() uint64 {
-	return 0
-}
-
-func (b *LesApiBackend) GetRollupContractAddresses() map[string]*common.Address {
-	return map[string]*common.Address{}
 }
 
 func (b *LesApiBackend) ChainConfig() *params.ChainConfig {

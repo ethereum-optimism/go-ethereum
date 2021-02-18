@@ -62,7 +62,12 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor common.Address) (Message, error) {
 	msg, err := tx.AsMessage(signer)
 	if err != nil {
-		return msg, err
+		// This should only be allowed to pass if the transaction is in the ctc
+		// already. The presence of `Index` should specify this.
+		index := tx.GetMeta().Index
+		if index == nil {
+			return msg, fmt.Errorf("Cannot convert tx to message in asOvmMessage: %w", err)
+		}
 	}
 
 	// Queue origin L1ToL2 transactions do not go through the
@@ -78,9 +83,14 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 
 	// V parameter here will include the chain ID, so we need to recover the original V. If the V
 	// does not equal zero or one, we have an invalid parameter and need to throw an error.
+	// This is technically a duplicate check because it happens inside of
+	// `tx.AsMessage` as well.
 	v = big.NewInt(int64(v.Uint64() - 35 - 2*tx.ChainId().Uint64()))
 	if v.Uint64() != 0 && v.Uint64() != 1 {
-		return msg, fmt.Errorf("invalid signature v parameter: %d", v.Uint64())
+		index := tx.GetMeta().Index
+		if index == nil {
+			return msg, fmt.Errorf("invalid signature v parameter: %d", v.Uint64())
+		}
 	}
 
 	// Since we use a fixed encoding, we need to insert some placeholder address to represent that
@@ -118,7 +128,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 	)
 
 	if err != nil {
-		return msg, err
+		return msg, fmt.Errorf("Cannot mod message: %w", err)
 	}
 
 	return outmsg, nil

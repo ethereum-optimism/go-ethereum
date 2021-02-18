@@ -625,8 +625,6 @@ func (w *worker) resultLoop() {
 				log.Error("Failed writing block to chain", "err", err)
 				continue
 			}
-			log.Info("Successfully sealed new block", "number", block.Number(), "sealhash", sealhash, "hash", hash,
-				"elapsed", common.PrettyDuration(time.Since(task.createdAt)))
 
 			// Broadcast the block and announce chain insertion event
 			w.mux.Post(core.NewMinedBlockEvent{Block: block})
@@ -1050,8 +1048,13 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 			}
 			feesEth := new(big.Float).Quo(new(big.Float).SetInt(feesWei), new(big.Float).SetInt(big.NewInt(params.Ether)))
 
-			log.Info("Commit new mining work", "number", block.Number(), "sealhash", w.engine.SealHash(block.Header()),
-				"uncles", len(uncles), "txs", w.current.tcount, "gas", block.GasUsed(), "fees", feesEth, "elapsed", common.PrettyDuration(time.Since(start)))
+			txs := block.Transactions()
+			if len(txs) != 1 {
+				return fmt.Errorf("Block created with not %d transactions at %d", len(txs), block.NumberU64())
+			}
+			tx := txs[0]
+			log.Info("New block", "index", block.Number().Uint64()-uint64(1), "timestamp", block.Time(), "tx-hash", tx.Hash().Hex(),
+				"gas", block.GasUsed(), "fees", feesEth, "elapsed", common.PrettyDuration(time.Since(start)))
 
 		case <-w.exitCh:
 			log.Info("Worker has exited")
