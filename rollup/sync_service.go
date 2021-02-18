@@ -305,6 +305,7 @@ func (s *SyncService) Loop() {
 			}
 			// This should never happen unless the backend is empty
 			if latest == nil {
+				log.Debug("No enqueue transactions found")
 				s.txLock.Unlock()
 				time.Sleep(s.pollInterval)
 				continue
@@ -330,6 +331,7 @@ func (s *SyncService) Loop() {
 				}
 
 				if enqueue == nil {
+					log.Debug("No enqueue transaction found")
 					break
 				}
 
@@ -349,7 +351,7 @@ func (s *SyncService) Loop() {
 					log.Info("Updated Eth Context from enqueue", "index", i, "timestamp", ts, "blocknumber", bn)
 				}
 
-				log.Trace("Applying enqueue transaction", "index", i)
+				log.Debug("Applying enqueue transaction", "index", i)
 				err = s.applyTransaction(enqueue)
 				if err != nil {
 					log.Error("Cannot apply transaction", "msg", err)
@@ -400,7 +402,7 @@ func (s *SyncService) Loop() {
 				log.Error("Cannot get tx in loop", "index", i)
 				continue
 			}
-			log.Trace("Applying transaction", "index", i)
+			log.Debug("Applying transaction", "index", i)
 			err = s.applyTransaction(tx)
 			if err != nil {
 				log.Error("Cannot apply transaction", "msg", err)
