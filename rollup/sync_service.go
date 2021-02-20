@@ -400,7 +400,7 @@ func (s *SyncService) Loop() {
 				continue
 			}
 			log.Debug("Applying transaction", "index", i)
-			err = s.applyTransaction(tx)
+			err = s.maybeApplyTransaction(tx)
 			if err != nil {
 				log.Error("Cannot apply transaction", "msg", err)
 			}
