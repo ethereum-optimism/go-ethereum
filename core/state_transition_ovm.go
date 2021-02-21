@@ -138,16 +138,34 @@ func EncodeFakeMessage(
 	msg Message,
 	account abi.ABI,
 ) (Message, error) {
-	var input = []interface{}{
+	// var input = []interface{}{
+	// 	big.NewInt(int64(msg.Gas())),
+	// 	msg.To(),
+	// 	msg.Data(),
+	// }
+
+	tx := ovmTransaction{
+		evm.Context.Time,
+		evm.Context.BlockNumber, // TODO (what's the correct block number?)
+		uint8(msg.QueueOrigin().Uint64()),
+		*msg.L1MessageSender(),
+		*msg.To(),
 		big.NewInt(int64(msg.Gas())),
-		msg.To(),
 		msg.Data(),
 	}
 
-	output, err := account.Pack("qall", input...)
-	if err != nil {
-		return nil, err
+	var abi = evm.Context.OvmExecutionManager.ABI
+	var args = []interface{}{
+		tx,
+		evm.Context.OvmStateManager.Address,
 	}
+
+	ret, err := abi.Pack("run", args...)
+
+	// output, err := account.Pack("qall", input...)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	from := msg.From()
 	return modMessage(
