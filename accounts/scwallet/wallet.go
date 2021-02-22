@@ -312,15 +312,15 @@ func (w *Wallet) Status() (string, error) {
 	}
 	switch {
 	case !w.session.verified && status.PinRetryCount == 0 && status.PukRetryCount == 0:
-		return "Bricked, waiting for full wipe", nil
+		return fmt.Sprintf("Bricked, waiting for full wipe"), nil
 	case !w.session.verified && status.PinRetryCount == 0:
 		return fmt.Sprintf("Blocked, waiting for PUK (%d attempts left) and new PIN", status.PukRetryCount), nil
 	case !w.session.verified:
 		return fmt.Sprintf("Locked, waiting for PIN (%d attempts left)", status.PinRetryCount), nil
 	case !status.Initialized:
-		return "Empty, waiting for initialization", nil
+		return fmt.Sprintf("Empty, waiting for initialization"), nil
 	default:
-		return "Online", nil
+		return fmt.Sprintf("Online"), nil
 	}
 }
 
