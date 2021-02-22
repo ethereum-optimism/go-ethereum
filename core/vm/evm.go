@@ -18,7 +18,6 @@ package vm
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -112,11 +111,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				}(evm.interpreter)
 				evm.interpreter = interpreter
 			}
-			result, err := interpreter.Run(contract, input, readOnly)
-			if err != nil {
-				return result, fmt.Errorf("cannot run interpreter: %w", err)
-			}
-			return result, err
+			return interpreter.Run(contract, input, readOnly)
 		}
 	}
 
