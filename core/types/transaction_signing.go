@@ -117,15 +117,15 @@ func (s OVMSigner) Equal(s2 Signer) bool {
 // Hash returns the hash to be signed by the sender.
 // It does not uniquely identify the transaction.
 func (s OVMSigner) Hash(tx *Transaction) common.Hash {
-	if tx.IsEthSignSighash() {
-		msg := s.OVMSignerTemplateSighashPreimage(tx)
+	// if tx.IsEthSignSighash() {
+	// 	msg := s.OVMSignerTemplateSighashPreimage(tx)
 
-		hasher := sha3.NewLegacyKeccak256()
-		hasher.Write(msg[:])
-		digest := hasher.Sum(nil)
+	// 	hasher := sha3.NewLegacyKeccak256()
+	// 	hasher.Write(msg[:])
+	// 	digest := hasher.Sum(nil)
 
-		return common.BytesToHash(digest)
-	}
+	// 	return common.BytesToHash(digest)
+	// }
 
 	return rlpHash([]interface{}{
 		tx.data.AccountNonce,

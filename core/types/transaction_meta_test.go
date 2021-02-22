@@ -81,7 +81,7 @@ var (
 
 func TestTransactionMetaEncode(t *testing.T) {
 	for _, test := range txMetaSerializationTests {
-		txmeta := NewTransactionMeta(test.l1BlockNumber, test.l1Timestamp, test.msgSender, test.sighashType, test.queueOrigin)
+		txmeta := NewTransactionMeta(test.l1BlockNumber, test.l1Timestamp, test.msgSender, test.queueOrigin, nil, nil)
 
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
@@ -92,22 +92,6 @@ func TestTransactionMetaEncode(t *testing.T) {
 
 		if !isTxMetaEqual(txmeta, decoded) {
 			t.Fatal("Encoding/decoding mismatch")
-		}
-	}
-}
-
-func TestTransactionSighashEncode(t *testing.T) {
-	for _, test := range txMetaSighashEncodeTests {
-		txmeta := NewTransactionMeta(l1BlockNumber, 0, &addr, test.input, QueueOriginSequencer)
-		encoded := TxMetaEncode(txmeta)
-		decoded, err := TxMetaDecode(encoded)
-
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if decoded.SignatureHashType != test.output {
-			t.Fatal("SighashTypes do not match")
 		}
 	}
 }
@@ -140,10 +124,6 @@ func isTxMetaEqual(meta1 *TransactionMeta, meta2 *TransactionMeta) bool {
 		if !bytes.Equal(meta1.L1BlockNumber.Bytes(), meta2.L1BlockNumber.Bytes()) {
 			return false
 		}
-	}
-
-	if meta1.SignatureHashType != meta2.SignatureHashType {
-		return false
 	}
 
 	if meta1.QueueOrigin == nil || meta2.QueueOrigin == nil {

@@ -81,25 +81,18 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, sighashType SignatureHashType) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
+func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
 // TODO: cannot deploy contracts with SighashEthSign right until SighashEIP155 is no longer hardcoded
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin, SighashEIP155)
+func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, sighashType SignatureHashType) *Transaction {
+func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
-	}
-
-	meta := TransactionMeta{
-		L1BlockNumber:     l1BlockNumber,
-		L1MessageSender:   l1MessageSender,
-		SignatureHashType: sighashType,
-		QueueOrigin:       big.NewInt(int64(queueOrigin)),
 	}
 
 	d := txdata{
@@ -120,48 +113,49 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		d.Price.Set(gasPrice)
 	}
 
-	return &Transaction{data: d, meta: meta}
+	return &Transaction{data: d}
 }
 
-func (t *Transaction) SetTransactionMeta(meta *TransactionMeta) {
+func (tx *Transaction) SetTransactionMeta(meta *TransactionMeta) {
 	if meta == nil {
 		return
 	}
-	t.meta = *meta
+	tx.meta = *meta
 }
 
-func (t *Transaction) GetMeta() *TransactionMeta {
-	if &t.meta == nil {
+func (tx *Transaction) GetMeta() *TransactionMeta {
+	if &tx.meta == nil {
 		return nil
 	}
-	return &t.meta
-}
-func (t *Transaction) SetIndex(index uint64) {
-	if &t.meta == nil {
-		return
-	}
-	t.meta.Index = &index
+	return &tx.meta
 }
 
-func (t *Transaction) SetL1Timestamp(ts uint64) {
-	if &t.meta == nil {
+func (tx *Transaction) SetIndex(index uint64) {
+	if &tx.meta == nil {
 		return
 	}
-	t.meta.L1Timestamp = ts
+	tx.meta.Index = &index
 }
 
-func (t *Transaction) L1Timestamp() uint64 {
-	if &t.meta == nil {
+func (tx *Transaction) SetL1Timestamp(ts uint64) {
+	if &tx.meta == nil {
+		return
+	}
+	tx.meta.L1Timestamp = ts
+}
+
+func (tx *Transaction) L1Timestamp() uint64 {
+	if &tx.meta == nil {
 		return 0
 	}
-	return t.meta.L1Timestamp
+	return tx.meta.L1Timestamp
 }
 
-func (t *Transaction) SetL1BlockNumber(bn uint64) {
-	if &t.meta == nil {
+func (tx *Transaction) SetL1BlockNumber(bn uint64) {
+	if &tx.meta == nil {
 		return
 	}
-	t.meta.L1BlockNumber = new(big.Int).SetUint64(bn)
+	tx.meta.L1BlockNumber = new(big.Int).SetUint64(bn)
 }
 
 // ChainId returns which chain id this transaction was signed for (if at all)
@@ -228,20 +222,13 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Data() []byte                         { return common.CopyBytes(tx.data.Payload) }
-func (tx *Transaction) Gas() uint64                          { return tx.data.GasLimit }
-func (tx *Transaction) GasPrice() *big.Int                   { return new(big.Int).Set(tx.data.Price) }
-func (tx *Transaction) Value() *big.Int                      { return new(big.Int).Set(tx.data.Amount) }
-func (tx *Transaction) Nonce() uint64                        { return tx.data.AccountNonce }
-func (tx *Transaction) CheckNonce() bool                     { return true }
-func (tx *Transaction) SetNonce(nonce uint64)                { tx.data.AccountNonce = nonce }
-func (tx *Transaction) SignatureHashType() SignatureHashType { return tx.meta.SignatureHashType }
-func (tx *Transaction) SetSignatureHashType(sighashType SignatureHashType) {
-	tx.meta.SignatureHashType = sighashType
-}
-func (tx *Transaction) IsEthSignSighash() bool {
-	return tx.SignatureHashType() == SighashEthSign
-}
+func (tx *Transaction) Data() []byte          { return common.CopyBytes(tx.data.Payload) }
+func (tx *Transaction) Gas() uint64           { return tx.data.GasLimit }
+func (tx *Transaction) GasPrice() *big.Int    { return new(big.Int).Set(tx.data.Price) }
+func (tx *Transaction) Value() *big.Int       { return new(big.Int).Set(tx.data.Amount) }
+func (tx *Transaction) Nonce() uint64         { return tx.data.AccountNonce }
+func (tx *Transaction) CheckNonce() bool      { return true }
+func (tx *Transaction) SetNonce(nonce uint64) { tx.data.AccountNonce = nonce }
 
 // To returns the recipient address of the transaction.
 // It returns nil if the transaction is a contract creation.
@@ -313,17 +300,16 @@ func (tx *Transaction) Size() common.StorageSize {
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	msg := Message{
-		nonce:             tx.data.AccountNonce,
-		gasLimit:          tx.data.GasLimit,
-		gasPrice:          new(big.Int).Set(tx.data.Price),
-		to:                tx.data.Recipient,
-		l1MessageSender:   tx.meta.L1MessageSender,
-		l1BlockNumber:     tx.meta.L1BlockNumber,
-		signatureHashType: tx.meta.SignatureHashType,
-		queueOrigin:       tx.meta.QueueOrigin,
-		amount:            tx.data.Amount,
-		data:              tx.data.Payload,
-		checkNonce:        true,
+		nonce:           tx.data.AccountNonce,
+		gasLimit:        tx.data.GasLimit,
+		gasPrice:        new(big.Int).Set(tx.data.Price),
+		to:              tx.data.Recipient,
+		l1MessageSender: tx.meta.L1MessageSender,
+		l1BlockNumber:   tx.meta.L1BlockNumber,
+		queueOrigin:     tx.meta.QueueOrigin,
+		amount:          tx.data.Amount,
+		data:            tx.data.Payload,
+		checkNonce:      true,
 	}
 
 	var err error
