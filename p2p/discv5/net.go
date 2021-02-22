@@ -637,7 +637,7 @@ loop:
 	}
 	log.Trace("loop stopped")
 
-	log.Debug("shutting down")
+	log.Debug(fmt.Sprintf("shutting down"))
 	if net.conn != nil {
 		net.conn.Close()
 	}
