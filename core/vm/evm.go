@@ -49,7 +49,6 @@ type (
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
-	log.Debug("run with gas", "gas", contract.Gas)
 	if UsingOVM {
 		// OVM_ENABLED
 
@@ -89,8 +88,6 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			return callStateManager(input, evm, contract)
 		}
 	}
-
-	log.Debug("Not calling state manager", "addr", contract.Address(), "caller", contract.Caller().Hex(), "input", hexutil.Encode(input))
 
 	if contract.CodeAddr != nil {
 		precompiles := PrecompiledContractsHomestead
