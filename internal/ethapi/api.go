@@ -945,9 +945,12 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer, 0)
 	if vm.UsingOVM {
 		cfg := b.ChainConfig()
-		account := cfg.StateDump.Accounts["OVM_ExecutionManager"].ABI
+		executionManager := cfg.StateDump.Accounts["OVM_ExecutionManager"]
+		stateManager := cfg.StateDump.Accounts["OVM_StateManager"]
 		var err error
-		msg, err = core.EncodeFakeMessage(msg, account)
+		blockNumber := header.Number
+		timestamp := new(big.Int).SetUint64(header.Time)
+		msg, err = core.EncodeSimulatedMessage(msg, timestamp, blockNumber, executionManager, stateManager)
 		if err != nil {
 			return nil, 0, false, err
 		}

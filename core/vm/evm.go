@@ -18,6 +18,7 @@ package vm
 
 import (
 	"bytes"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -48,6 +49,7 @@ type (
 
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
+	log.Debug("run with gas", "gas", contract.Gas)
 	if UsingOVM {
 		// OVM_ENABLED
 
@@ -69,7 +71,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 
 		// We don't know the contract, so print some generic information.
 		if isUnknown {
-			log.Debug("Calling Unknown Contract", "Address", contract.Address().Hex())
+			log.Debug("Calling Unknown Contract", "Address", contract.Address().Hex(), "data", hexutil.Encode(input))
 		}
 
 		// Uncomment to make Safety checker always returns true.
@@ -88,6 +90,8 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 		}
 	}
 
+	log.Debug("Not calling state manager", "addr", contract.Address(), "caller", contract.Caller().Hex(), "input", hexutil.Encode(input))
+
 	if contract.CodeAddr != nil {
 		precompiles := PrecompiledContractsHomestead
 		if evm.chainRules.IsByzantium {
@@ -97,7 +101,11 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			precompiles = PrecompiledContractsIstanbul
 		}
 		if p := precompiles[*contract.CodeAddr]; p != nil {
-			return RunPrecompiledContract(p, input, contract)
+			result, err := RunPrecompiledContract(p, input, contract)
+			if err != nil {
+				log.Debug("Error running precompile")
+			}
+			return result, err
 		}
 	}
 
@@ -111,7 +119,11 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 				}(evm.interpreter)
 				evm.interpreter = interpreter
 			}
-			return interpreter.Run(contract, input, readOnly)
+			result, err := interpreter.Run(contract, input, readOnly)
+			if err != nil {
+				return result, fmt.Errorf("cannot run interpreter: %w", err)
+			}
+			return result, err
 		}
 	}
 
@@ -266,11 +278,17 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		if caller.Address() == evm.Context.OvmExecutionManager.Address &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0xdeaddeaddeaddeaddeaddeaddeaddeaddead") &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x000000000000000000000000000000000000") &&
-			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x420000000000000000000000000000000000") &&
+			// !strings.HasPrefix(strings.ToLower(addr.Hex()), "0x420000000000000000000000000000000000") &&
 			evm.Context.OriginalTargetAddress == nil {
 			// Whew. Okay, so: we consider ourselves to be at a "target" as long as we were called
 			// by the execution manager, and we're not a precompile or "dead" address.
+			log.Info("target set", "addr", addr.Hex())
 			evm.Context.OriginalTargetAddress = &addr
+			evm.Context.OriginalTargetReached = true
+			isTarget = true
+		}
+		// Handle eth_call
+		if evm.Context.EthCallSender != nil && (caller.Address() == common.Address{}) {
 			evm.Context.OriginalTargetReached = true
 			isTarget = true
 		}
@@ -322,33 +340,10 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
 	}
 
-	// var prevCode []byte
-	// if UsingOVM {
-	// 	// OVM_ENABLED
-	// 	if evm.Context.EthCallSender != nil && *evm.Context.EthCallSender == addr {
-	// 		// We have to handle eth_call in a special manner as it doesn't stem from a signed
-	// 		// transaction and therefore can't go through the standard EOA contract. When we detect
-	// 		// this case, we temporarily insert some mock code that allows the user to pass through
-	// 		// the EOA without a signature. EthCallSender should *never* be made non-nil outside
-	// 		// of an eth_call. We store the old code here so that we're able to reset the code to
-	// 		// the original code for the remainder of the transaction.
-	// 		prevCode = evm.StateDB.GetCode(addr)
-	// 		evm.StateDB.SetCode(addr, common.FromHex(evm.Context.OvmMockAccount.Code))
-	// 	}
-	// }
-
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
 	contract := NewContract(caller, to, value, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
-
-	// if UsingOVM {
-	// 	// OVM_ENABLED
-	// 	if evm.Context.EthCallSender != nil && *evm.Context.EthCallSender == addr {
-	// 		// Reset the code once it's been loaded into the contract object.
-	// 		evm.StateDB.SetCode(addr, prevCode)
-	// 	}
-	// }
 
 	// Even if the account has no code, we need to continue because it might be a precompile
 	start := time.Now()
@@ -363,6 +358,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 
 	ret, err = run(evm, contract, input, false)
+	if err != nil {
+		log.Debug("run error not nil", "error", err)
+	}
 
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
@@ -399,6 +397,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 				// empty.
 				success := evm.Context.OriginalTargetResult[:32]
 				ret = evm.Context.OriginalTargetResult[96:]
+				log.Debug("ret", "data", hexutil.Encode(evm.Context.OriginalTargetResult))
 
 				if !bytes.Equal(success, AbiBytesTrue) && !bytes.Equal(success, AbiBytesFalse) {
 					// If the first 32 bytes not either are the ABI encoding of "true" or "false",

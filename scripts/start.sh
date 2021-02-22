@@ -173,7 +173,7 @@ while (( "$#" )); do
 done
 
 cmd="$REPO/build/bin/geth"
-cmd="$cmd --eth1.syncservice"
+# cmd="$cmd --eth1.syncservice"
 cmd="$cmd --datadir $DATADIR"
 cmd="$cmd --eth1.chainid $ETH1_CHAIN_ID"
 cmd="$cmd --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"
@@ -189,6 +189,7 @@ cmd="$cmd --dev"
 cmd="$cmd --chainid $CHAIN_ID"
 cmd="$cmd --rpcaddr 0.0.0.0"
 cmd="$cmd --rpcport $RPC_PORT"
+cmd="$cmd --rpcvhosts '*'"
 cmd="$cmd --rpccorsdomain '*'"
 cmd="$cmd --wsaddr 0.0.0.0"
 cmd="$cmd --wsport 8546"
@@ -203,4 +204,4 @@ if [[ ! -z "$IS_VERIFIER" ]]; then
 fi
 
 echo -e "Running:\n$cmd"
-eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd --verbosity=3
+eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd --verbosity=6

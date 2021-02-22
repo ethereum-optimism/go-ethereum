@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/rollup/dump"
 )
 
 var ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
@@ -134,19 +134,10 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 	return outmsg, nil
 }
 
-func EncodeFakeMessage(
-	msg Message,
-	account abi.ABI,
-) (Message, error) {
-	// var input = []interface{}{
-	// 	big.NewInt(int64(msg.Gas())),
-	// 	msg.To(),
-	// 	msg.Data(),
-	// }
-
+func EncodeSimulatedMessage(msg Message, timestamp, blockNumber *big.Int, executionManager, stateManager dump.OvmDumpAccount) (Message, error) {
 	tx := ovmTransaction{
-		evm.Context.Time,
-		evm.Context.BlockNumber, // TODO (what's the correct block number?)
+		timestamp,
+		blockNumber, // TODO (what's the correct block number?)
 		uint8(msg.QueueOrigin().Uint64()),
 		*msg.L1MessageSender(),
 		*msg.To(),
@@ -154,24 +145,22 @@ func EncodeFakeMessage(
 		msg.Data(),
 	}
 
-	var abi = evm.Context.OvmExecutionManager.ABI
+	from := msg.From()
 	var args = []interface{}{
 		tx,
-		evm.Context.OvmStateManager.Address,
+		from,
+		stateManager.Address,
 	}
 
-	ret, err := abi.Pack("run", args...)
+	output, err := executionManager.ABI.Pack("simulateMessage", args...)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot pack simulateMessage: %w", err)
+	}
 
-	// output, err := account.Pack("qall", input...)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	from := msg.From()
 	return modMessage(
 		msg,
-		from,
-		&from,
+		common.Address{},
+		&executionManager.Address,
 		output,
 		msg.Gas(),
 	)
