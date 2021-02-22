@@ -27,7 +27,6 @@ func TestGasLimit(t *testing.T) {
 	gasPrice := big.NewInt(0)
 	data := []byte{}
 	qo := types.QueueOriginSequencer
-	sighash := types.SighashEIP155
 
 	// Set the gas limit to 1 so that the transaction will not be
 	// able to be added.
