@@ -1792,6 +1792,8 @@ func (d *Downloader) qosTuner() {
 		conf = conf + (1000000-conf)/2
 		atomic.StoreUint64(&d.rttConfidence, conf)
 
+		// Log the new QoS values and sleep until the next RTT
+		log.Debug("Recalculated downloader QoS values", "rtt", rtt, "confidence", float64(conf)/1000000.0, "ttl", d.requestTTL())
 		select {
 		case <-d.quitCh:
 			return
