@@ -46,6 +46,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/tyler-smith/go-bip39"
+	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -536,7 +537,19 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	if state == nil || err != nil {
 		return nil, err
 	}
-	return (*hexutil.Big)(state.GetBalance(address)), state.Error()
+
+	// Use the OVM_ETH predeploy for balances since there is no
+	// native ETH. This should be moved into statedb.GetBalance
+	position := big.NewInt(3)
+	eth := common.HexToAddress("0x4200000000000000000000000000000000000006")
+	hasher := sha3.NewLegacyKeccak256()
+	hasher.Write(common.LeftPadBytes(address.Bytes(), 32))
+	hasher.Write(common.LeftPadBytes(position.Bytes(), 32))
+
+	digest := hasher.Sum(nil)
+	key := common.BytesToHash(digest)
+	slot := state.GetState(eth, key)
+	return (*hexutil.Big)(slot.Big()), state.Error()
 }
 
 // Result structs for GetProof
