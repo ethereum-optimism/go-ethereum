@@ -70,7 +70,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 
 		// We don't know the contract, so print some generic information.
 		if isUnknown {
-			log.Debug("Calling Unknown Contract", "Address", contract.Address().Hex(), "data", hexutil.Encode(input))
+			log.Debug("Calling Unknown Contract", "Address", contract.Address().Hex())
 		}
 
 		// Uncomment to make Safety checker always returns true.
@@ -98,11 +98,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 			precompiles = PrecompiledContractsIstanbul
 		}
 		if p := precompiles[*contract.CodeAddr]; p != nil {
-			result, err := RunPrecompiledContract(p, input, contract)
-			if err != nil {
-				log.Debug("Error running precompile")
-			}
-			return result, err
+			return RunPrecompiledContract(p, input, contract)
 		}
 	}
 
@@ -279,7 +275,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			evm.Context.OriginalTargetAddress == nil {
 			// Whew. Okay, so: we consider ourselves to be at a "target" as long as we were called
 			// by the execution manager, and we're not a precompile or "dead" address.
-			log.Info("target set", "addr", addr.Hex())
 			evm.Context.OriginalTargetAddress = &addr
 			evm.Context.OriginalTargetReached = true
 			isTarget = true
@@ -355,9 +350,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 
 	ret, err = run(evm, contract, input, false)
-	if err != nil {
-		log.Debug("run error not nil", "error", err)
-	}
 
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
@@ -394,7 +386,6 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 				// empty.
 				success := evm.Context.OriginalTargetResult[:32]
 				ret = evm.Context.OriginalTargetResult[96:]
-				log.Debug("ret", "data", hexutil.Encode(evm.Context.OriginalTargetResult))
 
 				if !bytes.Equal(success, AbiBytesTrue) && !bytes.Equal(success, AbiBytesFalse) {
 					// If the first 32 bytes not either are the ABI encoding of "true" or "false",
