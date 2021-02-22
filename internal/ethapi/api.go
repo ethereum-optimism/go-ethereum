@@ -955,7 +955,7 @@ func DoCall(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.Blo
 
 	// Create new call message
 	var msg core.Message
-	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer, 0)
+	msg = types.NewMessage(addr, args.To, 0, value, gas, gasPrice, data, false, &addr, nil, types.QueueOriginSequencer)
 	if vm.UsingOVM {
 		cfg := b.ChainConfig()
 		account := cfg.StateDump.Accounts["mockOVM_ECDSAContractAccount"].ABI
@@ -1497,11 +1497,10 @@ type SendTxArgs struct {
 	Nonce    *hexutil.Uint64 `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
-	Data              *hexutil.Bytes          `json:"data"`
-	Input             *hexutil.Bytes          `json:"input"`
-	L1BlockNumber     *big.Int                `json:"l1BlockNumber"`
-	L1MessageSender   *common.Address         `json:"l1MessageSender"`
-	SignatureHashType types.SignatureHashType `json:"signatureHashType"`
+	Data            *hexutil.Bytes  `json:"data"`
+	Input           *hexutil.Bytes  `json:"input"`
+	L1BlockNumber   *big.Int        `json:"l1BlockNumber"`
+	L1MessageSender *common.Address `json:"l1MessageSender"`
 }
 
 // setDefaults is a helper function that fills in default values for unspecified tx fields.

@@ -35,15 +35,6 @@ var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
 )
 
-// TODO(mark): migrate from sighash type to type
-type SignatureHashType uint8
-
-const (
-	SighashEIP155  SignatureHashType = 0
-	SighashEthSign SignatureHashType = 1
-	CreateEOA      SignatureHashType = 2
-)
-
 type Transaction struct {
 	data txdata
 	meta TransactionMeta
@@ -512,46 +503,43 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 //
 // NOTE: In a future PR this will be removed.
 type Message struct {
-	to                *common.Address
-	l1MessageSender   *common.Address
-	l1BlockNumber     *big.Int
-	signatureHashType SignatureHashType
-	queueOrigin       *big.Int
-	from              common.Address
-	nonce             uint64
-	amount            *big.Int
-	gasLimit          uint64
-	gasPrice          *big.Int
-	data              []byte
-	checkNonce        bool
+	to              *common.Address
+	l1MessageSender *common.Address
+	l1BlockNumber   *big.Int
+	queueOrigin     *big.Int
+	from            common.Address
+	nonce           uint64
+	amount          *big.Int
+	gasLimit        uint64
+	gasPrice        *big.Int
+	data            []byte
+	checkNonce      bool
 }
 
-func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, signatureHashType SignatureHashType) Message {
+func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin) Message {
 	return Message{
-		from:              from,
-		to:                to,
-		nonce:             nonce,
-		amount:            amount,
-		gasLimit:          gasLimit,
-		gasPrice:          gasPrice,
-		data:              data,
-		checkNonce:        checkNonce,
-		l1BlockNumber:     l1BlockNumber,
-		l1MessageSender:   l1MessageSender,
-		signatureHashType: signatureHashType,
-		queueOrigin:       big.NewInt(int64(queueOrigin)),
+		from:            from,
+		to:              to,
+		nonce:           nonce,
+		amount:          amount,
+		gasLimit:        gasLimit,
+		gasPrice:        gasPrice,
+		data:            data,
+		checkNonce:      checkNonce,
+		l1BlockNumber:   l1BlockNumber,
+		l1MessageSender: l1MessageSender,
+		queueOrigin:     big.NewInt(int64(queueOrigin)),
 	}
 }
 
-func (m Message) From() common.Address                 { return m.from }
-func (m Message) To() *common.Address                  { return m.to }
-func (m Message) L1MessageSender() *common.Address     { return m.l1MessageSender }
-func (m Message) L1BlockNumber() *big.Int              { return m.l1BlockNumber }
-func (m Message) SignatureHashType() SignatureHashType { return m.signatureHashType }
-func (m Message) QueueOrigin() *big.Int                { return m.queueOrigin }
-func (m Message) GasPrice() *big.Int                   { return m.gasPrice }
-func (m Message) Value() *big.Int                      { return m.amount }
-func (m Message) Gas() uint64                          { return m.gasLimit }
-func (m Message) Nonce() uint64                        { return m.nonce }
-func (m Message) Data() []byte                         { return m.data }
-func (m Message) CheckNonce() bool                     { return m.checkNonce }
+func (m Message) From() common.Address             { return m.from }
+func (m Message) To() *common.Address              { return m.to }
+func (m Message) L1MessageSender() *common.Address { return m.l1MessageSender }
+func (m Message) L1BlockNumber() *big.Int          { return m.l1BlockNumber }
+func (m Message) QueueOrigin() *big.Int            { return m.queueOrigin }
+func (m Message) GasPrice() *big.Int               { return m.gasPrice }
+func (m Message) Value() *big.Int                  { return m.amount }
+func (m Message) Gas() uint64                      { return m.gasLimit }
+func (m Message) Nonce() uint64                    { return m.nonce }
+func (m Message) Data() []byte                     { return m.data }
+func (m Message) CheckNonce() bool                 { return m.checkNonce }

@@ -17,64 +17,43 @@ var (
 		l1BlockNumber *big.Int
 		l1Timestamp   uint64
 		msgSender     *common.Address
-		sighashType   SignatureHashType
 		queueOrigin   QueueOrigin
 	}{
 		{
 			l1BlockNumber: l1BlockNumber,
 			l1Timestamp:   100,
 			msgSender:     &addr,
-			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: nil,
 			l1Timestamp:   45,
 			msgSender:     &addr,
-			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
 			l1Timestamp:   0,
 			msgSender:     nil,
-			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginSequencer,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
 			l1Timestamp:   0,
 			msgSender:     &addr,
-			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginSequencer,
 		},
 		{
 			l1BlockNumber: nil,
 			l1Timestamp:   0,
 			msgSender:     nil,
-			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
 			l1BlockNumber: l1BlockNumber,
 			l1Timestamp:   0,
 			msgSender:     &addr,
-			sighashType:   SighashEthSign,
 			queueOrigin:   QueueOriginL1ToL2,
-		},
-	}
-
-	txMetaSighashEncodeTests = []struct {
-		input  SignatureHashType
-		output SignatureHashType
-	}{
-		{
-			input:  SighashEIP155,
-			output: SighashEIP155,
-		},
-		{
-			input:  SighashEthSign,
-			output: SighashEthSign,
 		},
 	}
 )
