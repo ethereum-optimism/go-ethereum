@@ -278,7 +278,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		if caller.Address() == evm.Context.OvmExecutionManager.Address &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0xdeaddeaddeaddeaddeaddeaddeaddeaddead") &&
 			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x000000000000000000000000000000000000") &&
-			// !strings.HasPrefix(strings.ToLower(addr.Hex()), "0x420000000000000000000000000000000000") &&
+			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x420000000000000000000000000000000000") &&
 			evm.Context.OriginalTargetAddress == nil {
 			// Whew. Okay, so: we consider ourselves to be at a "target" as long as we were called
 			// by the execution manager, and we're not a precompile or "dead" address.
