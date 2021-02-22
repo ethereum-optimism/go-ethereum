@@ -538,16 +538,18 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 		return nil, err
 	}
 	// TODO: move the GetBalance check into state.GetBalance
+	// bring up this in the integration repo
 
 	position := common.Hash{3}
 	eth := common.HexToAddress("0x4200000000000000000000000000000000000006")
 	preimage := [64]byte{}
-	copy(preimage[0:32], common.LeftPadBytes(position.Bytes(), 32))
-	copy(preimage[32:], common.LeftPadBytes(address.Bytes(), 32))
+	copy(preimage[0:32], common.LeftPadBytes(address.Bytes(), 32))
+	copy(preimage[32:], common.LeftPadBytes(position.Bytes(), 32))
 	hasher := sha3.NewLegacyKeccak256()
 	digest := hasher.Sum(preimage[:])
 	slot := state.GetState(eth, common.BytesToHash(digest))
 	return (*hexutil.Big)(slot.Big()), state.Error()
+
 	//return (*hexutil.Big)(state.GetBalance(address)), state.Error()
 }
 
