@@ -537,20 +537,19 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	if state == nil || err != nil {
 		return nil, err
 	}
-	// TODO: move the GetBalance check into state.GetBalance
-	// bring up this in the integration repo
 
-	position := common.Hash{3}
+	// Use the OVM_ETH predeploy for balances since there is no
+	// native ETH. This should be moved into statedb.GetBalance
+	position := big.NewInt(3)
 	eth := common.HexToAddress("0x4200000000000000000000000000000000000006")
-	preimage := [64]byte{}
-	copy(preimage[0:32], common.LeftPadBytes(address.Bytes(), 32))
-	copy(preimage[32:], common.LeftPadBytes(position.Bytes(), 32))
 	hasher := sha3.NewLegacyKeccak256()
-	digest := hasher.Sum(preimage[:])
-	slot := state.GetState(eth, common.BytesToHash(digest))
-	return (*hexutil.Big)(slot.Big()), state.Error()
+	hasher.Write(common.LeftPadBytes(address.Bytes(), 32))
+	hasher.Write(common.LeftPadBytes(position.Bytes(), 32))
 
-	//return (*hexutil.Big)(state.GetBalance(address)), state.Error()
+	digest := hasher.Sum(nil)
+	key := common.BytesToHash(digest)
+	slot := state.GetState(eth, key)
+	return (*hexutil.Big)(slot.Big()), state.Error()
 }
 
 // Result structs for GetProof
