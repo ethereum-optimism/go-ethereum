@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"golang.org/x/crypto/sha3"
 )
 
 type revision struct {
@@ -262,6 +263,18 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 		return stateObject.Balance()
 	}
 	return common.Big0
+}
+
+func (s *StateDB) GetOVMBalance(addr common.Address) *big.Int {
+	position := big.NewInt(3)
+	eth := common.HexToAddress("0x4200000000000000000000000000000000000006")
+	hasher := sha3.NewLegacyKeccak256()
+	hasher.Write(common.LeftPadBytes(addr.Bytes(), 32))
+	hasher.Write(common.LeftPadBytes(position.Bytes(), 32))
+	digest := hasher.Sum(nil)
+	key := common.BytesToHash(digest)
+	slot := s.GetState(eth, key)
+	return slot.Big()
 }
 
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
