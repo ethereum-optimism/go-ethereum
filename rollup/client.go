@@ -180,7 +180,18 @@ func enqueueToTransaction(enqueue *Enqueue) (*types.Transaction, error) {
 
 	value := big.NewInt(0)
 	tx := types.NewTransaction(nonce, target, value, gasLimit, big.NewInt(0), data)
-	txMeta := types.NewTransactionMeta(blockNumber, timestamp, &origin, types.SighashEIP155, types.QueueOriginL1ToL2, enqueue.Index, enqueue.QueueIndex)
+
+	// The index does not get a check as it is allowed to be nil in the context
+	// of an enqueue transaction that has yet to be included into the CTC
+	txMeta := types.NewTransactionMeta(
+		blockNumber,
+		timestamp,
+		&origin,
+		types.SighashEIP155,
+		types.QueueOriginL1ToL2,
+		enqueue.Index,
+		enqueue.QueueIndex,
+	)
 	tx.SetTransactionMeta(txMeta)
 
 	return tx, nil
