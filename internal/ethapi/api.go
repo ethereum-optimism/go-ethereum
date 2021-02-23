@@ -1259,7 +1259,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 			result.QueueIndex = &queueIndex
 		}
 
-		result.TxType = "EthSign"
+		result.TxType = "EIP155"
 		// switch meta.SignatureHashType {
 		// case types.SighashEthSign:
 		// 	result.TxType = "EthSign"
