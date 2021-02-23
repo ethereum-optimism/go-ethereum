@@ -183,19 +183,6 @@ func enqueueToTransaction(enqueue *Enqueue) (*types.Transaction, error) {
 	txMeta := types.NewTransactionMeta(blockNumber, timestamp, &origin, types.SighashEIP155, types.QueueOriginL1ToL2, enqueue.Index, enqueue.QueueIndex)
 	tx.SetTransactionMeta(txMeta)
 
-	// The index does not get a check as it is allowed to be nil in the context
-	// of an enqueue transaction that has yet to be included into the CTC
-	meta := types.TransactionMeta{
-		L1BlockNumber:     blockNumber,
-		L1Timestamp:       timestamp,
-		L1MessageSender:   &origin,
-		SignatureHashType: types.SighashEIP155,
-		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
-		Index:             enqueue.Index,
-		QueueIndex:        enqueue.QueueIndex,
-	}
-	tx.SetTransactionMeta(&meta)
-
 	return tx, nil
 }
 
@@ -257,8 +244,6 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		gasLimit := res.Transaction.Decoded.GasLimit
 		gasPrice := new(big.Int).SetUint64(res.Transaction.Decoded.GasPrice)
 		data := res.Transaction.Decoded.Data
-		l1MessageSender := res.Transaction.Origin
-		l1BlockNumber := new(big.Int).SetUint64(res.Transaction.BlockNumber)
 
 		var tx *types.Transaction
 		if to == (common.Address{}) {
@@ -267,7 +252,15 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 			tx = types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
 		}
 
-		txMeta := types.NewTransactionMeta(l1BlockNumber, 0, l1MessageSender, sighashType, queueOrigin, &res.Transaction.Index, res.Transaction.QueueIndex)
+		txMeta := types.NewTransactionMeta(
+			new(big.Int).SetUint64(res.Transaction.BlockNumber),
+			res.Transaction.Timestamp,
+			res.Transaction.Origin,
+			sighashType,
+			queueOrigin,
+			&res.Transaction.Index,
+			res.Transaction.QueueIndex,
+		)
 		tx.SetTransactionMeta(txMeta)
 
 		r, s := res.Transaction.Decoded.Signature.R, res.Transaction.Decoded.Signature.S
@@ -297,9 +290,16 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 	gasLimit := res.Transaction.GasLimit
 	data := res.Transaction.Data
 	origin := res.Transaction.Origin
-	blockNumber := new(big.Int).SetUint64(res.Transaction.BlockNumber)
 	tx := types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
-	txMeta := types.NewTransactionMeta(blockNumber, 0, origin, types.SighashEIP155, types.QueueOriginL1ToL2, &res.Transaction.Index, res.Transaction.QueueIndex)
+	txMeta := types.NewTransactionMeta(
+		new(big.Int).SetUint64(res.Transaction.BlockNumber),
+		res.Transaction.Timestamp,
+		origin,
+		types.SighashEIP155,
+		types.QueueOriginL1ToL2,
+		&res.Transaction.Index,
+		res.Transaction.QueueIndex,
+	)
 	tx.SetTransactionMeta(txMeta)
 	return tx, nil
 }
