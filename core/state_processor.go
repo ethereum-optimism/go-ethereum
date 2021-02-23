@@ -120,6 +120,7 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+	receipt.InternalTransactions = vmenv.Context.InternalOVMTransactions
 
 	return receipt, err
 }

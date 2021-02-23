@@ -35,6 +35,19 @@ var (
 	ErrInvalidSig = errors.New("invalid transaction v, r, s values")
 )
 
+type OVMTransactionType uint8
+
+const (
+	EIP155Transaction  OVMTransactionType = 0
+	EthSignTransaction OVMTransactionType = 1
+)
+
+type InternalOVMTransaction struct {
+	Data            []byte
+	Address         common.Address
+	TransactionType OVMTransactionType
+}
+
 type Transaction struct {
 	data txdata
 	meta TransactionMeta

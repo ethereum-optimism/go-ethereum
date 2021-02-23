@@ -26,6 +26,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -141,14 +142,15 @@ type Context struct {
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 
 	// OVM_ADDITION
-	EthCallSender         *common.Address
-	OriginalTargetAddress *common.Address
-	OriginalTargetResult  []byte
-	OriginalTargetReached bool
-	OvmExecutionManager   dump.OvmDumpAccount
-	OvmStateManager       dump.OvmDumpAccount
-	OvmMockAccount        dump.OvmDumpAccount
-	OvmSafetyChecker      dump.OvmDumpAccount
+	EthCallSender           *common.Address
+	InternalOVMTransactions []*types.InternalOVMTransaction
+	OriginalTargetAddress   *common.Address
+	OriginalTargetResult    []byte
+	OriginalTargetReached   bool
+	OvmExecutionManager     dump.OvmDumpAccount
+	OvmStateManager         dump.OvmDumpAccount
+	OvmMockAccount          dump.OvmDumpAccount
+	OvmSafetyChecker        dump.OvmDumpAccount
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -258,6 +260,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		// OVM_ENABLED
 		if evm.depth == 0 {
 			// We're inside a new transaction, so make sure to wipe these variables beforehand.
+			evm.Context.InternalOVMTransactions = make([]*types.InternalOVMTransaction, 0)
 			evm.Context.OriginalTargetAddress = nil
 			evm.Context.OriginalTargetResult = []byte("00")
 			evm.Context.OriginalTargetReached = false
@@ -273,6 +276,13 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			evm.Context.OriginalTargetAddress = &addr
 			evm.Context.OriginalTargetReached = true
 			isTarget = true
+
+			// Can be used as a proxy for the event that we'll eventually have. Going to assume EIP155 first.
+			evm.Context.InternalOVMTransactions = append(evm.Context.InternalOVMTransactions, &types.InternalOVMTransaction{
+				Data:            common.CopyBytes(input),
+				Address:         common.HexToAddress(addr.Hex()),
+				TransactionType: types.EIP155Transaction,
+			})
 		}
 	}
 
