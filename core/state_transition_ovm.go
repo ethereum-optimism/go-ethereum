@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/rollup/dump"
 )
 
 var ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
@@ -55,6 +56,38 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 	}
 
 	return outputmsg, nil
+}
+
+func EncodeSimulatedMessage(msg Message, timestamp, blockNumber *big.Int, executionManager, stateManager dump.OvmDumpAccount) (Message, error) {
+	tx := ovmTransaction{
+		timestamp,
+		blockNumber, // TODO (what's the correct block number?)
+		uint8(msg.QueueOrigin().Uint64()),
+		*msg.L1MessageSender(),
+		*msg.To(),
+		big.NewInt(int64(msg.Gas())),
+		msg.Data(),
+	}
+
+	from := msg.From()
+	var args = []interface{}{
+		tx,
+		from,
+		stateManager.Address,
+	}
+
+	output, err := executionManager.ABI.Pack("simulateMessage", args...)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot pack simulateMessage: %w", err)
+	}
+
+	return modMessage(
+		msg,
+		common.Address{},
+		&executionManager.Address,
+		output,
+		msg.Gas(),
+	)
 }
 
 func modMessage(
