@@ -120,7 +120,14 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
-	receipt.InternalTransactions = vmenv.Context.InternalOVMTransactions
+
+	receipt.InternalTransactions = make([]*types.Transaction, 0)
+	for _, rawTx := range vmenv.Context.InternalOVMTransactions {
+		parsedTx := types.NewTransaction(0, common.HexToAddress("0x0000000000000000000000000000000000000000"), nil, 0, nil, rawTx.Data)
+		txMeta := types.NewTransactionMeta(nil, 0, nil, types.QueueOriginSequencer, nil, nil)
+		parsedTx.SetTransactionMeta(txMeta)
+		receipt.InternalTransactions = append(receipt.InternalTransactions, parsedTx)
+	}
 
 	return receipt, err
 }

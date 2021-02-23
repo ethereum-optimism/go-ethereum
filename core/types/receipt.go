@@ -67,7 +67,7 @@ type Receipt struct {
 	BlockNumber      *big.Int    `json:"blockNumber,omitempty"`
 	TransactionIndex uint        `json:"transactionIndex"`
 
-	InternalTransactions []*InternalOVMTransaction `json:"internalTransactions,omitempty"`
+	InternalTransactions []*Transaction `json:"internalTransactions,omitempty"`
 }
 
 type receiptMarshaling struct {
