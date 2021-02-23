@@ -1562,9 +1562,14 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 		input = *args.Data
 	}
 	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, nil, args.L1BlockNumber, types.QueueOriginSequencer)
+		tx := types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, nil, types.CreateEOA, types.QueueOriginSequencer, nil, nil)
+		tx.SetTransactionMeta(txMeta)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input, args.L1MessageSender, args.L1BlockNumber, types.QueueOriginSequencer, args.SignatureHashType)
+	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
+	txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, args.L1MessageSender, args.SignatureHashType, types.QueueOriginSequencer, nil, nil)
+	tx.SetTransactionMeta(txMeta)
+	return tx
 }
 
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
@@ -1657,8 +1662,8 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, err
 	}
 	// L1Timestamp and L1BlockNumber will be set by the miner
-	meta := types.NewTransactionMeta(nil, 0, nil, types.SighashEIP155, types.QueueOriginSequencer)
-	tx.SetTransactionMeta(meta)
+	txMeta := types.NewTransactionMeta(nil, 0, nil, types.SighashEIP155, types.QueueOriginSequencer, nil, nil)
+	tx.SetTransactionMeta(txMeta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
 
@@ -1680,8 +1685,8 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 		return common.Hash{}, err
 	}
 	// L1Timestamp and L1BlockNumber will be set by the miner
-	meta := types.NewTransactionMeta(nil, 0, nil, types.SighashEthSign, types.QueueOriginSequencer)
-	tx.SetTransactionMeta(meta)
+	txMeta := types.NewTransactionMeta(nil, 0, nil, types.SighashEthSign, types.QueueOriginSequencer, nil, nil)
+	tx.SetTransactionMeta(txMeta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
 

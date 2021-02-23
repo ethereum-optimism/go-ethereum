@@ -44,17 +44,9 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	//The index in the ctc
 	index := uint64(120)
 
-	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &l1TxOrigin, l1BlockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
-	meta := types.TransactionMeta{
-		L1BlockNumber:     l1BlockNumber,
-		L1Timestamp:       timestamp,
-		L1MessageSender:   &l1TxOrigin,
-		SignatureHashType: types.SighashEIP155,
-		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
-		Index:             &index,
-		QueueIndex:        &queueIndex,
-	}
-	tx.SetTransactionMeta(&meta)
+	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
+	txMeta := types.NewTransactionMeta(l1BlockNumber, timestamp, &l1TxOrigin, types.SighashEIP155, types.QueueOriginL1ToL2, &index, &queueIndex)
+	tx.SetTransactionMeta(txMeta)
 
 	setupMockClient(service, map[string]interface{}{
 		"GetEnqueue": []*types.Transaction{
@@ -95,17 +87,9 @@ func TestSyncServiceSync(t *testing.T) {
 	l1BlockNumber := big.NewInt(100)
 	queueIndex := uint64(0)
 	index := uint64(0)
-	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &l1TxOrigin, l1BlockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
-	meta := types.TransactionMeta{
-		L1BlockNumber:     l1BlockNumber,
-		L1Timestamp:       timestamp,
-		L1MessageSender:   &l1TxOrigin,
-		SignatureHashType: types.SighashEIP155,
-		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
-		Index:             &index,
-		QueueIndex:        &queueIndex,
-	}
-	tx.SetTransactionMeta(&meta)
+	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
+	txMeta := types.NewTransactionMeta(l1BlockNumber, timestamp, &l1TxOrigin, types.SighashEIP155, types.QueueOriginL1ToL2, &index, &queueIndex)
+	tx.SetTransactionMeta(txMeta)
 
 	setupMockClient(service, map[string]interface{}{
 		"GetTransaction": []*types.Transaction{
@@ -140,17 +124,9 @@ func TestInitializeL1ContextPostGenesis(t *testing.T) {
 	l1BlockNumber := big.NewInt(100)
 	queueIndex := uint64(100)
 	index := uint64(120)
-	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data, &l1TxOrigin, l1BlockNumber, types.QueueOriginL1ToL2, types.SighashEIP155)
-	meta := types.TransactionMeta{
-		L1BlockNumber:     l1BlockNumber,
-		L1Timestamp:       timestamp,
-		L1MessageSender:   &l1TxOrigin,
-		SignatureHashType: types.SighashEIP155,
-		QueueOrigin:       big.NewInt(int64(types.QueueOriginL1ToL2)),
-		Index:             &index,
-		QueueIndex:        &queueIndex,
-	}
-	tx.SetTransactionMeta(&meta)
+	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
+	txMeta := types.NewTransactionMeta(l1BlockNumber, timestamp, &l1TxOrigin, types.SighashEIP155, types.QueueOriginL1ToL2, &index, &queueIndex)
+	tx.SetTransactionMeta(txMeta)
 
 	setupMockClient(service, map[string]interface{}{
 		"GetEnqueue": []*types.Transaction{
