@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
+	"golang.org/x/crypto/sha3"
 )
 
 type revision struct {
@@ -256,12 +257,17 @@ func (s *StateDB) Empty(addr common.Address) bool {
 }
 
 // Retrieve the balance from the given address or 0 if object not found
+// Use the OVM_ETH predeploy for balances since there is no native ETH
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
-	stateObject := s.getStateObject(addr)
-	if stateObject != nil {
-		return stateObject.Balance()
-	}
-	return common.Big0
+	position := big.NewInt(3)
+	eth := common.HexToAddress("0x4200000000000000000000000000000000000006")
+	hasher := sha3.NewLegacyKeccak256()
+	hasher.Write(common.LeftPadBytes(addr.Bytes(), 32))
+	hasher.Write(common.LeftPadBytes(position.Bytes(), 32))
+	digest := hasher.Sum(nil)
+	key := common.BytesToHash(digest)
+	slot := s.GetState(eth, key)
+	return slot.Big()
 }
 
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
@@ -397,7 +403,15 @@ func (s *StateDB) SubBalance(addr common.Address, amount *big.Int) {
 func (s *StateDB) SetBalance(addr common.Address, amount *big.Int) {
 	stateObject := s.GetOrNewStateObject(addr)
 	if stateObject != nil {
-		stateObject.SetBalance(amount)
+		position := big.NewInt(3)
+		eth := common.HexToAddress("0x4200000000000000000000000000000000000006")
+		hasher := sha3.NewLegacyKeccak256()
+		hasher.Write(common.LeftPadBytes(addr.Bytes(), 32))
+		hasher.Write(common.LeftPadBytes(position.Bytes(), 32))
+		digest := hasher.Sum(nil)
+		key := common.BytesToHash(digest)
+		value := common.BigToHash(amount)
+		s.SetState(eth, key, value)
 	}
 }
 
