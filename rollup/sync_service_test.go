@@ -63,7 +63,7 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	})
 
 	// Start up the main loop
-	go service.Loop()
+	go service.SequencerLoop()
 	// Wait for the tx to be confirmed into the chain and then
 	// make sure it is the transactions that was set up with in the mockclient
 	event := <-txCh
@@ -113,7 +113,7 @@ func TestSyncServiceSync(t *testing.T) {
 		},
 	})
 
-	go service.Loop()
+	go service.VerifierLoop()
 
 	event := <-txCh
 	if len(event.Txs) != 1 {
