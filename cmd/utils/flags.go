@@ -547,9 +547,10 @@ var (
 		EnvVar: "RPC_ADDR",
 	}
 	RPCPortFlag = cli.IntFlag{
-		Name:   "rpcport",
-		Usage:  "HTTP-RPC server listening port",
-		Value:  node.DefaultHTTPPort,
+		Name:  "rpcport",
+		Usage: "HTTP-RPC server listening port",
+		Value: node.DefaultHTTPPort,
+
 		EnvVar: "RPC_PORT",
 	}
 	RPCCORSDomainFlag = cli.StringFlag{
