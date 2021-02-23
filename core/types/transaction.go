@@ -95,12 +95,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		data = common.CopyBytes(data)
 	}
 
-	meta := TransactionMeta{
-		L1BlockNumber:     nil,
-		L1MessageSender:   nil,
-		SignatureHashType: SighashEIP155,
-		QueueOrigin:       big.NewInt(int64(QueueOriginSequencer)),
-	}
+	meta := NewTransactionMeta(nil, 0, nil, SighashEIP155, QueueOriginSequencer, nil, nil)
 
 	d := txdata{
 		AccountNonce: nonce,
@@ -120,7 +115,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		d.Price.Set(gasPrice)
 	}
 
-	return &Transaction{data: d, meta: meta}
+	return &Transaction{data: d, meta: *meta}
 }
 
 func (t *Transaction) SetTransactionMeta(meta *TransactionMeta) {
