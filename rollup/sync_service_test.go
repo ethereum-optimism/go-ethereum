@@ -45,7 +45,15 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	index := uint64(120)
 
 	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
-	txMeta := types.NewTransactionMeta(l1BlockNumber, timestamp, &l1TxOrigin, types.SighashEIP155, types.QueueOriginL1ToL2, &index, &queueIndex)
+	txMeta := types.NewTransactionMeta(
+		l1BlockNumber,
+		timestamp,
+		&l1TxOrigin,
+		types.SighashEIP155,
+		types.QueueOriginL1ToL2,
+		&index,
+		&queueIndex,
+	)
 	tx.SetTransactionMeta(txMeta)
 
 	setupMockClient(service, map[string]interface{}{
@@ -88,7 +96,15 @@ func TestSyncServiceSync(t *testing.T) {
 	queueIndex := uint64(0)
 	index := uint64(0)
 	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
-	txMeta := types.NewTransactionMeta(l1BlockNumber, timestamp, &l1TxOrigin, types.SighashEIP155, types.QueueOriginL1ToL2, &index, &queueIndex)
+	txMeta := types.NewTransactionMeta(
+		l1BlockNumber,
+		timestamp,
+		&l1TxOrigin,
+		types.SighashEIP155,
+		types.QueueOriginL1ToL2,
+		&index,
+		&queueIndex,
+	)
 	tx.SetTransactionMeta(txMeta)
 
 	setupMockClient(service, map[string]interface{}{
@@ -125,7 +141,15 @@ func TestInitializeL1ContextPostGenesis(t *testing.T) {
 	queueIndex := uint64(100)
 	index := uint64(120)
 	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
-	txMeta := types.NewTransactionMeta(l1BlockNumber, timestamp, &l1TxOrigin, types.SighashEIP155, types.QueueOriginL1ToL2, &index, &queueIndex)
+	txMeta := types.NewTransactionMeta(
+		l1BlockNumber,
+		timestamp,
+		&l1TxOrigin,
+		types.SighashEIP155,
+		types.QueueOriginL1ToL2,
+		&index,
+		&queueIndex,
+	)
 	tx.SetTransactionMeta(txMeta)
 
 	setupMockClient(service, map[string]interface{}{
