@@ -34,6 +34,7 @@ import (
 
 var (
 	ErrInvalidChainId = errors.New("invalid chain id for signer")
+	ErrUnprotectedTx  = errors.New("unprotected transaction")
 )
 
 // sigCache is used to cache the derived sender and contains
@@ -149,7 +150,7 @@ func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
 		return common.Address{}, nil
 	}
 	if !tx.Protected() {
-		return HomesteadSigner{}.Sender(tx)
+		return common.Address{}, ErrUnprotectedTx
 	}
 	if tx.ChainId().Cmp(s.chainId) != 0 {
 		return common.Address{}, ErrInvalidChainId
