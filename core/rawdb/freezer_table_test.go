@@ -44,8 +44,6 @@ func getChunk(size int, b int) []byte {
 // TestFreezerBasics test initializing a freezertable from scratch, writing to the table,
 // and reading it back.
 func TestFreezerBasics(t *testing.T) {
-
-	// TODO: SKIPPING
 	t.Skip("This test fails on the last pre-fork commit. It may be OS X related")
 
 	t.Parallel()
@@ -134,8 +132,6 @@ func TestFreezerBasicsClosing(t *testing.T) {
 
 // TestFreezerRepairDanglingHead tests that we can recover if index entries are removed
 func TestFreezerRepairDanglingHead(t *testing.T) {
-
-	// TODO: SKIPPING
 	t.Skip("This test fails on the last pre-fork commit. It may be OS X related")
 
 	t.Parallel()
@@ -259,8 +255,6 @@ func TestFreezerRepairDanglingHeadLarge(t *testing.T) {
 
 // TestSnappyDetection tests that we fail to open a snappy database and vice versa
 func TestSnappyDetection(t *testing.T) {
-
-	// TODO: SKIPPING
 	t.Skip("This test fails on the last pre-fork commit. It may be OS X related")
 
 	t.Parallel()

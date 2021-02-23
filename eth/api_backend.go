@@ -44,9 +44,10 @@ import (
 
 // EthAPIBackend implements ethapi.Backend for full nodes
 type EthAPIBackend struct {
-	extRPCEnabled    bool
-	eth              *Ethereum
-	gpo              *gasprice.Oracle
+	extRPCEnabled bool
+	eth           *Ethereum
+	gpo           *gasprice.Oracle
+
 	verifier         bool
 	DisableTransfers bool
 	gasLimit         uint64
