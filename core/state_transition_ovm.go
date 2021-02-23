@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -56,31 +55,6 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 	}
 
 	return outputmsg, nil
-}
-
-func EncodeFakeMessage(
-	msg Message,
-	account abi.ABI,
-) (Message, error) {
-	var input = []interface{}{
-		big.NewInt(int64(msg.Gas())),
-		msg.To(),
-		msg.Data(),
-	}
-
-	output, err := account.Pack("qall", input...)
-	if err != nil {
-		return nil, err
-	}
-
-	from := msg.From()
-	return modMessage(
-		msg,
-		from,
-		&from,
-		output,
-		msg.Gas(),
-	)
 }
 
 func modMessage(

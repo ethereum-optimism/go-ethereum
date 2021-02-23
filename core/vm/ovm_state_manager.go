@@ -39,7 +39,7 @@ func callStateManager(input []byte, evm *EVM, contract *Contract) (ret []byte, e
 
 	method, err := abi.MethodById(input)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot find method id %s: %w", input, err)
 	}
 
 	var inputArgs = make(map[string]interface{})
@@ -55,12 +55,12 @@ func callStateManager(input []byte, evm *EVM, contract *Contract) (ret []byte, e
 
 	outputArgs, err := fn(evm, contract, inputArgs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot execute state manager function: %w", err)
 	}
 
 	returndata, err := method.Outputs.PackValues(outputArgs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot pack returndata: %w", err)
 	}
 
 	return returndata, nil

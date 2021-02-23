@@ -151,13 +151,13 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 			q = strconv.FormatUint(*queueIndex, 10)
 		}
 		log.Info("Initialized Eth Context", "index", i, "queue-index", q)
-	}
 
-	// The sequencer needs to sync to the tip at start up
-	// By setting the sync status to true, it will prevent RPC calls.
-	// Be sure this is set to false later.
-	if !service.verifier {
-		service.setSyncStatus(true)
+		// The sequencer needs to sync to the tip at start up
+		// By setting the sync status to true, it will prevent RPC calls.
+		// Be sure this is set to false later.
+		if !service.verifier {
+			service.setSyncStatus(true)
+		}
 	}
 
 	return &service, nil
