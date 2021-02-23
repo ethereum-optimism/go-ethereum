@@ -274,6 +274,11 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			evm.Context.OriginalTargetReached = true
 			isTarget = true
 		}
+		// Handle eth_call
+		if evm.Context.EthCallSender != nil && (caller.Address() == common.Address{}) {
+			evm.Context.OriginalTargetReached = true
+			isTarget = true
+		}
 	}
 
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
@@ -322,33 +327,10 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		evm.Transfer(evm.StateDB, caller.Address(), to.Address(), value)
 	}
 
-	var prevCode []byte
-	if UsingOVM {
-		// OVM_ENABLED
-		if evm.Context.EthCallSender != nil && *evm.Context.EthCallSender == addr {
-			// We have to handle eth_call in a special manner as it doesn't stem from a signed
-			// transaction and therefore can't go through the standard EOA contract. When we detect
-			// this case, we temporarily insert some mock code that allows the user to pass through
-			// the EOA without a signature. EthCallSender should *never* be made non-nil outside
-			// of an eth_call. We store the old code here so that we're able to reset the code to
-			// the original code for the remainder of the transaction.
-			prevCode = evm.StateDB.GetCode(addr)
-			evm.StateDB.SetCode(addr, common.FromHex(evm.Context.OvmMockAccount.Code))
-		}
-	}
-
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
 	contract := NewContract(caller, to, value, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
-
-	if UsingOVM {
-		// OVM_ENABLED
-		if evm.Context.EthCallSender != nil && *evm.Context.EthCallSender == addr {
-			// Reset the code once it's been loaded into the contract object.
-			evm.StateDB.SetCode(addr, prevCode)
-		}
-	}
 
 	// Even if the account has no code, we need to continue because it might be a precompile
 	start := time.Now()
