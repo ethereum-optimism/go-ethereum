@@ -281,11 +281,8 @@ func (s *SyncService) Stop() error {
 func (s *SyncService) VerifierLoop() {
 	log.Info("Starting Verifier Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
 	for {
-		// Both the verifier and the sequencer poll for ctc transactions.
-		// For the sequencer, ctc transactions are in the past while for
-		// the verifier, ctc transactions are extending the chain.
-		// The sequencer essentially runs a verifier to make sure that
-		// it reflects the ultimate source of truth which is the L1 contracts.
+		// The verifier polls for ctc transactions.
+		// the ctc transactions are extending the chain.
 		latest, err := s.client.GetLatestTransaction()
 		if err != nil {
 			log.Error("Cannot fetch transaction")
