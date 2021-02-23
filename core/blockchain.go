@@ -1377,6 +1377,7 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	internalTransactions := make([]*types.Transaction, 0)
 	for _, receipt := range receipts {
 		internalTransactions = append(internalTransactions, receipt.InternalTransactions...)
+		receipt.InternalTransactions = nil
 	}
 	block = types.NewBlock(block.Header(), internalTransactions, block.Uncles(), receipts)
 
