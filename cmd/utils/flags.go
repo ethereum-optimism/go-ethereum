@@ -462,9 +462,10 @@ var (
 		EnvVar: "GASPRICE",
 	}
 	MinerLegacyGasPriceFlag = BigFlag{
-		Name:   "gasprice",
-		Usage:  "Minimum gas price for mining a transaction (deprecated, use --miner.gasprice)",
-		Value:  big.NewInt(0),
+		Name:  "gasprice",
+		Usage: "Minimum gas price for mining a transaction (deprecated, use --miner.gasprice)",
+		Value: big.NewInt(0),
+
 		EnvVar: "GASPRICE",
 	}
 	MinerEtherbaseFlag = cli.StringFlag{
