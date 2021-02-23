@@ -7,7 +7,7 @@ IS_VERIFIER=
 DATADIR=$HOME/.ethereum
 ETH1_CHAIN_ID=1
 TARGET_GAS_LIMIT=9000000
-CHAIN_ID=10
+CHAIN_ID=420
 ETH1_CTC_DEPLOYMENT_HEIGHT=11650235
 ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0x0AEBf5161A9b57349747D078c6763a0B1d67D888
 ADDRESS_MANAGER_OWNER_ADDRESS=0xc6Dbc2DC7649c7d4292d955DA08A7C21a21e1528
@@ -16,7 +16,7 @@ ROLLUP_CLIENT_HTTP=http://localhost:7878
 ROLLUP_POLL_INTERVAL=15s
 ROLLUP_TIMESTAMP_REFRESH=15m
 CACHE=1024
-RPC_PORT=8545
+RPC_PORT=8544
 
 USAGE="
 Start the Sequencer or Verifier with most configuration pre-set.
@@ -173,7 +173,7 @@ while (( "$#" )); do
 done
 
 cmd="$REPO/build/bin/geth"
-cmd="$cmd --eth1.syncservice"
+# cmd="$cmd --eth1.syncservice"
 cmd="$cmd --datadir $DATADIR"
 cmd="$cmd --eth1.chainid $ETH1_CHAIN_ID"
 cmd="$cmd --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"
@@ -204,4 +204,4 @@ if [[ ! -z "$IS_VERIFIER" ]]; then
 fi
 
 echo -e "Running:\n$cmd"
-eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd --verbosity=3
+eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd --verbosity=6

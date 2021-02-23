@@ -205,6 +205,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 
 	if vm.UsingOVM {
 		// OVM_ENABLED
+		log.Debug("wat", "target", st.msg.From())
 		if st.evm.EthCallSender == nil {
 			st.msg, err = toExecutionManagerRun(st.evm, st.msg)
 		}

@@ -82,10 +82,21 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
 func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
-	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number))
-	if err != nil {
-		return nil, err
+	var msg Message
+	var err error
+	if !vm.UsingOVM {
+		msg, err = tx.AsMessage(types.MakeSigner(config, header.Number))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		decompressor := config.StateDump.Accounts["OVM_SequencerEntrypoint"]
+		msg, err = asOvmMessage(tx, types.MakeSigner(config, header.Number), decompressor.Address)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	// Create a new context to be used in the EVM environment
 	context := NewEVMContext(msg, header, bc, author)
 	// Create a new environment which holds all relevant information
