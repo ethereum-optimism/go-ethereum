@@ -31,7 +31,6 @@ import (
 // The values in those tests are from the Transaction Tests
 // at github.com/ethereum/tests.
 var (
-	sender               = common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87")
 	emptyTx              = NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(0), 0, big.NewInt(0), nil)
 	emptyTxEmptyL1Sender = NewTransaction(0, common.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), big.NewInt(0), 0, big.NewInt(0), nil)
 

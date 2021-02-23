@@ -125,17 +125,3 @@ func getQueueOrigin(
 		return types.QueueOriginSequencer, fmt.Errorf("invalid queue origin: %d", queueOrigin)
 	}
 }
-
-func fillBytes(x *big.Int, size int) []byte {
-	b := x.Bytes()
-	switch {
-	case len(b) > size:
-		panic("math/big: value won't fit requested size")
-	case len(b) == size:
-		return b
-	default:
-		buf := make([]byte, size)
-		copy(buf[size-len(b):], b)
-		return buf
-	}
-}

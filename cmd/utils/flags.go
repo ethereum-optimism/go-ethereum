@@ -140,9 +140,10 @@ func printHelp(out io.Writer, templ string, data interface{}) {
 var (
 	// General settings
 	DataDirFlag = DirectoryFlag{
-		Name:   "datadir",
-		Usage:  "Data directory for the databases and keystore",
-		Value:  DirectoryString(node.DefaultDataDir()),
+		Name:  "datadir",
+		Usage: "Data directory for the databases and keystore",
+		Value: DirectoryString(node.DefaultDataDir()),
+
 		EnvVar: "DATADIR",
 	}
 	AncientFlag = DirectoryFlag{
@@ -154,8 +155,9 @@ var (
 		Usage: "Directory for the keystore (default = inside the datadir)",
 	}
 	NoUSBFlag = cli.BoolFlag{
-		Name:   "nousb",
-		Usage:  "Disables monitoring for and managing USB hardware wallets",
+		Name:  "nousb",
+		Usage: "Disables monitoring for and managing USB hardware wallets",
+
 		EnvVar: "NO_USB",
 	}
 	SmartCardDaemonPathFlag = cli.StringFlag{
@@ -164,9 +166,10 @@ var (
 		Value: pcsclite.PCSCDSockName,
 	}
 	NetworkIdFlag = cli.Uint64Flag{
-		Name:   "networkid",
-		Usage:  "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
-		Value:  eth.DefaultConfig.NetworkId,
+		Name:  "networkid",
+		Usage: "Network identifier (integer, 1=Frontier, 2=Morden (disused), 3=Ropsten, 4=Rinkeby)",
+		Value: eth.DefaultConfig.NetworkId,
+
 		EnvVar: "NETWORK_ID",
 	}
 	ChainIdFlag = cli.Uint64Flag{
@@ -188,8 +191,9 @@ var (
 		Usage: "Görli network: pre-configured proof-of-authority test network",
 	}
 	DeveloperFlag = cli.BoolFlag{
-		Name:   "dev",
-		Usage:  "Ephemeral proof-of-authority network with a pre-funded developer account, mining enabled",
+		Name:  "dev",
+		Usage: "Ephemeral proof-of-authority network with a pre-funded developer account, mining enabled",
+
 		EnvVar: "DEV",
 	}
 	DeveloperPeriodFlag = cli.IntFlag{
@@ -232,9 +236,10 @@ var (
 		Value: &defaultSyncMode,
 	}
 	GCModeFlag = cli.StringFlag{
-		Name:   "gcmode",
-		Usage:  `Blockchain garbage collection mode ("full", "archive")`,
-		Value:  "full",
+		Name:  "gcmode",
+		Usage: `Blockchain garbage collection mode ("full", "archive")`,
+		Value: "full",
+
 		EnvVar: "GCMODE",
 	}
 	LightKDFFlag = cli.BoolFlag{
@@ -384,10 +389,11 @@ var (
 	}
 	// Performance tuning settings
 	CacheFlag = cli.IntFlag{
-		Name:   "cache",
-		Usage:  "Megabytes of memory allocated to internal caching (default = 4096 mainnet full node, 128 light mode)",
+		Name:  "cache",
+		Usage: "Megabytes of memory allocated to internal caching (default = 4096 mainnet full node, 128 light mode)",
+		Value: 1024,
+
 		EnvVar: "CACHE",
-		Value:  1024,
 	}
 	CacheDatabaseFlag = cli.IntFlag{
 		Name:  "cache.database",
@@ -428,27 +434,31 @@ var (
 		Usage: "Comma separated HTTP URL list to notify of new work packages",
 	}
 	MinerGasTargetFlag = cli.Uint64Flag{
-		Name:   "miner.gastarget",
-		Usage:  "Target gas floor for mined blocks",
-		Value:  eth.DefaultConfig.Miner.GasFloor,
+		Name:  "miner.gastarget",
+		Usage: "Target gas floor for mined blocks",
+		Value: eth.DefaultConfig.Miner.GasFloor,
+
 		EnvVar: "TARGET_GAS_LIMIT",
 	}
 	MinerLegacyGasTargetFlag = cli.Uint64Flag{
-		Name:   "targetgaslimit",
-		Usage:  "Target gas floor for mined blocks (deprecated, use --miner.gastarget)",
-		Value:  eth.DefaultConfig.Miner.GasFloor,
+		Name:  "targetgaslimit",
+		Usage: "Target gas floor for mined blocks (deprecated, use --miner.gastarget)",
+		Value: eth.DefaultConfig.Miner.GasFloor,
+
 		EnvVar: "TARGET_GAS_LIMIT",
 	}
 	MinerGasLimitFlag = cli.Uint64Flag{
-		Name:   "miner.gaslimit",
-		Usage:  "Target gas ceiling for mined blocks",
-		Value:  eth.DefaultConfig.Miner.GasCeil,
+		Name:  "miner.gaslimit",
+		Usage: "Target gas ceiling for mined blocks",
+		Value: eth.DefaultConfig.Miner.GasCeil,
+
 		EnvVar: "TARGET_GAS_LIMIT",
 	}
 	MinerGasPriceFlag = BigFlag{
-		Name:   "miner.gasprice",
-		Usage:  "Minimum gas price for mining a transaction",
-		Value:  big.NewInt(0),
+		Name:  "miner.gasprice",
+		Usage: "Minimum gas price for mining a transaction",
+		Value: big.NewInt(0),
+
 		EnvVar: "GASPRICE",
 	}
 	MinerLegacyGasPriceFlag = BigFlag{
@@ -527,8 +537,9 @@ var (
 	}
 	// RPC settings
 	IPCDisabledFlag = cli.BoolFlag{
-		Name:   "ipcdisable",
-		Usage:  "Disable the IPC-RPC server",
+		Name:  "ipcdisable",
+		Usage: "Disable the IPC-RPC server",
+
 		EnvVar: "IPC_DISABLE",
 	}
 	IPCPathFlag = DirectoryFlag{
@@ -536,14 +547,16 @@ var (
 		Usage: "Filename for IPC socket/pipe within the datadir (explicit paths escape it)",
 	}
 	RPCEnabledFlag = cli.BoolFlag{
-		Name:   "rpc",
-		Usage:  "Enable the HTTP-RPC server",
+		Name:  "rpc",
+		Usage: "Enable the HTTP-RPC server",
+
 		EnvVar: "RPC_ENABLE",
 	}
 	RPCListenAddrFlag = cli.StringFlag{
-		Name:   "rpcaddr",
-		Usage:  "HTTP-RPC server listening interface",
-		Value:  node.DefaultHTTPHost,
+		Name:  "rpcaddr",
+		Usage: "HTTP-RPC server listening interface",
+		Value: node.DefaultHTTPHost,
+
 		EnvVar: "RPC_ADDR",
 	}
 	RPCPortFlag = cli.IntFlag{
@@ -554,50 +567,58 @@ var (
 		EnvVar: "RPC_PORT",
 	}
 	RPCCORSDomainFlag = cli.StringFlag{
-		Name:   "rpccorsdomain",
-		Usage:  "Comma separated list of domains from which to accept cross origin requests (browser enforced)",
-		Value:  "",
+		Name:  "rpccorsdomain",
+		Usage: "Comma separated list of domains from which to accept cross origin requests (browser enforced)",
+		Value: "",
+
 		EnvVar: "RPC_CORS_DOMAIN",
 	}
 	RPCVirtualHostsFlag = cli.StringFlag{
-		Name:   "rpcvhosts",
-		Usage:  "Comma separated list of virtual hostnames from which to accept requests (server enforced). Accepts '*' wildcard.",
-		Value:  strings.Join(node.DefaultConfig.HTTPVirtualHosts, ","),
+		Name:  "rpcvhosts",
+		Usage: "Comma separated list of virtual hostnames from which to accept requests (server enforced). Accepts '*' wildcard.",
+		Value: strings.Join(node.DefaultConfig.HTTPVirtualHosts, ","),
+
 		EnvVar: "RPC_VHOSTS",
 	}
 	RPCApiFlag = cli.StringFlag{
-		Name:   "rpcapi",
-		Usage:  "API's offered over the HTTP-RPC interface",
-		Value:  "",
+		Name:  "rpcapi",
+		Usage: "API's offered over the HTTP-RPC interface",
+		Value: "",
+
 		EnvVar: "RPC_API",
 	}
 	WSEnabledFlag = cli.BoolFlag{
-		Name:   "ws",
-		Usage:  "Enable the WS-RPC server",
+		Name:  "ws",
+		Usage: "Enable the WS-RPC server",
+
 		EnvVar: "WS",
 	}
 	WSListenAddrFlag = cli.StringFlag{
-		Name:   "wsaddr",
-		Usage:  "WS-RPC server listening interface",
-		Value:  node.DefaultWSHost,
+		Name:  "wsaddr",
+		Usage: "WS-RPC server listening interface",
+		Value: node.DefaultWSHost,
+
 		EnvVar: "WS_ADDR",
 	}
 	WSPortFlag = cli.IntFlag{
-		Name:   "wsport",
-		Usage:  "WS-RPC server listening port",
-		Value:  node.DefaultWSPort,
+		Name:  "wsport",
+		Usage: "WS-RPC server listening port",
+		Value: node.DefaultWSPort,
+
 		EnvVar: "WS_PORT",
 	}
 	WSApiFlag = cli.StringFlag{
-		Name:   "wsapi",
-		Usage:  "API's offered over the WS-RPC interface",
-		Value:  "",
+		Name:  "wsapi",
+		Usage: "API's offered over the WS-RPC interface",
+		Value: "",
+
 		EnvVar: "WS_API",
 	}
 	WSAllowedOriginsFlag = cli.StringFlag{
-		Name:   "wsorigins",
-		Usage:  "Origins from which to accept websockets requests",
-		Value:  "",
+		Name:  "wsorigins",
+		Usage: "Origins from which to accept websockets requests",
+		Value: "",
+
 		EnvVar: "WS_ORIGINS",
 	}
 	GraphQLEnabledFlag = cli.BoolFlag{
@@ -678,8 +699,9 @@ var (
 		Value: "any",
 	}
 	NoDiscoverFlag = cli.BoolFlag{
-		Name:   "nodiscover",
-		Usage:  "Disables the peer discovery mechanism (manual peer addition)",
+		Name:  "nodiscover",
+		Usage: "Disables the peer discovery mechanism (manual peer addition)",
+
 		EnvVar: "NO_DISCOVER",
 	}
 	DiscoveryV5Flag = cli.BoolFlag{
