@@ -63,6 +63,9 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 					log.Debug("Calling Known Contract", "Name", name, "Message", err)
 				} else {
 					log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
+					if method.RawName == "ovmREVERT" {
+						log.Debug("Contract Threw Exception", "asciified", string(input))
+					}
 				}
 			}
 		}
