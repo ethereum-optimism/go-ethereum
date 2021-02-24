@@ -105,7 +105,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 	// Divide the gas price by one million to compress it
 	// before it is send to the sequencer entrypoint. This is to save
 	// space on calldata.
-	gas := new(big.Int).Div(msg.GasPrice(), new(big.Int).SetUint64(1000000))
+	gasPrice := new(big.Int).Div(msg.GasPrice(), new(big.Int).SetUint64(1000000))
 
 	// Sequencer uses a custom encoding structure --
 	// We originally receive sequencer transactions encoded in this way, but we decode them before
@@ -117,7 +117,7 @@ func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 	data.Write(fillBytes(s, 32))                             // 32 bytes: Signature `s` parameter
 	data.Write(fillBytes(v, 1))                              // 1 byte: Signature `v` parameter
 	data.Write(fillBytes(big.NewInt(int64(msg.Gas())), 3))   // 3 bytes: Gas limit
-	data.Write(fillBytes(gas, 3))                            // 3 bytes: Gas price
+	data.Write(fillBytes(gasPrice, 3))                       // 3 bytes: Gas price
 	data.Write(fillBytes(big.NewInt(int64(msg.Nonce())), 3)) // 3 bytes: Nonce
 	data.Write(target.Bytes())                               // 20 bytes: Target address
 	data.Write(msg.Data())                                   // ?? bytes: Transaction data
