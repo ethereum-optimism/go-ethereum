@@ -48,3 +48,6 @@ issues:
     - path: cmd/faucet/
       linters:
         - deadcode
+    - path: core/chain_makers_test.go
+      linters:
+        - govet
