@@ -1470,8 +1470,9 @@ type SendTxArgs struct {
 	Nonce    *hexutil.Uint64 `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
-	Data              *hexutil.Bytes          `json:"data"`
-	Input             *hexutil.Bytes          `json:"input"`
+	Data  *hexutil.Bytes `json:"data"`
+	Input *hexutil.Bytes `json:"input"`
+
 	L1BlockNumber     *big.Int                `json:"l1BlockNumber"`
 	L1MessageSender   *common.Address         `json:"l1MessageSender"`
 	SignatureHashType types.SignatureHashType `json:"signatureHashType"`

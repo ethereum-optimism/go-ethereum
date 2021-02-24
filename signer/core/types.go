@@ -75,8 +75,9 @@ type SendTxArgs struct {
 	Value    hexutil.Big              `json:"value"`
 	Nonce    hexutil.Uint64           `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons.
-	Data              *hexutil.Bytes           `json:"data"`
-	Input             *hexutil.Bytes           `json:"input"`
+	Data  *hexutil.Bytes `json:"data"`
+	Input *hexutil.Bytes `json:"input"`
+
 	L1MessageSender   *common.MixedcaseAddress `json:"l1MessageSender"`
 	L1BlockNumber     *big.Int                 `json:"l1BlockNumber"`
 	SignatureHashType types.SignatureHashType  `json:"signatureHashType"`
