@@ -1376,10 +1376,15 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	// Make our custom OVM block.
 	internalTransactions := make([]*types.Transaction, 0)
 	for _, receipt := range receipts {
-		internalTransactions = append(internalTransactions, receipt.InternalTransactions...)
-		receipt.InternalTransactions = nil
+		if receipt.InternalTransactions != nil {
+			internalTransactions = append(internalTransactions, receipt.InternalTransactions...)
+			receipt.InternalTransactions = nil
+		}
 	}
-	block = types.NewBlock(block.Header(), internalTransactions, block.Uncles(), receipts)
+
+	if len(internalTransactions) > 0 {
+		block = types.NewBlock(block.Header(), internalTransactions, block.Uncles(), receipts)
+	}
 
 	// Irrelevant of the canonical status, write the block itself to the database.
 	//

@@ -363,6 +363,12 @@ func (tx *Transaction) Cost() *big.Int {
 	return total
 }
 
+func (tx *Transaction) WithSetSignature(r *big.Int, s *big.Int, v *big.Int) (*Transaction, error) {
+	cpy := &Transaction{data: tx.data, meta: tx.meta}
+	cpy.data.R, cpy.data.S, cpy.data.V = r, s, v
+	return cpy, nil
+}
+
 // RawSignatureValues returns the V, R, S signature values of the transaction.
 // The return values should not be modified by the caller.
 func (tx *Transaction) RawSignatureValues() (v, r, s *big.Int) {

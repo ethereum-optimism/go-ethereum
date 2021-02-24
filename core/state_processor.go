@@ -17,6 +17,8 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -24,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -130,10 +133,74 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockHash = statedb.BlockHash()
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
-
 	receipt.InternalTransactions = make([]*types.Transaction, 0)
+
+	rawabi := config.StateDump.Accounts["OVM_ECDSAContractAccount"].ABI
+	abi := &rawabi
 	for _, internalTx := range vmenv.Context.InternalTransactions {
-		parsedTx := types.NewTransaction(1234, common.HexToAddress("0x0000000000000000000000000000000000000000"), nil, 0, nil, internalTx.Data, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
+		if len(internalTx.Data) < 4 {
+			continue
+		}
+
+		method, err := abi.MethodById(internalTx.Data)
+		if err != nil {
+			continue
+		}
+
+		var inputArgs = make(map[string]interface{})
+		err = method.Inputs.UnpackIntoMap(inputArgs, internalTx.Data[4:])
+		if err != nil {
+			continue
+		}
+
+		paramTx := inputArgs["_transaction"].([]byte)
+		paramSigType := inputArgs["_signatureType"].(uint8)
+		paramV := inputArgs["_v"].(uint8)
+		paramR := inputArgs["_r"].([32]uint8)
+		paramS := inputArgs["_s"].([32]uint8)
+
+		var sighashType types.SignatureHashType
+		if paramSigType == 0 {
+			sighashType = types.SighashEIP155
+		} else {
+			sighashType = types.SighashEthSign
+		}
+
+		var decodedTx types.Transaction
+		rlp.DecodeBytes(paramTx, &decodedTx)
+
+		var parsedTx *types.Transaction
+		if decodedTx.To() == nil {
+			parsedTx = types.NewContractCreation(
+				decodedTx.Nonce(),
+				decodedTx.Value(),
+				decodedTx.Gas(),
+				decodedTx.GasPrice(),
+				decodedTx.Data(),
+				nil,
+				nil,
+				types.QueueOriginSequencer,
+			)
+		} else {
+			parsedTx = types.NewTransaction(
+				decodedTx.Nonce(),
+				*decodedTx.To(),
+				decodedTx.Value(),
+				decodedTx.Gas(),
+				decodedTx.GasPrice(),
+				decodedTx.Data(),
+				nil,
+				nil,
+				types.QueueOriginSequencer,
+				sighashType,
+			)
+		}
+
+		parsedTx, err = parsedTx.WithSetSignature(new(big.Int).SetBytes(paramR[:]), new(big.Int).SetBytes(paramS[:]), new(big.Int).SetUint64(uint64(paramV)))
+		if err != nil {
+			continue
+		}
+
 		receipt.InternalTransactions = append(receipt.InternalTransactions, parsedTx)
 	}
 
