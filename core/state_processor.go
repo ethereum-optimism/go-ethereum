@@ -131,5 +131,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	receipt.BlockNumber = header.Number
 	receipt.TransactionIndex = uint(statedb.TxIndex())
 
+	receipt.InternalTransactions = make([]*types.Transaction, 0)
+	for _, internalTx := range vmenv.Context.InternalTransactions {
+		parsedTx := types.NewTransaction(1234, common.HexToAddress("0x0000000000000000000000000000000000000000"), nil, 0, nil, internalTx.Data, nil, nil, types.QueueOriginSequencer, types.SighashEIP155)
+		receipt.InternalTransactions = append(receipt.InternalTransactions, parsedTx)
+	}
+
 	return receipt, err
 }

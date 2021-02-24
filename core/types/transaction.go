@@ -53,6 +53,12 @@ type Transaction struct {
 	from atomic.Value
 }
 
+type InternalTransaction struct {
+	Data    []byte
+	Address *common.Address
+	TxType  SignatureHashType
+}
+
 type txdata struct {
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`

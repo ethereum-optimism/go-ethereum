@@ -26,6 +26,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -142,6 +143,7 @@ type Context struct {
 
 	// OVM_ADDITION
 	EthCallSender         *common.Address
+	InternalTransactions  []*types.InternalTransaction
 	OriginalTargetAddress *common.Address
 	OriginalTargetResult  []byte
 	OriginalTargetReached bool
@@ -261,6 +263,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			evm.Context.OriginalTargetAddress = nil
 			evm.Context.OriginalTargetResult = []byte("00")
 			evm.Context.OriginalTargetReached = false
+			evm.Context.InternalTransactions = make([]*types.InternalTransaction, 0)
 		}
 
 		if caller.Address() == evm.Context.OvmExecutionManager.Address &&
@@ -272,6 +275,11 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			// by the execution manager, and we're not a precompile or "dead" address.
 			evm.Context.OriginalTargetAddress = &addr
 			evm.Context.OriginalTargetReached = true
+			evm.Context.InternalTransactions = append(evm.Context.InternalTransactions, &types.InternalTransaction{
+				Data:    common.CopyBytes(input),
+				Address: &addr,
+				TxType:  types.SighashEIP155,
+			})
 			isTarget = true
 		}
 		// Handle eth_call

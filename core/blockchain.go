@@ -1373,6 +1373,14 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 	localTd := bc.GetTd(currentBlock.Hash(), currentBlock.NumberU64())
 	externTd := new(big.Int).Add(block.Difficulty(), ptd)
 
+	// Make our custom OVM block.
+	internalTransactions := make([]*types.Transaction, 0)
+	for _, receipt := range receipts {
+		internalTransactions = append(internalTransactions, receipt.InternalTransactions...)
+		receipt.InternalTransactions = nil
+	}
+	block = types.NewBlock(block.Header(), internalTransactions, block.Uncles(), receipts)
+
 	// Irrelevant of the canonical status, write the block itself to the database.
 	//
 	// Note all the components of block(td, hash->number map, header, body, receipts)
