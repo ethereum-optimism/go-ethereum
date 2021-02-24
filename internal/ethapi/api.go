@@ -536,8 +536,7 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	if state == nil || err != nil {
 		return nil, err
 	}
-	balance := state.GetOVMBalance(address)
-	return (*hexutil.Big)(balance), state.Error()
+	return (*hexutil.Big)(state.GetOVMBalance(address)), state.Error()
 }
 
 // Result structs for GetProof
@@ -551,10 +550,9 @@ type AccountResult struct {
 	StorageProof []StorageResult `json:"storageProof"`
 }
 type StorageResult struct {
-	Key     string       `json:"key"`
-	Value   *hexutil.Big `json:"value"`
-	Proof   []string     `json:"proof"`
-	Mutated bool         `json:"mutated"`
+	Key   string       `json:"key"`
+	Value *hexutil.Big `json:"value"`
+	Proof []string     `json:"proof"`
 }
 
 // Result structs for GetStateDiffProof
@@ -607,11 +605,6 @@ func (s *PublicBlockChainAPI) GetStateDiffProof(ctx context.Context, blockNrOrHa
 			return nil, err
 		}
 
-		// iterate over all the proofs and set their mutated bit
-		for i := range res.StorageProof {
-			res.StorageProof[i].Mutated = keys[i].Mutated
-		}
-
 		accounts = append(accounts, *res)
 	}
 
@@ -656,19 +649,9 @@ func (s *PublicBlockChainAPI) GetProof(ctx context.Context, address common.Addre
 			if storageError != nil {
 				return nil, storageError
 			}
-			// by default, the GetProof API does not return if a storage item
-			// was mutated or not.
-			storageProof[i] = StorageResult{
-				Key:   key,
-				Value: (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()),
-				Proof: common.ToHexArray(proof),
-			}
+			storageProof[i] = StorageResult{key, (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()), common.ToHexArray(proof)}
 		} else {
-			storageProof[i] = StorageResult{
-				Key:   key,
-				Value: &hexutil.Big{},
-				Proof: []string{},
-			}
+			storageProof[i] = StorageResult{key, &hexutil.Big{}, []string{}}
 		}
 	}
 

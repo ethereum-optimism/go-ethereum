@@ -122,6 +122,7 @@ func TestDAOForkRangeExtradata(t *testing.T) {
 	gspec.MustCommit(db)
 	bc, _ := NewBlockChain(db, nil, &conConf, ethash.NewFaker(), vm.Config{}, nil)
 	defer bc.Stop()
+
 	blocks := conBc.GetBlocksFromHash(conBc.CurrentBlock().Hash(), int(conBc.CurrentBlock().NumberU64()))
 	for j := 0; j < len(blocks)/2; j++ {
 		blocks[j], blocks[len(blocks)-1-j] = blocks[len(blocks)-1-j], blocks[j]
