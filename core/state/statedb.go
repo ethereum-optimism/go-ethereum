@@ -74,9 +74,11 @@ type DiffDB interface {
 // * Contracts
 // * Accounts
 type StateDB struct {
-	db     Database
-	trie   Trie
+	db   Database
+	trie Trie
+
 	diffdb DiffDB
+
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects        map[common.Address]*stateObject
 	stateObjectsPending map[common.Address]struct{} // State objects finalized but not yet written to the trie
