@@ -463,6 +463,7 @@ func (w *worker) mainLoop() {
 				continue
 			}
 			tx := ev.Txs[0]
+			log.Debug("Attempting to commit rollup transaction", "hash", tx.Hash())
 			if err := w.commitNewTx(tx); err == nil {
 				head := <-w.chainHeadCh
 				txs := head.Block.Transactions()

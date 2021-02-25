@@ -563,6 +563,8 @@ func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Sub
 // inspecting the local database. This is mean to prevent transactions from
 // being replayed.
 func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
+	log.Debug("Maybe applying transaction", "hash", tx.Hash())
+
 	index := tx.GetMeta().Index
 	if index == nil {
 		return fmt.Errorf("nil index in maybeApplyTransaction")
@@ -605,6 +607,8 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 // queue origin sequencer transactions, as the contracts on L1 manage the same
 // validity checks that are done here.
 func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
+	log.Debug("Applying transaction", "hash", tx.Hash())
+
 	s.txLock.Lock()
 	defer s.txLock.Unlock()
 	if s.verifier {
