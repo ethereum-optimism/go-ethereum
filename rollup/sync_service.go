@@ -219,6 +219,7 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		s.SetLatestL1Timestamp(context.Timestamp)
 		s.SetLatestL1BlockNumber(context.BlockNumber)
 	} else {
+		log.Info("Found latest index", "index", *index)
 		block := s.bc.GetBlockByNumber(*index - 1)
 		txs := block.Transactions()
 		if len(txs) != 1 {
@@ -227,7 +228,6 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		tx := txs[0]
 		s.SetLatestL1Timestamp(tx.L1Timestamp())
 		s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
-
 	}
 	// Only the sequencer cares about latest queue index
 	if !s.verifier {
