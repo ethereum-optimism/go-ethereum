@@ -219,7 +219,22 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		s.SetLatestL1Timestamp(context.Timestamp)
 		s.SetLatestL1BlockNumber(context.BlockNumber)
 	} else {
+		if *index == 0 || *index == 1 {
+			context, err := s.client.GetEthContext(ctcDeployHeight.Uint64())
+			if err != nil {
+				return fmt.Errorf("Cannot fetch ctc deploy block at height %d: %w", ctcDeployHeight.Uint64(), err)
+			}
+			s.SetLatestL1Timestamp(context.Timestamp)
+			s.SetLatestL1BlockNumber(context.BlockNumber)
+			return nil
+		}
 		block := s.bc.GetBlockByNumber(*index - 1)
+		if block == nil {
+			block = s.bc.CurrentBlock()
+			if block == nil {
+				return errors.New("Current block is nil")
+			}
+		}
 		txs := block.Transactions()
 		if len(txs) != 1 {
 			log.Error("Unexpected number of transactions in block: %d", len(txs))
@@ -227,7 +242,6 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		tx := txs[0]
 		s.SetLatestL1Timestamp(tx.L1Timestamp())
 		s.SetLatestL1BlockNumber(tx.L1BlockNumber().Uint64())
-
 	}
 	// Only the sequencer cares about latest queue index
 	if !s.verifier {
