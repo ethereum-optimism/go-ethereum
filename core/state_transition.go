@@ -250,7 +250,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		if msg.L1MessageSender() != nil {
 			l1MessageSender = msg.L1MessageSender().Hex()
 		}
-		log.Debug("Applying transaction", "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "gasPrice", msg.GasPrice().Uint64(), "gasLimit", msg.Gas(), "l1MessageSender", l1MessageSender, "data", hexutil.Encode(msg.Data()))
+		log.Debug("Applying transaction", "Execution ID", st.evm.Id.String(), "from", sender.Address().Hex(), "to", to, "nonce", msg.Nonce(), "gasPrice", msg.GasPrice().Uint64(), "gasLimit", msg.Gas(), "l1MessageSender", l1MessageSender, "data", hexutil.Encode(msg.Data()))
 	}
 
 	if contractCreation {
