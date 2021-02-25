@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.3
+
+- Integrate data transport layer
+- Refactor `SyncService`
+- New RPC Endpoint `eth_getBlockRange`
+
 ## v0.1.2
 
 Reduce header cache size to allow L2Geth to spin back up.
