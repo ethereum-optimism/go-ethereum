@@ -305,7 +305,7 @@ func (m *mockClient) GetEthContext(index uint64) (*EthContext, error) {
 }
 
 func (m *mockClient) GetLatestEthContext() (*EthContext, error) {
-	return nil, nil
+	return &EthContext{}, nil
 }
 
 func (m *mockClient) GetLastConfirmedEnqueue() (*types.Transaction, error) {
