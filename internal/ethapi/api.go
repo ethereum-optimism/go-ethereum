@@ -1656,6 +1656,10 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 	if err := rlp.DecodeBytes(encodedTx, tx); err != nil {
 		return common.Hash{}, err
 	}
+
+	if big.NewInt(0).Mod(tx.GasPrice(), big.NewInt(1000000)).Cmp(big.NewInt(0)) != 0 {
+		return common.Hash{}, errors.New("Cannot send transaction with gas price that is not a multiple of 1,000,000")
+	}
 	// L1Timestamp and L1BlockNumber will be set by the miner
 	meta := types.NewTransactionMeta(nil, 0, nil, types.SighashEIP155, types.QueueOriginSequencer)
 	tx.SetTransactionMeta(meta)
