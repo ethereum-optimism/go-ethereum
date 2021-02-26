@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.2.1
+
+- Legacy `eth_call` support
+
 ## v0.1.3
 
 - Integrate data transport layer
