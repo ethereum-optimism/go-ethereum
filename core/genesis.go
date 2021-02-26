@@ -307,8 +307,6 @@ func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump, l1XDo
 		l1GatewayValue := common.BytesToHash(l1ETHGatewayAddress.Bytes())
 		statedb.SetState(OVM_ETH.Address, l1GatewaySlot, l1GatewayValue)
 	}
-	// insert the chainid into the state dump
-	// slot 7
 	ExecutionManager, ok := stateDump.Accounts["OVM_ExecutionManager"]
 	if ok {
 		if chainID == nil {
