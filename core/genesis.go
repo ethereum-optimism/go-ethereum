@@ -301,7 +301,7 @@ func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump, l1XDo
 	OVM_ETH, ok := stateDump.Accounts["OVM_ETH"]
 	if ok {
 		// Set the gateway of OVM_ETH
-		log.Info("Setting OVM_L1WETHGateway in OVM_ETH", "address", l1ETHGatewayAddress.Hex())
+		log.Info("Setting OVM_L1ETHGateway in OVM_ETH", "address", l1ETHGatewayAddress.Hex())
 		l1GatewaySlot := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000008")
 		l1GatewayValue := common.BytesToHash(l1ETHGatewayAddress.Bytes())
 		statedb.SetState(OVM_ETH.Address, l1GatewaySlot, l1GatewayValue)
