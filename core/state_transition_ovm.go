@@ -59,7 +59,7 @@ func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 	return outputmsg, nil
 }
 
-func asOvmMessage(tx *types.Transaction, signer types.Signer, decompressor common.Address) (Message, error) {
+func AsOvmMessage(tx *types.Transaction, signer types.Signer, decompressor common.Address) (Message, error) {
 	msg, err := tx.AsMessage(signer)
 	if err != nil {
 		// This should only be allowed to pass if the transaction is in the ctc
