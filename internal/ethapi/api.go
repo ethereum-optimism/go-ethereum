@@ -2028,9 +2028,23 @@ func (api *PrivateDebugAPI) IngestTransactions(txs []*RPCTransaction) error {
 			return fmt.Errorf("Transaction with unknown queue origin: %s", tx.TxType)
 		}
 
-		transaction := types.NewTransaction(nonce, *tx.To, value, gasLimit, gasPrice, data, tx.L1TxOrigin, l1BlockNumber, queueOrigin, sighashType)
-		transaction.SetL1BlockNumber(l1BlockNumber.Uint64())
-		transaction.SetL1Timestamp(l1Timestamp)
+		var transaction *types.Transaction
+		if tx.To == nil {
+			transaction = types.NewContractCreation(nonce, value, gasLimit, gasPrice, data, tx.L1TxOrigin, l1BlockNumber, queueOrigin)
+		} else {
+			transaction = types.NewTransaction(nonce, *tx.To, value, gasLimit, gasPrice, data, tx.L1TxOrigin, l1BlockNumber, queueOrigin, sighashType)
+		}
+
+		meta := types.TransactionMeta{
+			L1BlockNumber:     l1BlockNumber,
+			L1Timestamp:       l1Timestamp,
+			L1MessageSender:   tx.L1TxOrigin,
+			SignatureHashType: sighashType,
+			QueueOrigin:       big.NewInt(int64(queueOrigin)),
+			Index:             (*uint64)(tx.Index),
+			QueueIndex:        (*uint64)(tx.QueueIndex),
+		}
+		transaction.SetTransactionMeta(&meta)
 
 		transactions[i] = transaction
 	}

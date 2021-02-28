@@ -130,7 +130,7 @@ func (b *EthAPIBackend) SetHead(number uint64) {
 
 func (b *EthAPIBackend) IngestTransactions(txs []*types.Transaction) error {
 	for _, tx := range txs {
-		err := b.eth.syncService.ApplyTransaction(tx)
+		err := b.eth.syncService.IngestTransaction(tx)
 		if err != nil {
 			return err
 		}

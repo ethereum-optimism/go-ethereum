@@ -601,6 +601,10 @@ func (s *SyncService) applyTransaction(tx *types.Transaction) error {
 	return nil
 }
 
+func (s *SyncService) IngestTransaction(tx *types.Transaction) error {
+	return s.applyTransaction(tx)
+}
+
 // Higher level API for applying transactions. Should only be called for
 // queue origin sequencer transactions, as the contracts on L1 manage the same
 // validity checks that are done here.
