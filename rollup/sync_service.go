@@ -361,7 +361,7 @@ func (s *SyncService) SequencerLoop() {
 		for i := start; i <= end; i++ {
 			enqueue, err := s.client.GetEnqueue(i)
 			if err != nil {
-				log.Error("Cannot get enqueue in loop", "index", i)
+				log.Error("Cannot get enqueue in loop", "index", i, "message", err)
 				continue
 			}
 
