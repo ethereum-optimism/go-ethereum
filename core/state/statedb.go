@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/diffdb"
@@ -266,15 +267,22 @@ func (s *StateDB) GetBalance(addr common.Address) *big.Int {
 }
 
 func (s *StateDB) GetOVMBalance(addr common.Address) *big.Int {
-	position := big.NewInt(3)
 	eth := common.HexToAddress("0x4200000000000000000000000000000000000006")
-	hasher := sha3.NewLegacyKeccak256()
-	hasher.Write(common.LeftPadBytes(addr.Bytes(), 32))
-	hasher.Write(common.LeftPadBytes(position.Bytes(), 32))
-	digest := hasher.Sum(nil)
-	key := common.BytesToHash(digest)
-	slot := s.GetState(eth, key)
-	return slot.Big()
+	position1 := big.NewInt(3)
+	hasher1 := sha3.NewLegacyKeccak256()
+	hasher1.Write(common.LeftPadBytes(addr.Bytes(), 32))
+	hasher1.Write(common.LeftPadBytes(position1.Bytes(), 32))
+	digest1 := hasher1.Sum(nil)
+	key1 := common.BytesToHash(digest1)
+	slot1 := s.GetState(eth, key1)
+	position2 := big.NewInt(5)
+	hasher2 := sha3.NewLegacyKeccak256()
+	hasher2.Write(common.LeftPadBytes(addr.Bytes(), 32))
+	hasher2.Write(common.LeftPadBytes(position2.Bytes(), 32))
+	digest := hasher2.Sum(nil)
+	key2 := common.BytesToHash(digest)
+	slot2 := s.GetState(eth, key2)
+	return math.BigMax(slot1.Big(), slot2.Big())
 }
 
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
