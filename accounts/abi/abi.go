@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -162,14 +163,26 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+var methodCache map[[4]byte]*Method = make(map[[4]byte]*Method)
+var methodCacheLock sync.Mutex
+
 // MethodById looks up a method by the 4-byte id
 // returns nil if none found
 func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
 	if len(sigdata) < 4 {
 		return nil, fmt.Errorf("data too short (%d bytes) for abi method lookup", len(sigdata))
 	}
+
+	var sigdata4 [4]byte = [4]byte{sigdata[0], sigdata[1], sigdata[2], sigdata[3]}
+	if methodCache[sigdata4] != nil {
+		return methodCache[sigdata4], nil
+	}
+
 	for _, method := range abi.Methods {
 		if bytes.Equal(method.ID(), sigdata[:4]) {
+			methodCacheLock.Lock()
+			methodCache[sigdata4] = &method
+			methodCacheLock.Unlock()
 			return &method, nil
 		}
 	}
