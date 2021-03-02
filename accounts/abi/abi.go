@@ -164,7 +164,7 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 }
 
 var methodCache map[[4]byte]*Method = make(map[[4]byte]*Method)
-var methodCacheLock sync.Mutex
+var methodCacheLock sync.RWMutex
 
 // MethodById looks up a method by the 4-byte id
 // returns nil if none found
@@ -175,6 +175,8 @@ func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
 
 	var sigdata4 [4]byte = [4]byte{sigdata[0], sigdata[1], sigdata[2], sigdata[3]}
 	if methodCache[sigdata4] != nil {
+		methodCacheLock.RLock()
+		defer methodCacheLock.RUnlock()
 		return methodCache[sigdata4], nil
 	}
 
