@@ -81,26 +81,21 @@ type txdataMarshaling struct {
 	S            *hexutil.Big
 }
 
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, sighashType SignatureHashType) *Transaction {
-	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin, sighashType)
+func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
 // TODO: cannot deploy contracts with SighashEthSign right until SighashEIP155 is no longer hardcoded
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin) *Transaction {
-	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data, l1MessageSender, l1BlockNumber, queueOrigin, SighashEIP155)
+func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
+	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
 }
 
-func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, sighashType SignatureHashType) *Transaction {
+func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *Transaction {
 	if len(data) > 0 {
 		data = common.CopyBytes(data)
 	}
 
-	meta := TransactionMeta{
-		L1BlockNumber:     l1BlockNumber,
-		L1MessageSender:   l1MessageSender,
-		SignatureHashType: sighashType,
-		QueueOrigin:       big.NewInt(int64(queueOrigin)),
-	}
+	meta := NewTransactionMeta(nil, 0, nil, SighashEIP155, QueueOriginSequencer, nil, nil)
 
 	d := txdata{
 		AccountNonce: nonce,
@@ -120,7 +115,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		d.Price.Set(gasPrice)
 	}
 
-	return &Transaction{data: d, meta: meta}
+	return &Transaction{data: d, meta: *meta}
 }
 
 func (t *Transaction) SetTransactionMeta(meta *TransactionMeta) {

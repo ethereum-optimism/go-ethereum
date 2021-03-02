@@ -30,7 +30,7 @@ func TestEIP155Signing(t *testing.T) {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	signer := NewEIP155Signer(big.NewInt(18))
-	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEIP155), signer, key)
+	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestEIP155ChainId(t *testing.T) {
 	addr := crypto.PubkeyToAddress(key.PublicKey)
 
 	signer := NewEIP155Signer(big.NewInt(18))
-	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEIP155), signer, key)
+	tx, err := SignTx(NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil), signer, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestEIP155ChainId(t *testing.T) {
 		t.Error("expected chainId to be", signer.chainId, "got", tx.ChainId())
 	}
 
-	tx = NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEIP155)
+	tx = NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil)
 	tx, err = SignTx(tx, HomesteadSigner{}, key)
 	if err != nil {
 		t.Fatal(err)
@@ -118,7 +118,7 @@ func TestEIP155SigningVitalik(t *testing.T) {
 func TestChainId(t *testing.T) {
 	key, _ := defaultTestKey()
 
-	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEIP155)
+	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
 
 	var err error
 	tx, err = SignTx(tx, NewEIP155Signer(big.NewInt(1)), key)
@@ -140,7 +140,9 @@ func TestChainId(t *testing.T) {
 func TestOVMSigner(t *testing.T) {
 	key, _ := defaultTestKey()
 
-	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEthSign)
+	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
+	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil)
+	tx.SetTransactionMeta(txMeta)
 
 	var err error
 	tx, err = SignTx(tx, NewOVMSigner(big.NewInt(1)), key)
@@ -162,8 +164,8 @@ func TestOVMSigner(t *testing.T) {
 func TestOVMSignerHash(t *testing.T) {
 	signer := NewOVMSigner(big.NewInt(1))
 
-	txNil := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEIP155)
-	txEIP155 := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEIP155)
+	txNil := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
+	txEIP155 := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
 
 	hashNil := signer.Hash(txNil)
 	hashEIP155 := signer.Hash(txEIP155)
@@ -172,7 +174,9 @@ func TestOVMSignerHash(t *testing.T) {
 	}
 
 	// The signature hash should be different when using `SighashEthSign`
-	txEthSign := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEthSign)
+	txEthSign := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
+	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil)
+	txEthSign.SetTransactionMeta(txMeta)
 
 	hashEthSign := signer.Hash(txEthSign)
 	if hashEIP155 == hashEthSign {
@@ -193,7 +197,7 @@ func TestOVMSignerSender(t *testing.T) {
 
 	// Create a transaction with EIP155 signature hash, sign the transaction,
 	// recover the address and assert that the address matches the key.
-	txEIP155 := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEIP155)
+	txEIP155 := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil)
 
 	txEIP155, err = SignTx(txEIP155, signer, key)
 	if err != nil {
@@ -211,7 +215,9 @@ func TestOVMSignerSender(t *testing.T) {
 
 	// Create a transaction with EthSign signature hash, sign the transaction,
 	// recover the address and assert that the address matches the key.
-	txEthSign := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil, nil, nil, QueueOriginSequencer, SighashEthSign)
+	txEthSign := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil)
+	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil)
+	txEthSign.SetTransactionMeta(txMeta)
 
 	txEthSign, err = SignTx(txEthSign, signer, key)
 	if err != nil {
