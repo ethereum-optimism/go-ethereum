@@ -306,8 +306,8 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		new(big.Int).SetUint64(res.Transaction.BlockNumber),
 		res.Transaction.Timestamp,
 		origin,
-		types.SighashEIP155,
-		types.QueueOriginL1ToL2,
+		sighashType,
+		queueOrigin,
 		&res.Transaction.Index,
 		res.Transaction.QueueIndex,
 	)
