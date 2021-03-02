@@ -1065,8 +1065,12 @@ func (w *worker) commit(uncles []*types.Header, interval func(), update bool, st
 				return fmt.Errorf("Block created with not %d transactions at %d", len(txs), block.NumberU64())
 			}
 			tx := txs[0]
-			log.Info("New block", "index", block.Number().Uint64()-uint64(1), "timestamp", block.Time(), "tx-hash", tx.Hash().Hex(),
-				"gas", block.GasUsed(), "fees", feesEth, "elapsed", common.PrettyDuration(time.Since(start)))
+			bn := tx.L1BlockNumber()
+			if bn == nil {
+				bn = new(big.Int)
+			}
+			log.Info("New block", "index", block.Number().Uint64()-uint64(1), "l1-timestamp", tx.L1Timestamp(), "l1-blocknumber", bn.Uint64(), "tx-hash", tx.Hash().Hex(),
+				"queue-orign", tx.QueueOrigin(), "type", tx.SignatureHashType(), "gas", block.GasUsed(), "fees", feesEth, "elapsed", common.PrettyDuration(time.Since(start)))
 
 		case <-w.exitCh:
 			log.Info("Worker has exited")
