@@ -51,28 +51,30 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 	if UsingOVM {
 		// OVM_ENABLED
 
-		// Some simple logging here. First, check to see if we know about the address we're
-		// interacting with and try to log the input data.
-		var isUnknown = true
-		for name, account := range evm.chainConfig.StateDump.Accounts {
-			if contract.Address() == account.Address {
-				isUnknown = false
-				abi := &(account.ABI)
-				method, err := abi.MethodById(input)
-				if err != nil {
-					log.Debug("Calling Known Contract", "Name", name, "Message", err)
-				} else {
-					log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
-					if method.RawName == "ovmREVERT" {
-						log.Debug("Contract Threw Exception", "asciified", string(input))
+		// Only log for non `eth_call`s
+		if evm.Context.EthCallSender == nil {
+			// Some simple logging here. First, check to see if we know about the address we're
+			// interacting with and try to log the input data.
+			var isUnknown = true
+			for name, account := range evm.chainConfig.StateDump.Accounts {
+				if contract.Address() == account.Address {
+					isUnknown = false
+					abi := &(account.ABI)
+					method, err := abi.MethodById(input)
+					if err != nil {
+						log.Debug("Calling Known Contract", "Name", name, "Message", err)
+					} else {
+						log.Debug("Calling Known Contract", "Name", name, "Method", method.RawName)
+						if method.RawName == "ovmREVERT" {
+							log.Debug("Contract Threw Exception", "asciified", string(input))
+						}
 					}
 				}
 			}
-		}
-
-		// We don't know the contract, so print some generic information.
-		if isUnknown {
-			log.Debug("Calling Unknown Contract", "Address", contract.Address().Hex())
+			// We don't know the contract, so print some generic information.
+			if isUnknown {
+				log.Debug("Calling Unknown Contract", "Address", contract.Address().Hex())
+			}
 		}
 
 		// Uncomment to make Safety checker always returns true.
@@ -413,7 +415,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 				ret = common.FromHex("0x")
 			}
 
-			log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Error", err)
+			if evm.Context.EthCallSender == nil {
+				log.Debug("Reached the end of an OVM execution", "Return Data", hexutil.Encode(ret), "Error", err)
+			}
 		}
 	}
 
@@ -649,7 +653,9 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 		slot := common.HexToHash(strconv.FormatInt(15, 16))
 		contractAddr = common.BytesToAddress(evm.StateDB.GetState(evm.Context.OvmExecutionManager.Address, slot).Bytes())
 
-		log.Debug("[EM] Creating contract.", "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+		if evm.Context.EthCallSender == nil {
+			log.Debug("[EM] Creating contract.", "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+		}
 	}
 
 	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
@@ -675,7 +681,9 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 		slot := common.HexToHash(strconv.FormatInt(15, 16))
 		contractAddr = common.BytesToAddress(evm.StateDB.GetState(evm.Context.OvmExecutionManager.Address, slot).Bytes())
 
-		log.Debug("[EM] Creating contract [create2].", "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+		if evm.Context.EthCallSender == nil {
+			log.Debug("[EM] Creating contract [create2].", "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
+		}
 	}
 
 	return evm.create(caller, codeAndHash, gas, endowment, contractAddr)
