@@ -81,7 +81,7 @@ var (
 
 func TestTransactionMetaEncode(t *testing.T) {
 	for _, test := range txMetaSerializationTests {
-		txmeta := NewTransactionMeta(test.l1BlockNumber, test.l1Timestamp, test.msgSender, test.sighashType, test.queueOrigin)
+		txmeta := NewTransactionMeta(test.l1BlockNumber, test.l1Timestamp, test.msgSender, test.sighashType, test.queueOrigin, nil, nil)
 
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
@@ -98,7 +98,7 @@ func TestTransactionMetaEncode(t *testing.T) {
 
 func TestTransactionSighashEncode(t *testing.T) {
 	for _, test := range txMetaSighashEncodeTests {
-		txmeta := NewTransactionMeta(l1BlockNumber, 0, &addr, test.input, QueueOriginSequencer)
+		txmeta := NewTransactionMeta(l1BlockNumber, 0, &addr, test.input, QueueOriginSequencer, nil, nil)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 

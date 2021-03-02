@@ -35,13 +35,15 @@ type TransactionMeta struct {
 }
 
 // NewTransactionMeta creates a TransactionMeta
-func NewTransactionMeta(l1BlockNumber *big.Int, l1timestamp uint64, l1MessageSender *common.Address, sighashType SignatureHashType, queueOrigin QueueOrigin) *TransactionMeta {
+func NewTransactionMeta(l1BlockNumber *big.Int, l1timestamp uint64, l1MessageSender *common.Address, sighashType SignatureHashType, queueOrigin QueueOrigin, index *uint64, queueIndex *uint64) *TransactionMeta {
 	return &TransactionMeta{
 		L1BlockNumber:     l1BlockNumber,
 		L1Timestamp:       l1timestamp,
 		L1MessageSender:   l1MessageSender,
 		SignatureHashType: sighashType,
 		QueueOrigin:       big.NewInt(int64(queueOrigin)),
+		Index:             index,
+		QueueIndex:        queueIndex,
 	}
 }
 

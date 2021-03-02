@@ -9,7 +9,8 @@ ETH1_CHAIN_ID=1
 TARGET_GAS_LIMIT=9000000
 CHAIN_ID=10
 ETH1_CTC_DEPLOYMENT_HEIGHT=11650235
-ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0x0AEBf5161A9b57349747D078c6763a0B1d67D888
+ETH1_L1_GATEWAY_ADDRESS=
+ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS=0xfBE93ba0a2Df92A8e8D40cE00acCF9248a6Fc812
 ADDRESS_MANAGER_OWNER_ADDRESS=0xc6Dbc2DC7649c7d4292d955DA08A7C21a21e1528
 ROLLUP_STATE_DUMP_PATH=https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/mainnet/1.json
 ROLLUP_CLIENT_HTTP=http://localhost:7878
@@ -87,6 +88,15 @@ while (( "$#" )); do
         --eth1.ctcdeploymentheight)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
                 ETH1_CTC_DEPLOYMENT_HEIGHT="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+            ;;
+        --eth1.l1gatewayaddress)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                ETH1_L1_GATEWAY_ADDRESS="$2"
                 shift 2
             else
                 echo "Error: Argument for $1 is missing" >&2
@@ -180,6 +190,9 @@ cmd="$cmd --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_A
 cmd="$cmd --rollup.addressmanagerowneraddress $ADDRESS_MANAGER_OWNER_ADDRESS"
 cmd="$cmd --rollup.statedumppath $ROLLUP_STATE_DUMP_PATH"
 cmd="$cmd --eth1.ctcdeploymentheight $ETH1_CTC_DEPLOYMENT_HEIGHT"
+if [[ ! -z $ETH1_L1_GATEWAY_ADDRESS ]]; then
+    cmd="$cmd --eth1.l1ethgatewayaddress $ETH1_L1_GATEWAY_ADDRESS"
+fi
 cmd="$cmd --rollup.clienthttp $ROLLUP_CLIENT_HTTP"
 cmd="$cmd --rollup.pollinterval $ROLLUP_POLL_INTERVAL"
 cmd="$cmd --rollup.timestamprefresh $ROLLUP_TIMESTAMP_REFRESH"
@@ -191,11 +204,12 @@ cmd="$cmd --rpcaddr 0.0.0.0"
 cmd="$cmd --rpcport $RPC_PORT"
 cmd="$cmd --rpcvhosts '*'"
 cmd="$cmd --rpccorsdomain '*'"
+cmd="$cmd --rpcvhosts '*'"
 cmd="$cmd --wsaddr 0.0.0.0"
 cmd="$cmd --wsport 8546"
 cmd="$cmd --wsorigins '*'"
 cmd="$cmd --rpcapi 'eth,net,rollup,web3,debug'"
-cmd="$cmd --gasprice '0'"
+cmd="$cmd --gasprice 0"
 cmd="$cmd --nousb"
 cmd="$cmd --gcmode=archive"
 cmd="$cmd --ipcdisable"
