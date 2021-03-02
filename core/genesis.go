@@ -301,7 +301,6 @@ func ApplyOvmStateToState(statedb *state.StateDB, stateDump *dump.OvmDump, l1XDo
 	OVM_ETH, ok := stateDump.Accounts["OVM_ETH"]
 	if ok {
 		log.Info("Setting OVM_L1ETHGateway in OVM_ETH", "address", l1ETHGatewayAddress.Hex())
-
 		if strings.Contains(OVM_ETH.Code, "a84ce98") {
 			// Set the gateway of OVM_ETH at new dump
 			log.Info("Detected current OVM_ETH dump, setting slot 0x1 ")
