@@ -112,7 +112,9 @@ func getContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 	}
 	key := toHash(_key)
 	val := evm.StateDB.GetState(address, key)
-	log.Debug("Got contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
+	if evm.Context.EthCallSender == nil {
+		log.Debug("Got contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
+	}
 	return []interface{}{val}, nil
 }
 
@@ -146,12 +148,11 @@ func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 		if err != nil {
 			log.Error("Cannot set diff key", "err", err)
 		}
+		log.Debug("Put contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
 	} else {
 		// otherwise just do the db update
 		evm.StateDB.SetState(address, key, val)
 	}
-
-	log.Debug("Put contract storage", "address", address.Hex(), "key", key.Hex(), "val", val.Hex())
 	return []interface{}{}, nil
 }
 
@@ -204,9 +205,9 @@ func testAndSetContractStorage(evm *EVM, contract *Contract, args map[string]int
 		if err != nil {
 			log.Error("Cannot set diff key", "err", err)
 		}
+		log.Debug("Test and Set Contract Storage", "address", address.Hex(), "key", key.Hex(), "changed", changed)
 	}
 
-	log.Debug("Test and Set Contract Storage", "address", address.Hex(), "key", key.Hex(), "changed", changed)
 	return []interface{}{true}, nil
 }
 
