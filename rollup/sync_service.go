@@ -224,6 +224,10 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 		if block == nil {
 			block = s.bc.CurrentBlock()
 			idx := block.Number().Uint64()
+			if idx > *index {
+				// This is recoverable with a reorg
+				return fmt.Errorf("Current block height greater than index")
+			}
 			s.SetLatestIndex(&idx)
 			log.Info("Block not found, resetting index", "new", idx, "old", *index-1)
 		}
