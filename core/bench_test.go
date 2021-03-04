@@ -126,10 +126,6 @@ func genTxRing(naccounts int) func(int, *BlockGen) {
 				params.TxGas,
 				nil,
 				nil,
-				nil,
-				nil,
-				types.QueueOriginSequencer,
-				types.SighashEIP155,
 			)
 			tx, _ = types.SignTx(tx, types.HomesteadSigner{}, ringKeys[from])
 			gen.AddTx(tx)
