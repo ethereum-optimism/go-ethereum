@@ -436,7 +436,9 @@ func (s *SyncService) syncTransactionsToTip() error {
 		// First query the latest transaction
 		latest, err := s.client.GetLatestTransaction()
 		if err != nil {
-			return fmt.Errorf("Cannot get latest transaction: %w", err)
+			log.Error("Cannot get latest transaction", "msg", err)
+			time.Sleep(time.Second * 2)
+			continue
 		}
 		if latest == nil {
 			log.Info("No transactions to sync")
@@ -453,12 +455,17 @@ func (s *SyncService) syncTransactionsToTip() error {
 		for i := start; i <= *tipHeight; i++ {
 			tx, err := s.client.GetTransaction(i)
 			if err != nil {
-				return fmt.Errorf("Cannot get transaction: %w", err)
+				log.Error("Cannot get transaction", "index", i, "msg", err)
+				time.Sleep(time.Second * 2)
+				continue
 			}
 			// The transaction does not yet exist in the ctc
 			if tx == nil {
-				log.Info("Transaction in ctc does not yet exist", "index", i)
-				return nil
+				index := latest.GetMeta().Index
+				if index == nil {
+					return fmt.Errorf("Unexpected nil index")
+				}
+				return fmt.Errorf("Transaction %d not found when %d is latest", i, *index)
 			}
 			err = s.maybeApplyTransaction(tx)
 			if err != nil {
