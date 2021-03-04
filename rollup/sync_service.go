@@ -313,7 +313,6 @@ func (s *SyncService) VerifierLoop() {
 			if err != nil {
 				log.Error("Cannot apply transaction", "msg", err)
 			}
-			s.SetLatestIndex(&i)
 		}
 		time.Sleep(s.pollInterval)
 	}
@@ -391,18 +390,6 @@ func (s *SyncService) SequencerLoop() {
 			if err != nil {
 				log.Error("Cannot apply transaction", "msg", err)
 			}
-
-			s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
-			if enqueue.GetMeta().Index == nil {
-				latest := s.GetLatestIndex()
-				index := uint64(0)
-				if latest != nil {
-					index = *latest + 1
-				}
-				s.SetLatestIndex(&index)
-			} else {
-				s.SetLatestIndex(enqueue.GetMeta().Index)
-			}
 		}
 		s.txLock.Unlock()
 
@@ -473,11 +460,6 @@ func (s *SyncService) syncTransactionsToTip() error {
 			}
 			if err != nil {
 				log.Error("Cannot ingest transaction", "index", i)
-			}
-			s.SetLatestIndex(tx.GetMeta().Index)
-			if types.QueueOrigin(tx.QueueOrigin().Uint64()) == types.QueueOriginL1ToL2 {
-				queueIndex := tx.GetMeta().QueueIndex
-				s.SetLatestEnqueueIndex(queueIndex)
 			}
 		}
 		// Be sure to check that no transactions came in while
@@ -604,6 +586,25 @@ func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
 // Lower level API used to apply a transaction, must only be used with
 // transactions that came from L1.
 func (s *SyncService) applyTransaction(tx *types.Transaction) error {
+	meta := tx.GetMeta()
+	if tx.QueueOrigin().Uint64() == uint64(types.QueueOriginL1ToL2) {
+		s.SetLatestEnqueueIndex(meta.QueueIndex)
+	}
+	// Queue origin sequencer transactions should not have an index here
+	if meta.Index != nil {
+		s.SetLatestIndex(meta.Index)
+	} else {
+		// This should only happen in sequencer mode
+		if s.verifier {
+			return fmt.Errorf("Only for sequencer")
+		}
+		latest := s.GetLatestIndex()
+		index := uint64(0)
+		if latest != nil {
+			index = *latest + 1
+		}
+		s.SetLatestIndex(&index)
+	}
 	txs := types.Transactions{tx}
 	s.txFeed.Send(core.NewTxsEvent{Txs: txs})
 	return nil
@@ -630,5 +631,7 @@ func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("invalid transaction: %w", err)
 	}
+	tx.SetL1Timestamp(s.GetLatestL1Timestamp())
+	tx.SetL1BlockNumber(s.GetLatestL1BlockNumber())
 	return s.applyTransaction(tx)
 }
