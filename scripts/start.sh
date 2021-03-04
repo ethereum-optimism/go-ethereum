@@ -216,6 +216,7 @@ cmd="$cmd --ipcdisable"
 if [[ ! -z "$IS_VERIFIER" ]]; then
     cmd="$cmd --rollup.verifier"
 fi
+cmd="$cmd --verbosity=3"
 
 echo -e "Running:\n$cmd"
-eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd --verbosity=3
+eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd
