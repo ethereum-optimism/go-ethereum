@@ -221,6 +221,12 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 	} else {
 		log.Info("Found latest index", "index", *index)
 		block := s.bc.GetBlockByNumber(*index - 1)
+		if block == nil {
+			block = s.bc.CurrentBlock()
+			idx := block.Number().Uint64()
+			s.SetLatestIndex(&idx)
+			log.Info("Block not found, resetting index", "new", idx, "old", *index)
+		}
 		txs := block.Transactions()
 		if len(txs) != 1 {
 			log.Error("Unexpected number of transactions in block: %d", len(txs))
