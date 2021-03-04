@@ -228,5 +228,5 @@ if [[ ! -z "$IS_VERIFIER" ]]; then
 fi
 cmd="$cmd --verbosity=$VERBOSITY"
 
-echo -e "Running:\n$cmd"
+echo -e "Running:\nTARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd"
 eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd
