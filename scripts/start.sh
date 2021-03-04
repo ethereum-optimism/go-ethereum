@@ -18,6 +18,7 @@ ROLLUP_POLL_INTERVAL=15s
 ROLLUP_TIMESTAMP_REFRESH=15m
 CACHE=1024
 RPC_PORT=8545
+VERBOSITY=3
 
 USAGE="
 Start the Sequencer or Verifier with most configuration pre-set.
@@ -48,6 +49,15 @@ while (( "$#" )); do
         -v|--verifier)
             IS_VERIFIER=true
             shift 1
+            ;;
+        --verbosity)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                VERBOSITY="$2"
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
             ;;
         --datadir)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
@@ -216,6 +226,7 @@ cmd="$cmd --ipcdisable"
 if [[ ! -z "$IS_VERIFIER" ]]; then
     cmd="$cmd --rollup.verifier"
 fi
+cmd="$cmd --verbosity=$VERBOSITY"
 
-echo -e "Running:\n$cmd"
-eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd --verbosity=3
+echo -e "Running:\nTARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd"
+eval env TARGET_GAS_LIMIT=$TARGET_GAS_LIMIT USING_OVM=true $cmd
