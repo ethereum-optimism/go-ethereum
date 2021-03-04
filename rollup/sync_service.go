@@ -225,7 +225,7 @@ func (s *SyncService) initializeLatestL1(ctcDeployHeight *big.Int) error {
 			block = s.bc.CurrentBlock()
 			idx := block.Number().Uint64()
 			s.SetLatestIndex(&idx)
-			log.Info("Block not found, resetting index", "new", idx, "old", *index)
+			log.Info("Block not found, resetting index", "new", idx, "old", *index-1)
 		}
 		txs := block.Transactions()
 		if len(txs) != 1 {
