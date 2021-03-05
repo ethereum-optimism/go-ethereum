@@ -175,14 +175,11 @@ func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
 		return nil, fmt.Errorf("data too short (%d bytes) for abi method lookup", len(sigdata))
 	}
 
-	// attempt to read from MethodsById cache
-	cachedMethod := abi.MethodsById[[4]byte{sigdata[0], sigdata[1], sigdata[2], sigdata[3]}]
-	if cachedMethod != nil {
-		return cachedMethod, nil
+	method, exist := abi.MethodsById[[4]byte{sigdata[0], sigdata[1], sigdata[2], sigdata[3]}]
+	if !exist {
+		return nil, fmt.Errorf("no method with id: %#x", sigdata[:4])
 	}
-
-	// otherwise it doesn't exist
-	return nil, fmt.Errorf("no method with id: %#x", sigdata[:4])
+	return method, nil
 }
 
 // EventByID looks an event up by its topic hash in the
