@@ -30,9 +30,11 @@ import (
 // invokable methods. It will allow you to type check function calls and
 // packs data accordingly.
 type ABI struct {
-	Constructor Method
-	Methods     map[string]Method
-	Events      map[string]Event
+	Constructor     Method
+	Methods         map[string]Method
+	Events          map[string]Event
+	MethodCache     map[[4]byte]*Method
+	MethodCacheLock sync.RWMutex
 }
 
 // JSON returns a parsed ABI interface and error if it failed.
@@ -121,6 +123,7 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	abi.Methods = make(map[string]Method)
+	abi.MethodCache = make(map[[4]byte]*Method)
 	abi.Events = make(map[string]Event)
 	for _, field := range fields {
 		switch field.Type {
@@ -163,9 +166,6 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-var methodCache map[[4]byte]*Method = make(map[[4]byte]*Method)
-var methodCacheLock sync.RWMutex
-
 // MethodById looks up a method by the 4-byte id
 // returns nil if none found
 func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
@@ -174,17 +174,22 @@ func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
 	}
 
 	var sigdata4 [4]byte = [4]byte{sigdata[0], sigdata[1], sigdata[2], sigdata[3]}
-	if methodCache[sigdata4] != nil {
-		methodCacheLock.RLock()
-		defer methodCacheLock.RUnlock()
-		return methodCache[sigdata4], nil
+
+	// attempt to read from methodCache
+	abi.MethodCacheLock.RLock()
+	cachedMethod := abi.MethodCache[sigdata4]
+	abi.MethodCacheLock.RUnlock()
+
+	// return it if it's in the cache
+	if cachedMethod != nil {
+		return cachedMethod, nil
 	}
 
 	for _, method := range abi.Methods {
 		if bytes.Equal(method.ID(), sigdata[:4]) {
-			methodCacheLock.Lock()
-			methodCache[sigdata4] = &method
-			methodCacheLock.Unlock()
+			abi.MethodCacheLock.Lock()
+			abi.MethodCache[sigdata4] = &method
+			abi.MethodCacheLock.Unlock()
 			return &method, nil
 		}
 	}
