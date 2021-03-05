@@ -25,6 +25,12 @@ $ make geth
 
 ### Running a Sequencer
 
+Running a sequencer requires the [Data Transport Layer](https://github.com/ethereum-optimism/data-transport-layer)
+to be synced. The data transport layer is responsible for indexing transactions
+from Layer One concurrently. The sequencer pulls in transactions from the data
+transport layer and executes them. The URL of the data transport layer should be
+used for the sequencer config option `--rollup.clienthttp`.
+
 See the script `scripts/start.sh`. It sets many of the config options
 and accepts CLI flags. For usage, run the command:
 
@@ -38,10 +44,11 @@ with their configuration can run the command:
 ```bash
 $ USING_OVM=true ./build/bin/geth \
     --rollup.addressmanagerowneraddress $ADDRESS_MANAGER_OWNER_ADDRESS \
-    --eth1.confirmationdepth 0 \
-    --eth1.http $LAYER1_NODE_URL \
+    --rollup.clienthttp $ROLLUP_CLIENT_HTTP \
+    --rollup.pollinterval 3s \
     --eth1.networkid $LAYER1_NETWORK_ID \
     --eth1.chainid $LAYER1_CHAIN_ID \
+    --eth1.l1gatewayaddress $ETH1_L1_GATEWAY_ADDRESS \
     --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS \
     --eth1.addressresolveraddress $ETH1_ADDRESS_RESOLVER_ADDRESS \
     --eth1.ctcdeploymentheight $CTC_DEPLOY_HEIGHT \
