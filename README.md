@@ -23,6 +23,14 @@ To compile the code, run:
 $ make geth
 ```
 
+### Running a Mainnet Replica
+
+To spin up a mainnet sequencer replica node, start syncing from a Data Transport Layer (Transaction Indexer) by running the command:
+```bash
+$ ./scripts/start.sh --rollup.clienthttp http://... --verifier
+```
+
+
 ### Running a Sequencer
 
 See the script `scripts/start.sh`. It sets many of the config options
