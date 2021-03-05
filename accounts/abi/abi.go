@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -33,6 +32,7 @@ type ABI struct {
 	Constructor Method
 	Methods     map[string]Method
 	Events      map[string]Event
+	MethodsById map[[4]byte]*Method
 }
 
 // JSON returns a parsed ABI interface and error if it failed.
@@ -121,6 +121,7 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	abi.Methods = make(map[string]Method)
+	abi.MethodsById = make(map[[4]byte]*Method)
 	abi.Events = make(map[string]Event)
 	for _, field := range fields {
 		switch field.Type {
@@ -137,13 +138,17 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 				_, ok = abi.Methods[name]
 			}
 			isConst := field.Constant || field.StateMutability == "pure" || field.StateMutability == "view"
-			abi.Methods[name] = Method{
+			method := Method{
 				Name:    name,
 				RawName: field.Name,
 				Const:   isConst,
 				Inputs:  field.Inputs,
 				Outputs: field.Outputs,
 			}
+			abi.Methods[name] = method
+			// add method to the id cache
+			sigdata := method.ID()
+			abi.MethodsById[[4]byte{sigdata[0], sigdata[1], sigdata[2], sigdata[3]}] = &method
 		case "event":
 			name := field.Name
 			_, ok := abi.Events[name]
@@ -163,9 +168,6 @@ func (abi *ABI) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-var methodCache map[[4]byte]*Method = make(map[[4]byte]*Method)
-var methodCacheLock sync.RWMutex
-
 // MethodById looks up a method by the 4-byte id
 // returns nil if none found
 func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
@@ -173,22 +175,11 @@ func (abi *ABI) MethodById(sigdata []byte) (*Method, error) {
 		return nil, fmt.Errorf("data too short (%d bytes) for abi method lookup", len(sigdata))
 	}
 
-	var sigdata4 [4]byte = [4]byte{sigdata[0], sigdata[1], sigdata[2], sigdata[3]}
-	if methodCache[sigdata4] != nil {
-		methodCacheLock.RLock()
-		defer methodCacheLock.RUnlock()
-		return methodCache[sigdata4], nil
+	method, exist := abi.MethodsById[[4]byte{sigdata[0], sigdata[1], sigdata[2], sigdata[3]}]
+	if !exist {
+		return nil, fmt.Errorf("no method with id: %#x", sigdata[:4])
 	}
-
-	for _, method := range abi.Methods {
-		if bytes.Equal(method.ID(), sigdata[:4]) {
-			methodCacheLock.Lock()
-			methodCache[sigdata4] = &method
-			methodCacheLock.Unlock()
-			return &method, nil
-		}
-	}
-	return nil, fmt.Errorf("no method with id: %#x", sigdata[:4])
+	return method, nil
 }
 
 // EventByID looks an event up by its topic hash in the
