@@ -191,7 +191,7 @@ func enqueueToTransaction(enqueue *Enqueue) (*types.Transaction, error) {
 		types.QueueOriginL1ToL2,
 		enqueue.Index,
 		enqueue.QueueIndex,
-		nil, // TODO: UPDATE THIS
+		data,
 	)
 	tx.SetTransactionMeta(txMeta)
 
@@ -272,7 +272,7 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 			queueOrigin,
 			&res.Transaction.Index,
 			res.Transaction.QueueIndex,
-			nil, // TODO: UPDATE THIS
+			res.Transaction.Data,
 		)
 		tx.SetTransactionMeta(txMeta)
 
@@ -312,7 +312,7 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		queueOrigin,
 		&res.Transaction.Index,
 		res.Transaction.QueueIndex,
-		nil, // TODO: UPDATE THIS
+		res.Transaction.Data,
 	)
 	tx.SetTransactionMeta(txMeta)
 	return tx, nil
