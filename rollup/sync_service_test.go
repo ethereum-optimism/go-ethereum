@@ -53,6 +53,7 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 		types.QueueOriginL1ToL2,
 		&index,
 		&queueIndex,
+		nil,
 	)
 	tx.SetTransactionMeta(txMeta)
 
@@ -104,6 +105,7 @@ func TestSyncServiceSync(t *testing.T) {
 		types.QueueOriginL1ToL2,
 		&index,
 		&queueIndex,
+		nil,
 	)
 	tx.SetTransactionMeta(txMeta)
 
@@ -149,6 +151,7 @@ func TestInitializeL1ContextPostGenesis(t *testing.T) {
 		types.QueueOriginL1ToL2,
 		&index,
 		&queueIndex,
+		nil,
 	)
 	tx.SetTransactionMeta(txMeta)
 
