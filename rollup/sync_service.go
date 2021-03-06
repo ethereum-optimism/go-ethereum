@@ -1,6 +1,7 @@
 package rollup
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
@@ -640,5 +642,80 @@ func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("invalid transaction: %w", err)
 	}
+
+	// Set the raw transaction data in the meta
+	txRaw := getRawTransaction(*tx)
+	meta := tx.GetMeta()
+	newMeta := types.NewTransactionMeta(
+		meta.L1BlockNumber,
+		meta.L1Timestamp,
+		meta.L1MessageSender,
+		meta.SignatureHashType,
+		types.QueueOrigin(meta.QueueOrigin.Uint64()),
+		meta.Index,
+		meta.QueueIndex,
+		txRaw,
+	)
+	tx.SetTransactionMeta(newMeta)
+
 	return s.applyTransaction(tx)
+}
+
+func getRawTransaction(tx types.Transaction) []byte {
+	v, r, s := tx.RawSignatureValues()
+
+	// Since we use a fixed encoding, we need to insert some placeholder address to represent that
+	// the user wants to create a contract (in this case, the zero address).
+	var target common.Address
+	if tx.To() == nil {
+		target = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	} else {
+		target = *tx.To()
+	}
+
+	// Divide the gas price by one million to compress it
+	// before it is send to the sequencer entrypoint. This is to save
+	// space on calldata.
+	gasPrice := new(big.Int).Div(tx.GasPrice(), new(big.Int).SetUint64(1000000))
+
+	// Sequencer uses a custom encoding structure --
+	// We originally receive sequencer transactions encoded in this way, but we decode them before
+	// inserting into Geth so we can make transactions easily parseable. However, this means that
+	// we need to re-encode the transactions before executing them.
+	var data = new(bytes.Buffer)
+	data.WriteByte(getSignatureType(tx))                    // 1 byte: 00 == EIP 155, 02 == ETH Sign Message
+	data.Write(fillBytes(r, 32))                            // 32 bytes: Signature `r` parameter
+	data.Write(fillBytes(s, 32))                            // 32 bytes: Signature `s` parameter
+	data.Write(fillBytes(v, 1))                             // 1 byte: Signature `v` parameter
+	data.Write(fillBytes(big.NewInt(int64(tx.Gas())), 3))   // 3 bytes: Gas limit
+	data.Write(fillBytes(gasPrice, 3))                      // 3 bytes: Gas price
+	data.Write(fillBytes(big.NewInt(int64(tx.Nonce())), 3)) // 3 bytes: Nonce
+	data.Write(target.Bytes())                              // 20 bytes: Target address
+	data.Write(tx.Data())
+
+	return data.Bytes()
+}
+
+func fillBytes(x *big.Int, size int) []byte {
+	b := x.Bytes()
+	switch {
+	case len(b) > size:
+		panic("math/big: value won't fit requested size")
+	case len(b) == size:
+		return b
+	default:
+		buf := make([]byte, size)
+		copy(buf[size-len(b):], b)
+		return buf
+	}
+}
+
+func getSignatureType(tx types.Transaction) uint8 {
+	if tx.SignatureHashType() == 0 {
+		return 0
+	} else if tx.SignatureHashType() == 1 {
+		return 2
+	} else {
+		return 1
+	}
 }
