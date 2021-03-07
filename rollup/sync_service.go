@@ -644,7 +644,10 @@ func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
 	}
 
 	// Set the raw transaction data in the meta
-	txRaw := getRawTransaction(*tx)
+	txRaw, err := getRawTransaction(*tx)
+	if err != nil {
+		return fmt.Errorf("invalid transaction: %w", err)
+	}
 	meta := tx.GetMeta()
 	newMeta := types.NewTransactionMeta(
 		meta.L1BlockNumber,
@@ -661,8 +664,17 @@ func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
 	return s.applyTransaction(tx)
 }
 
-func getRawTransaction(tx types.Transaction) []byte {
+func getRawTransaction(tx types.Transaction) ([]byte, error) {
 	v, r, s := tx.RawSignatureValues()
+
+	// V parameter here will include the chain ID, so we need to recover the original V. If the V
+	// does not equal zero or one, we have an invalid parameter and need to throw an error.
+	// This is technically a duplicate check because it happens inside of
+	// `tx.AsMessage` as well.
+	v = new(big.Int).SetUint64(v.Uint64() - 35 - 2*tx.ChainId().Uint64())
+	if v.Uint64() != 0 && v.Uint64() != 1 {
+		return nil, fmt.Errorf("invalid signature v parameter: %d", v.Uint64())
+	}
 
 	// Since we use a fixed encoding, we need to insert some placeholder address to represent that
 	// the user wants to create a contract (in this case, the zero address).
@@ -693,7 +705,7 @@ func getRawTransaction(tx types.Transaction) []byte {
 	data.Write(target.Bytes())                              // 20 bytes: Target address
 	data.Write(tx.Data())
 
-	return data.Bytes()
+	return data.Bytes(), nil
 }
 
 func fillBytes(x *big.Int, size int) []byte {
