@@ -644,7 +644,7 @@ func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
 	}
 
 	// Set the raw transaction data in the meta
-	txRaw, err := getRawTransaction(*tx)
+	txRaw, err := getRawTransaction(tx)
 	if err != nil {
 		return fmt.Errorf("invalid transaction: %w", err)
 	}
@@ -664,7 +664,10 @@ func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
 	return s.applyTransaction(tx)
 }
 
-func getRawTransaction(tx types.Transaction) ([]byte, error) {
+func getRawTransaction(tx *types.Transaction) ([]byte, error) {
+	if tx == nil {
+		return nil, errors.New("Cannot process nil transaction")
+	}
 	v, r, s := tx.RawSignatureValues()
 
 	// V parameter here will include the chain ID, so we need to recover the original V. If the V
@@ -680,7 +683,7 @@ func getRawTransaction(tx types.Transaction) ([]byte, error) {
 	// the user wants to create a contract (in this case, the zero address).
 	var target common.Address
 	if tx.To() == nil {
-		target = common.HexToAddress("0x0000000000000000000000000000000000000000")
+		target = common.Address{}
 	} else {
 		target = *tx.To()
 	}
@@ -695,14 +698,14 @@ func getRawTransaction(tx types.Transaction) ([]byte, error) {
 	// inserting into Geth so we can make transactions easily parseable. However, this means that
 	// we need to re-encode the transactions before executing them.
 	var data = new(bytes.Buffer)
-	data.WriteByte(getSignatureType(tx))                    // 1 byte: 00 == EIP 155, 02 == ETH Sign Message
-	data.Write(fillBytes(r, 32))                            // 32 bytes: Signature `r` parameter
-	data.Write(fillBytes(s, 32))                            // 32 bytes: Signature `s` parameter
-	data.Write(fillBytes(v, 1))                             // 1 byte: Signature `v` parameter
-	data.Write(fillBytes(big.NewInt(int64(tx.Gas())), 3))   // 3 bytes: Gas limit
-	data.Write(fillBytes(gasPrice, 3))                      // 3 bytes: Gas price
-	data.Write(fillBytes(big.NewInt(int64(tx.Nonce())), 3)) // 3 bytes: Nonce
-	data.Write(target.Bytes())                              // 20 bytes: Target address
+	data.WriteByte(getSignatureType(tx))                         // 1 byte: 00 == EIP 155, 02 == ETH Sign Message
+	data.Write(fillBytes(r, 32))                                 // 32 bytes: Signature `r` parameter
+	data.Write(fillBytes(s, 32))                                 // 32 bytes: Signature `s` parameter
+	data.Write(fillBytes(v, 1))                                  // 1 byte: Signature `v` parameter
+	data.Write(fillBytes(new(big.Int).SetUint64(tx.Gas()), 3))   // 3 bytes: Gas limit
+	data.Write(fillBytes(gasPrice, 3))                           // 3 bytes: Gas price
+	data.Write(fillBytes(new(big.Int).SetUint64(tx.Nonce()), 3)) // 3 bytes: Nonce
+	data.Write(target.Bytes())                                   // 20 bytes: Target address
 	data.Write(tx.Data())
 
 	return data.Bytes(), nil
@@ -722,7 +725,7 @@ func fillBytes(x *big.Int, size int) []byte {
 	}
 }
 
-func getSignatureType(tx types.Transaction) uint8 {
+func getSignatureType(tx *types.Transaction) uint8 {
 	if tx.SignatureHashType() == 0 {
 		return 0
 	} else if tx.SignatureHashType() == 1 {
