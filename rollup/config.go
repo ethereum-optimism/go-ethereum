@@ -29,8 +29,6 @@ type Config struct {
 	CanonicalTransactionChainDeployHeight *big.Int
 	// Path to the state dump
 	StateDumpPath string
-	// Temporary setting to disable transfers
-	DisableTransfers bool
 	// Polling interval for rollup client
 	PollInterval time.Duration
 	// Interval for updating the timestamp

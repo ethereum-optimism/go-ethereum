@@ -873,11 +873,6 @@ var (
 		Value:  eth.DefaultConfig.DiffDbCache,
 		EnvVar: "ROLLUP_DIFFDB_CACHE",
 	}
-	RollupDisableTransfersFlag = cli.BoolFlag{
-		Name:   "rollup.disabletransfers",
-		Usage:  "Disable Transfers",
-		EnvVar: "ROLLUP_DISABLE_TRANSFERS",
-	}
 	RollupMaxCalldataSizeFlag = cli.IntFlag{
 		Name:   "rollup.maxcalldatasize",
 		Usage:  "Maximum allowed calldata size for Queue Origin Sequencer Txs",
@@ -1144,9 +1139,6 @@ func setRollup(ctx *cli.Context, cfg *rollup.Config) {
 		cfg.StateDumpPath = ctx.GlobalString(RollupStateDumpPathFlag.Name)
 	} else {
 		cfg.StateDumpPath = eth.DefaultConfig.Rollup.StateDumpPath
-	}
-	if ctx.GlobalIsSet(RollupDisableTransfersFlag.Name) {
-		cfg.DisableTransfers = true
 	}
 	if ctx.GlobalIsSet(RollupMaxCalldataSizeFlag.Name) {
 		cfg.MaxCallDataSize = ctx.GlobalInt(RollupMaxCalldataSizeFlag.Name)
