@@ -36,46 +36,22 @@ func secAddr(addr common.Address) []byte {
 
 type accessTestFn func(db ethdb.Database, bhash common.Hash, number uint64) light.OdrRequest
 
-func TestBlockAccessLes2(t *testing.T) {
-	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
-
-	testAccess(t, 2, tfBlockAccess)
-}
-func TestBlockAccessLes3(t *testing.T) {
-	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
-
-	testAccess(t, 3, tfBlockAccess)
-}
+func TestBlockAccessLes2(t *testing.T) { testAccess(t, 2, tfBlockAccess) }
+func TestBlockAccessLes3(t *testing.T) { testAccess(t, 3, tfBlockAccess) }
 
 func tfBlockAccess(db ethdb.Database, bhash common.Hash, number uint64) light.OdrRequest {
 	return &light.BlockRequest{Hash: bhash, Number: number}
 }
 
-func TestReceiptsAccessLes2(t *testing.T) {
-	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
-
-	testAccess(t, 2, tfReceiptsAccess)
-}
-func TestReceiptsAccessLes3(t *testing.T) {
-	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
-
-	testAccess(t, 3, tfReceiptsAccess)
-}
+func TestReceiptsAccessLes2(t *testing.T) { testAccess(t, 2, tfReceiptsAccess) }
+func TestReceiptsAccessLes3(t *testing.T) { testAccess(t, 3, tfReceiptsAccess) }
 
 func tfReceiptsAccess(db ethdb.Database, bhash common.Hash, number uint64) light.OdrRequest {
 	return &light.ReceiptsRequest{Hash: bhash, Number: number}
 }
 
-func TestTrieEntryAccessLes2(t *testing.T) {
-	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
-
-	testAccess(t, 2, tfTrieEntryAccess)
-}
-func TestTrieEntryAccessLes3(t *testing.T) {
-	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
-
-	testAccess(t, 3, tfTrieEntryAccess)
-}
+func TestTrieEntryAccessLes2(t *testing.T) { testAccess(t, 2, tfTrieEntryAccess) }
+func TestTrieEntryAccessLes3(t *testing.T) { testAccess(t, 3, tfTrieEntryAccess) }
 
 func tfTrieEntryAccess(db ethdb.Database, bhash common.Hash, number uint64) light.OdrRequest {
 	if number := rawdb.ReadHeaderNumber(db, bhash); number != nil {
@@ -84,16 +60,8 @@ func tfTrieEntryAccess(db ethdb.Database, bhash common.Hash, number uint64) ligh
 	return nil
 }
 
-func TestCodeAccessLes2(t *testing.T) {
-	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
-
-	testAccess(t, 2, tfCodeAccess)
-}
-func TestCodeAccessLes3(t *testing.T) {
-	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
-
-	testAccess(t, 3, tfCodeAccess)
-}
+func TestCodeAccessLes2(t *testing.T) { testAccess(t, 2, tfCodeAccess) }
+func TestCodeAccessLes3(t *testing.T) { testAccess(t, 3, tfCodeAccess) }
 
 func tfCodeAccess(db ethdb.Database, bhash common.Hash, num uint64) light.OdrRequest {
 	number := rawdb.ReadHeaderNumber(db, bhash)
@@ -110,6 +78,8 @@ func tfCodeAccess(db ethdb.Database, bhash common.Hash, num uint64) light.OdrReq
 }
 
 func testAccess(t *testing.T, protocol int, fn accessTestFn) {
+	t.Skip("OVM breaks this with `insufficient balance for transfer`, probably because transfers don't work.")
+
 	// Assemble the test environment
 	server, client, tearDown := newClientServerEnv(t, 4, protocol, nil, nil, 0, false, true)
 	defer tearDown()

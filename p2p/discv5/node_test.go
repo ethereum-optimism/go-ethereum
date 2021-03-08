@@ -141,15 +141,11 @@ var parseNodeTests = []struct {
 	{
 		// This test checks that errors from url.Parse are handled.
 		rawurl:    "://foo",
-		wantError: `parse ://foo: missing protocol scheme`,
+		wantError: `missing protocol scheme`,
 	},
 }
 
 func TestParseNode(t *testing.T) {
-
-	// TODO: SKIPPING
-	t.Skip("This test fails on the last pre-fork commit. It may be OS X related")
-
 	for _, test := range parseNodeTests {
 		n, err := ParseNode(test.rawurl)
 		if test.wantError != "" {

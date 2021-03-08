@@ -223,12 +223,13 @@ func (tx *Transaction) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
-func (tx *Transaction) Data() []byte                         { return common.CopyBytes(tx.data.Payload) }
-func (tx *Transaction) Gas() uint64                          { return tx.data.GasLimit }
-func (tx *Transaction) GasPrice() *big.Int                   { return new(big.Int).Set(tx.data.Price) }
-func (tx *Transaction) Value() *big.Int                      { return new(big.Int).Set(tx.data.Amount) }
-func (tx *Transaction) Nonce() uint64                        { return tx.data.AccountNonce }
-func (tx *Transaction) CheckNonce() bool                     { return true }
+func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Payload) }
+func (tx *Transaction) Gas() uint64        { return tx.data.GasLimit }
+func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
+func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
+func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
+func (tx *Transaction) CheckNonce() bool   { return true }
+
 func (tx *Transaction) SetNonce(nonce uint64)                { tx.data.AccountNonce = nonce }
 func (tx *Transaction) SignatureHashType() SignatureHashType { return tx.meta.SignatureHashType }
 func (tx *Transaction) SetSignatureHashType(sighashType SignatureHashType) {
@@ -308,17 +309,18 @@ func (tx *Transaction) Size() common.StorageSize {
 // XXX Rename message to something less arbitrary?
 func (tx *Transaction) AsMessage(s Signer) (Message, error) {
 	msg := Message{
-		nonce:             tx.data.AccountNonce,
-		gasLimit:          tx.data.GasLimit,
-		gasPrice:          new(big.Int).Set(tx.data.Price),
-		to:                tx.data.Recipient,
+		nonce:      tx.data.AccountNonce,
+		gasLimit:   tx.data.GasLimit,
+		gasPrice:   new(big.Int).Set(tx.data.Price),
+		to:         tx.data.Recipient,
+		amount:     tx.data.Amount,
+		data:       tx.data.Payload,
+		checkNonce: true,
+
 		l1MessageSender:   tx.meta.L1MessageSender,
 		l1BlockNumber:     tx.meta.L1BlockNumber,
 		signatureHashType: tx.meta.SignatureHashType,
 		queueOrigin:       tx.meta.QueueOrigin,
-		amount:            tx.data.Amount,
-		data:              tx.data.Payload,
-		checkNonce:        true,
 	}
 
 	var err error
@@ -522,30 +524,32 @@ func (t *TransactionsByPriceAndNonce) Pop() {
 //
 // NOTE: In a future PR this will be removed.
 type Message struct {
-	to                *common.Address
+	to         *common.Address
+	from       common.Address
+	nonce      uint64
+	amount     *big.Int
+	gasLimit   uint64
+	gasPrice   *big.Int
+	data       []byte
+	checkNonce bool
+
 	l1MessageSender   *common.Address
 	l1BlockNumber     *big.Int
 	signatureHashType SignatureHashType
 	queueOrigin       *big.Int
-	from              common.Address
-	nonce             uint64
-	amount            *big.Int
-	gasLimit          uint64
-	gasPrice          *big.Int
-	data              []byte
-	checkNonce        bool
 }
 
 func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, checkNonce bool, l1MessageSender *common.Address, l1BlockNumber *big.Int, queueOrigin QueueOrigin, signatureHashType SignatureHashType) Message {
 	return Message{
-		from:              from,
-		to:                to,
-		nonce:             nonce,
-		amount:            amount,
-		gasLimit:          gasLimit,
-		gasPrice:          gasPrice,
-		data:              data,
-		checkNonce:        checkNonce,
+		from:       from,
+		to:         to,
+		nonce:      nonce,
+		amount:     amount,
+		gasLimit:   gasLimit,
+		gasPrice:   gasPrice,
+		data:       data,
+		checkNonce: checkNonce,
+
 		l1BlockNumber:     l1BlockNumber,
 		l1MessageSender:   l1MessageSender,
 		signatureHashType: signatureHashType,
@@ -553,15 +557,16 @@ func NewMessage(from common.Address, to *common.Address, nonce uint64, amount *b
 	}
 }
 
-func (m Message) From() common.Address                 { return m.from }
-func (m Message) To() *common.Address                  { return m.to }
+func (m Message) From() common.Address { return m.from }
+func (m Message) To() *common.Address  { return m.to }
+func (m Message) GasPrice() *big.Int   { return m.gasPrice }
+func (m Message) Value() *big.Int      { return m.amount }
+func (m Message) Gas() uint64          { return m.gasLimit }
+func (m Message) Nonce() uint64        { return m.nonce }
+func (m Message) Data() []byte         { return m.data }
+func (m Message) CheckNonce() bool     { return m.checkNonce }
+
 func (m Message) L1MessageSender() *common.Address     { return m.l1MessageSender }
 func (m Message) L1BlockNumber() *big.Int              { return m.l1BlockNumber }
 func (m Message) SignatureHashType() SignatureHashType { return m.signatureHashType }
 func (m Message) QueueOrigin() *big.Int                { return m.queueOrigin }
-func (m Message) GasPrice() *big.Int                   { return m.gasPrice }
-func (m Message) Value() *big.Int                      { return m.amount }
-func (m Message) Gas() uint64                          { return m.gasLimit }
-func (m Message) Nonce() uint64                        { return m.nonce }
-func (m Message) Data() []byte                         { return m.data }
-func (m Message) CheckNonce() bool                     { return m.checkNonce }

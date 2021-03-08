@@ -522,7 +522,7 @@ func (s *PublicBlockChainAPI) ChainId() *hexutil.Big {
 	return (*hexutil.Big)(s.b.ChainConfig().ChainID)
 }
 
-// SubmissionNumber returns the block number of the chain head.
+// BlockNumber returns the block number of the chain head.
 func (s *PublicBlockChainAPI) BlockNumber() hexutil.Uint64 {
 	header, _ := s.b.HeaderByNumber(context.Background(), rpc.LatestBlockNumber) // latest header should always be available
 	return hexutil.Uint64(header.Number.Uint64())
@@ -536,8 +536,7 @@ func (s *PublicBlockChainAPI) GetBalance(ctx context.Context, address common.Add
 	if state == nil || err != nil {
 		return nil, err
 	}
-	balance := state.GetOVMBalance(address)
-	return (*hexutil.Big)(balance), state.Error()
+	return (*hexutil.Big)(state.GetOVMBalance(address)), state.Error()
 }
 
 // Result structs for GetProof
@@ -551,10 +550,9 @@ type AccountResult struct {
 	StorageProof []StorageResult `json:"storageProof"`
 }
 type StorageResult struct {
-	Key     string       `json:"key"`
-	Value   *hexutil.Big `json:"value"`
-	Proof   []string     `json:"proof"`
-	Mutated bool         `json:"mutated"`
+	Key   string       `json:"key"`
+	Value *hexutil.Big `json:"value"`
+	Proof []string     `json:"proof"`
 }
 
 // Result structs for GetStateDiffProof
@@ -607,11 +605,6 @@ func (s *PublicBlockChainAPI) GetStateDiffProof(ctx context.Context, blockNrOrHa
 			return nil, err
 		}
 
-		// iterate over all the proofs and set their mutated bit
-		for i := range res.StorageProof {
-			res.StorageProof[i].Mutated = keys[i].Mutated
-		}
-
 		accounts = append(accounts, *res)
 	}
 
@@ -656,19 +649,9 @@ func (s *PublicBlockChainAPI) GetProof(ctx context.Context, address common.Addre
 			if storageError != nil {
 				return nil, storageError
 			}
-			// by default, the GetProof API does not return if a storage item
-			// was mutated or not.
-			storageProof[i] = StorageResult{
-				Key:   key,
-				Value: (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()),
-				Proof: common.ToHexArray(proof),
-			}
+			storageProof[i] = StorageResult{key, (*hexutil.Big)(state.GetState(address, common.HexToHash(key)).Big()), common.ToHexArray(proof)}
 		} else {
-			storageProof[i] = StorageResult{
-				Key:   key,
-				Value: &hexutil.Big{},
-				Proof: []string{},
-			}
+			storageProof[i] = StorageResult{key, &hexutil.Big{}, []string{}}
 		}
 	}
 
@@ -1487,8 +1470,9 @@ type SendTxArgs struct {
 	Nonce    *hexutil.Uint64 `json:"nonce"`
 	// We accept "data" and "input" for backwards-compatibility reasons. "input" is the
 	// newer name and should be preferred by clients.
-	Data              *hexutil.Bytes          `json:"data"`
-	Input             *hexutil.Bytes          `json:"input"`
+	Data  *hexutil.Bytes `json:"data"`
+	Input *hexutil.Bytes `json:"input"`
+
 	L1BlockNumber     *big.Int                `json:"l1BlockNumber"`
 	L1MessageSender   *common.Address         `json:"l1MessageSender"`
 	SignatureHashType types.SignatureHashType `json:"signatureHashType"`
