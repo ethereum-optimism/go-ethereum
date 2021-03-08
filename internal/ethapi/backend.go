@@ -90,7 +90,7 @@ type Backend interface {
 	GetEthContext() (uint64, uint64)
 	GetRollupContext() (uint64, uint64)
 	GasLimit() uint64
-
+	IngestTransactions([]*types.Transaction) error
 	ChainConfig() *params.ChainConfig
 	CurrentBlock() *types.Block
 
