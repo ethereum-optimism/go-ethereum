@@ -1177,6 +1177,7 @@ type RPCTransaction struct {
 	L1Timestamp      hexutil.Uint64  `json:"l1Timestamp"`
 	Index            *hexutil.Uint64 `json:"index"`
 	QueueIndex       *hexutil.Uint64 `json:"queueIndex"`
+	RawTransaction   hexutil.Bytes   `json:"rawTransaction"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1210,6 +1211,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	}
 
 	if meta := tx.GetMeta(); meta != nil {
+		result.RawTransaction = meta.RawTransaction
 		result.L1TxOrigin = meta.L1MessageSender
 		result.L1Timestamp = (hexutil.Uint64)(meta.L1Timestamp)
 		if meta.L1BlockNumber != nil {
