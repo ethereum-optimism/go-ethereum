@@ -63,8 +63,18 @@ var DefaultConfig = Config{
 		Percentile: 60,
 	},
 	Rollup: rollup.Config{
-		StateDumpPath:   "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/master.json",
-		MaxCallDataSize: 512,
+		StateDumpPath: "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/master.json",
+		// The max consensus size of a transaction is 24000 bytes. The overhead
+		// for submitting a batch is as follows:
+		// 4 bytes function selector
+		// 5 bytes shouldStartAtElement
+		// 3 bytes totalElementsToAppend
+		// 3 bytes context header
+		// 16 bytes for a single batch context
+		// 3 bytes for tx size
+		// the rest of the data can be used for the transaction
+		//  24000-(5+3+3+16+4+3) = 23966
+		MaxCallDataSize: 23966,
 	},
 	DiffDbCache: 256,
 }
