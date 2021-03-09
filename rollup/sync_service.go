@@ -616,6 +616,7 @@ func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
 // Lower level API used to apply a transaction, must only be used with
 // transactions that came from L1.
 func (s *SyncService) applyTransaction(tx *types.Transaction) error {
+	tx = fixType(tx)
 	txs := types.Transactions{tx}
 	s.txFeed.Send(core.NewTxsEvent{Txs: txs})
 	return nil
@@ -733,4 +734,19 @@ func getSignatureType(tx *types.Transaction) uint8 {
 	} else {
 		return 1
 	}
+}
+
+// This is a temporary fix to patch the enums being used in the raw data
+func fixType(tx *types.Transaction) *types.Transaction {
+	meta := tx.GetMeta()
+	raw := meta.RawTransaction
+	if raw[0] == 0x00 {
+		return tx
+	} else if raw[0] == 0x01 {
+		raw[0] = 0x02
+	}
+	queueOrigin := types.QueueOrigin(meta.QueueOrigin.Uint64())
+	fixed := types.NewTransactionMeta(meta.L1BlockNumber, meta.L1Timestamp, meta.L1MessageSender, meta.SignatureHashType, queueOrigin, meta.Index, meta.QueueIndex, raw)
+	tx.SetTransactionMeta(fixed)
+	return tx
 }
