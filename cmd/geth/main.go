@@ -163,7 +163,6 @@ var (
 		utils.RollupPollIntervalFlag,
 		utils.RollupStateDumpPathFlag,
 		utils.RollupDiffDbFlag,
-		utils.RollupDisableTransfersFlag,
 		utils.RollupMaxCalldataSizeFlag,
 	}
 

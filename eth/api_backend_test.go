@@ -12,13 +12,12 @@ import (
 
 func TestGasLimit(t *testing.T) {
 	backend := &EthAPIBackend{
-		extRPCEnabled:    false,
-		eth:              nil,
-		gpo:              nil,
-		verifier:         false,
-		DisableTransfers: false,
-		gasLimit:         0,
-		UsingOVM:         true,
+		extRPCEnabled: false,
+		eth:           nil,
+		gpo:           nil,
+		verifier:      false,
+		gasLimit:      0,
+		UsingOVM:      true,
 	}
 
 	nonce := uint64(0)

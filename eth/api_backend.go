@@ -17,7 +17,6 @@
 package eth
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -44,14 +43,13 @@ import (
 
 // EthAPIBackend implements ethapi.Backend for full nodes
 type EthAPIBackend struct {
-	extRPCEnabled    bool
-	eth              *Ethereum
-	gpo              *gasprice.Oracle
-	verifier         bool
-	DisableTransfers bool
-	gasLimit         uint64
-	UsingOVM         bool
-	MaxCallDataSize  int
+	extRPCEnabled   bool
+	eth             *Ethereum
+	gpo             *gasprice.Oracle
+	verifier        bool
+	gasLimit        uint64
+	UsingOVM        bool
+	MaxCallDataSize int
 }
 
 func (b *EthAPIBackend) IsVerifier() bool {
@@ -300,30 +298,18 @@ func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction)
 			if *to == (common.Address{}) {
 				return errors.New("Cannot send transaction to zero address")
 			}
-
 			// Prevent transactions from being submitted if the gas limit too high
 			if signedTx.Gas() >= b.gasLimit {
 				return fmt.Errorf("Transaction gasLimit (%d) is greater than max gasLimit (%d)", signedTx.Gas(), b.gasLimit)
 			}
-
-			if b.DisableTransfers {
-				data := signedTx.Data()
-				if len(data) >= 4 {
-					selector := data[:4]
-					// Initially prevent transfers
-					// `transfer(address,uint256)`
-					if bytes.Equal(selector, []byte{0xa9, 0x05, 0x9c, 0xbb}) {
-						return errors.New("transfer(address,uint256) is disabled for now")
-					}
-					// `transferFrom(address,address,uint256)`
-					if bytes.Equal(selector, []byte{0x23, 0xb8, 0x72, 0xdd}) {
-						return errors.New("transferFrom(address,address,uint256) is disabled for now")
-					}
-				}
-
-				if len(signedTx.Data()) > b.MaxCallDataSize {
-					return fmt.Errorf("Calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
-				}
+			// Prevent QueueOriginSequencer transactions that are too large to
+			// be included in a batch. The `MaxCallDataSize` should be set to
+			// the layer one consensus max transaction size in bytes minus the
+			// constant sized overhead of a batch. This will prevent
+			// a layer two transaction from not being able to be batch submitted
+			// to layer one.
+			if len(signedTx.Data()) > b.MaxCallDataSize {
+				return fmt.Errorf("Calldata cannot be larger than %d, sent %d", b.MaxCallDataSize, len(signedTx.Data()))
 			}
 		}
 		return b.eth.syncService.ApplyTransaction(signedTx)
