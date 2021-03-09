@@ -64,8 +64,9 @@ var DefaultConfig = Config{
 	},
 	Rollup: rollup.Config{
 		StateDumpPath: "https://raw.githubusercontent.com/ethereum-optimism/regenesis/master/master.json",
-		// The max consensus size of a transaction is 24000 bytes. The overhead
-		// for submitting a batch is as follows:
+		// The max size of a transaction that is sent over the p2p network is 128kb
+		// https://github.com/ethereum/go-ethereum/blob/c2d2f4ed8f232bb11663a1b01a2e578aa22f24bd/core/tx_pool.go#L51
+		// The batch overhead is:
 		// 4 bytes function selector
 		// 5 bytes shouldStartAtElement
 		// 3 bytes totalElementsToAppend
@@ -73,8 +74,11 @@ var DefaultConfig = Config{
 		// 16 bytes for a single batch context
 		// 3 bytes for tx size
 		// the rest of the data can be used for the transaction
-		//  24000-(5+3+3+16+4+3) = 23966
-		MaxCallDataSize: 23966,
+		// Therefore, the max safe tx size to accept via the sequencer is:
+		// 128000 - (5+3+3+16+4+3) = 127966
+		// The mempool would need to be bypassed if a transaction any larger was
+		// accepted.
+		MaxCallDataSize: 127966,
 	},
 	DiffDbCache: 256,
 }
