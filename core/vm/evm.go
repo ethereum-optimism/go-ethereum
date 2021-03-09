@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/rollup/dump"
 )
 
+// Will be removed when we update EM to return data in `run`.
 var deadPrefix, fourtyTwoPrefix, zeroPrefix []byte
 
 func init() {
