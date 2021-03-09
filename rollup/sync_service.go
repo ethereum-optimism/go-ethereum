@@ -740,6 +740,10 @@ func getSignatureType(tx *types.Transaction) uint8 {
 func fixType(tx *types.Transaction) *types.Transaction {
 	meta := tx.GetMeta()
 	raw := meta.RawTransaction
+	if len(raw) == 0 {
+		log.Error("Transaction with no raw detected")
+		return tx
+	}
 	if raw[0] == 0x00 {
 		return tx
 	} else if raw[0] == 0x01 {
