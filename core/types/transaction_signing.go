@@ -32,6 +32,52 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
+var codec abi.ABI
+
+func init() {
+	const abidata = `
+	[
+		{
+			"type": "function",
+			"name": "encode",
+			"constant": true,
+			"inputs": [
+				{
+					"name": "nonce",
+					"type": "uint256"
+				},
+				{
+					"name": "gasLimit",
+					"type": "uint256"
+				},
+				{
+					"name": "gasPrice",
+					"type": "uint256"
+				},
+				{
+					"name": "chainId",
+					"type": "uint256"
+				},
+				{
+					"name": "to",
+					"type": "address"
+				},
+				{
+					"name": "data",
+					"type": "bytes"
+				}
+			]
+		}
+	]
+	`
+
+	var err error
+	codec, err = abi.JSON(strings.NewReader(abidata))
+	if err != nil {
+		panic(fmt.Errorf("unable to create Eth Sign abi reader: %v", err))
+	}
+}
+
 var (
 	ErrInvalidChainId = errors.New("invalid chain id for signer")
 )
@@ -162,47 +208,6 @@ func (s OVMSigner) Sender(tx *Transaction) (common.Address, error) {
 // OVMSignerTemplateSighashPreimage creates the preimage for the `eth_sign` like
 // signature hash. The transaction is `ABI.encodePacked`.
 func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
-	const abidata = `
-	[
-		{
-			"type": "function",
-			"name": "encode",
-			"constant": true,
-			"inputs": [
-				{
-					"name": "nonce",
-					"type": "uint256"
-				},
-				{
-					"name": "gasLimit",
-					"type": "uint256"
-				},
-				{
-					"name": "gasPrice",
-					"type": "uint256"
-				},
-				{
-					"name": "chainId",
-					"type": "uint256"
-				},
-				{
-					"name": "to",
-					"type": "address"
-				},
-				{
-					"name": "data",
-					"type": "bytes"
-				}
-			]
-		}
-	]
-	`
-
-	codec, err := abi.JSON(strings.NewReader(abidata))
-	if err != nil {
-		panic(fmt.Errorf("unable to create Eth Sign abi reader: %v", err))
-	}
-
 	data := []interface{}{
 		big.NewInt(int64(tx.data.AccountNonce)),
 		big.NewInt(int64(tx.data.GasLimit)),
@@ -218,6 +223,7 @@ func (s OVMSigner) OVMSignerTemplateSighashPreimage(tx *Transaction) []byte {
 	}
 
 	hasher := sha3.NewLegacyKeccak256()
+	// Slice off the function selector before hashing
 	hasher.Write(ret[4:])
 	digest := hasher.Sum(nil)
 
