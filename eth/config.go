@@ -77,8 +77,10 @@ var DefaultConfig = Config{
 		// Therefore, the max safe tx size to accept via the sequencer is:
 		// 128000 - (5+3+3+16+4+3) = 127966
 		// The mempool would need to be bypassed if a transaction any larger was
-		// accepted.
-		MaxCallDataSize: 127966,
+		// accepted. This option applies to the transaction calldata, so there
+		// is additional overhead that is unaccounted. Round down to 127000 for
+		// safety.
+		MaxCallDataSize: 127000,
 	},
 	DiffDbCache: 256,
 }
