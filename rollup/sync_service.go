@@ -139,20 +139,9 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		ts := service.GetLatestL1Timestamp()
 		log.Info("Initialized Latest L1 Info", "blocknumber", bn, "timestamp", ts)
 
-		var i, q string
 		index := service.GetLatestIndex()
 		queueIndex := service.GetLatestEnqueueIndex()
-		if index == nil {
-			i = "<nil>"
-		} else {
-			i = strconv.FormatUint(*index, 10)
-		}
-		if queueIndex == nil {
-			q = "<nil>"
-		} else {
-			q = strconv.FormatUint(*queueIndex, 10)
-		}
-		log.Info("Initialized Eth Context", "index", i, "queue-index", q)
+		log.Info("Initialized Eth Context", "index", stringify(index), "queue-index", stringify(queueIndex))
 
 		// The sequencer needs to sync to the tip at start up
 		// By setting the sync status to true, it will prevent RPC calls.
@@ -290,223 +279,6 @@ func (s *SyncService) Stop() error {
 	return nil
 }
 
-func (s *SyncService) VerifierLoop() {
-	log.Info("Starting Verifier Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
-	for {
-		// The verifier polls for ctc transactions.
-		// the ctc transactions are extending the chain.
-		latest, err := s.client.GetLatestTransaction()
-		if err != nil {
-			log.Error("Cannot fetch transaction")
-			continue
-		}
-
-		if latest == nil {
-			time.Sleep(s.pollInterval)
-			continue
-		}
-
-		var start uint64
-		if s.GetLatestIndex() == nil {
-			start = 0
-		} else {
-			start = *s.GetLatestIndex() + 1
-		}
-		end := *latest.GetMeta().Index
-		log.Info("Polling transactions", "start", start, "end", end)
-		for i := start; i <= end; i++ {
-			tx, err := s.client.GetTransaction(i)
-			if err != nil {
-				log.Error("Cannot get tx in loop", "index", i)
-				continue
-			}
-			log.Debug("Applying transaction", "index", i)
-			err = s.maybeApplyTransaction(tx)
-			if err != nil {
-				log.Error("Cannot apply transaction", "msg", err)
-			}
-			s.SetLatestIndex(&i)
-		}
-		time.Sleep(s.pollInterval)
-	}
-}
-
-func (s *SyncService) SequencerLoop() {
-	log.Info("Starting Sequencer Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
-	for {
-		// Only the sequencer needs to poll for enqueue transactions
-		// and then can choose when to apply them. We choose to apply
-		// transactions such that it makes for efficient batch submitting.
-		// Place as many L1ToL2 transactions in the same context as possible
-		// by executing them one after another.
-		// TODO: break this routine out into a function so that lock
-		// management is more simple. For now, be sure to unlock before
-		// each outer continue
-		s.txLock.Lock()
-		latest, err := s.client.GetLatestEnqueue()
-		if err != nil {
-			log.Error("Cannot get latest enqueue")
-			s.txLock.Unlock()
-			time.Sleep(s.pollInterval)
-			continue
-		}
-		// This should never happen unless the backend is empty
-		if latest == nil {
-			log.Debug("No enqueue transactions found")
-			s.txLock.Unlock()
-			time.Sleep(s.pollInterval)
-			continue
-		}
-		// Compare the remote latest queue index to the local latest
-		// queue index. If the remote latest queue index is greater
-		// than the local latest queue index, be sure to ingest more
-		// enqueued transactions
-		var start uint64
-		if s.GetLatestEnqueueIndex() == nil {
-			start = 0
-		} else {
-			start = *s.GetLatestEnqueueIndex() + 1
-		}
-		end := *latest.GetMeta().QueueIndex
-
-		log.Info("Polling enqueued transactions", "start", start, "end", end)
-		for i := start; i <= end; i++ {
-			enqueue, err := s.client.GetEnqueue(i)
-			if err != nil {
-				log.Error("Cannot get enqueue in loop", "index", i, "message", err)
-				continue
-			}
-
-			if enqueue == nil {
-				log.Debug("No enqueue transaction found")
-				break
-			}
-
-			// This should never happen
-			if enqueue.L1BlockNumber() == nil {
-				log.Error("No blocknumber for enqueue", "index", i, "timestamp", enqueue.L1Timestamp(), "blocknumber", enqueue.L1BlockNumber())
-				continue
-			}
-
-			// Update the timestamp and blocknumber based on the enqueued
-			// transactions
-			if enqueue.L1Timestamp() > s.GetLatestL1Timestamp() {
-				ts := enqueue.L1Timestamp()
-				bn := enqueue.L1BlockNumber().Uint64()
-				s.SetLatestL1Timestamp(ts)
-				s.SetLatestL1BlockNumber(bn)
-				log.Info("Updated Eth Context from enqueue", "index", i, "timestamp", ts, "blocknumber", bn)
-			}
-
-			log.Debug("Applying enqueue transaction", "index", i)
-			err = s.applyTransaction(enqueue)
-			if err != nil {
-				log.Error("Cannot apply transaction", "msg", err)
-			}
-
-			s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
-			if enqueue.GetMeta().Index == nil {
-				latest := s.GetLatestIndex()
-				index := uint64(0)
-				if latest != nil {
-					index = *latest + 1
-				}
-				s.SetLatestIndex(&index)
-			} else {
-				s.SetLatestIndex(enqueue.GetMeta().Index)
-			}
-		}
-		s.txLock.Unlock()
-
-		// Update the execution context's timestamp and blocknumber
-		// over time. This is only necessary for the sequencer.
-		context, err := s.client.GetLatestEthContext()
-		if err != nil {
-			log.Error("Cannot get latest eth context", "msg", err)
-			continue
-		}
-		current := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
-		next := time.Unix(int64(context.Timestamp), 0)
-		if next.Sub(current) > s.timestampRefreshThreshold {
-			log.Info("Updating Eth Context", "timetamp", context.Timestamp, "blocknumber", context.BlockNumber)
-			s.SetLatestL1BlockNumber(context.BlockNumber)
-			s.SetLatestL1Timestamp(context.Timestamp)
-		}
-		time.Sleep(s.pollInterval)
-	}
-}
-
-// This function must sync all the way to the tip
-// TODO: it should then sync all of the enqueue transactions
-func (s *SyncService) syncTransactionsToTip() error {
-	// Then set up a while loop that only breaks when the latest
-	// transaction does not change through two runs of the loop.
-	// The latest transaction can change during the timeframe of
-	// all of the transactions being sync'd.
-	for {
-		// This function must be sure to sync all the way to the tip.
-		// First query the latest transaction
-		latest, err := s.client.GetLatestTransaction()
-		if err != nil {
-			log.Error("Cannot get latest transaction", "msg", err)
-			time.Sleep(time.Second * 2)
-			continue
-		}
-		if latest == nil {
-			log.Info("No transactions to sync")
-			return nil
-		}
-		tipHeight := latest.GetMeta().Index
-		index := rawdb.ReadHeadIndex(s.db)
-		start := uint64(0)
-		if index != nil {
-			start = *index + 1
-		}
-
-		log.Info("Syncing transactions to tip", "start", start, "end", *tipHeight)
-		for i := start; i <= *tipHeight; i++ {
-			tx, err := s.client.GetTransaction(i)
-			if err != nil {
-				log.Error("Cannot get transaction", "index", i, "msg", err)
-				time.Sleep(time.Second * 2)
-				continue
-			}
-			// The transaction does not yet exist in the ctc
-			if tx == nil {
-				index := latest.GetMeta().Index
-				if index == nil {
-					return fmt.Errorf("Unexpected nil index")
-				}
-				return fmt.Errorf("Transaction %d not found when %d is latest", i, *index)
-			}
-			err = s.maybeApplyTransaction(tx)
-			if err != nil {
-				return fmt.Errorf("Cannot apply transaction: %w", err)
-			}
-			if err != nil {
-				log.Error("Cannot ingest transaction", "index", i)
-			}
-			s.SetLatestIndex(tx.GetMeta().Index)
-			if types.QueueOrigin(tx.QueueOrigin().Uint64()) == types.QueueOriginL1ToL2 {
-				queueIndex := tx.GetMeta().QueueIndex
-				s.SetLatestEnqueueIndex(queueIndex)
-			}
-		}
-		// Be sure to check that no transactions came in while
-		// the above loop was running
-		post, err := s.client.GetLatestTransaction()
-		if err != nil {
-			return fmt.Errorf("Cannot get latest transaction: %w", err)
-		}
-		// These transactions should always have an index since they
-		// are already in the ctc.
-		if *latest.GetMeta().Index == *post.GetMeta().Index {
-			log.Info("Done syncing transactions to tip")
-			return nil
-		}
-	}
-}
-
 // Methods for safely accessing and storing the latest
 // L1 blocknumber and timestamp. These are held in memory.
 func (s *SyncService) GetLatestL1Timestamp() uint64 {
@@ -529,6 +301,14 @@ func (s *SyncService) GetLatestEnqueueIndex() *uint64 {
 	return rawdb.ReadHeadQueueIndex(s.db)
 }
 
+func (s *SyncService) GetNextEnqueueIndex() uint64 {
+	latest := s.GetLatestEnqueueIndex()
+	if latest == nil {
+		return 0
+	}
+	return *latest + 1
+}
+
 func (s *SyncService) SetLatestEnqueueIndex(index *uint64) {
 	if index != nil {
 		rawdb.WriteHeadQueueIndex(s.db, *index)
@@ -541,97 +321,161 @@ func (s *SyncService) SetLatestIndex(index *uint64) {
 	}
 }
 
+func (s *SyncService) SetLatestVerifiedIndex(index *uint64) {
+	if index != nil {
+		rawdb.WriteHeadVerifiedIndex(s.db, *index)
+	}
+}
+
+func (s *SyncService) GetVerifiedIndex() *uint64 {
+	return rawdb.ReadHeadVerifiedIndex(s.db)
+}
+
+func (s *SyncService) GetNextVerifiedIndex() uint64 {
+	index := s.GetVerifiedIndex()
+	if index == nil {
+		return 0
+	}
+	return *index + 1
+}
+
 func (s *SyncService) GetLatestIndex() *uint64 {
 	return rawdb.ReadHeadIndex(s.db)
 }
 
-// reorganize will reorganize to directly to the index passed in.
-// The caller must handle the offset relative to the ctc.
-func (s *SyncService) reorganize(index uint64) error {
-	if index == 0 {
-		return nil
+func (s *SyncService) GetNextIndex() uint64 {
+	latest := s.GetLatestIndex()
+	if latest == nil {
+		return 0
 	}
-	err := s.bc.SetHead(index)
-	if err != nil {
-		return fmt.Errorf("Cannot reorganize in syncservice: %w", err)
-	}
-
-	// TODO: make sure no off by one error here
-	s.SetLatestIndex(&index)
-
-	// When in sequencer mode, be sure to roll back the latest queue
-	// index as well.
-	if !s.verifier {
-		enqueue, err := s.client.GetLastConfirmedEnqueue()
-		if err != nil {
-			return fmt.Errorf("cannot reorganize: %w", err)
-		}
-		s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
-	}
-	log.Info("Reorganizing", "height", index)
-	return nil
+	return *latest + 1
 }
 
-// SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
-// starts sending event to the given channel.
-func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
-	return s.scope.Track(s.txFeed.Subscribe(ch))
+func (s *SyncService) applyTransaction(tx *types.Transaction) error {
+	if tx.GetMeta().Index != nil {
+		return s.applyIndexedTransaction(tx)
+	}
+	return s.applyHistoricalTransaction(tx)
 }
 
-// maybeApplyTransaction will potentially apply the transaction after first
-// inspecting the local database. This is mean to prevent transactions from
-// being replayed.
-func (s *SyncService) maybeApplyTransaction(tx *types.Transaction) error {
-	log.Debug("Maybe applying transaction", "hash", tx.Hash().Hex())
+// applyIndexedTransaction applys an indexed transaction
+func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
+	if tx == nil {
+		return errors.New("Transaction is nil in applyIndexedTransaction")
+	}
 	index := tx.GetMeta().Index
 	if index == nil {
-		return fmt.Errorf("nil index in maybeApplyTransaction")
+		return errors.New("No index found in applyIndexedTransaction")
 	}
-	// Handle off by one
-	block := s.bc.GetBlockByNumber(*index + 1)
+	next := s.GetNextIndex()
+	if *index == next {
+		return s.applyTransactionToTip(tx)
+	}
+	if *index < next {
+		return s.applyHistoricalTransaction(tx)
+	}
+	return fmt.Errorf("Received tx at index %d when looking for %d", *index, next)
+}
 
-	// The transaction has yet to be played, so it is safe to apply
-	if block == nil {
-		err := s.applyTransaction(tx)
-		if err != nil {
-			return fmt.Errorf("Maybe apply transaction failed on index %d: %w", *index, err)
-		}
-		return nil
+// Handle the off by one
+func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
+	if tx == nil {
+		return errors.New("Transaction is nil in applyHistoricalTransaction")
 	}
-	// There is already a transaction at that index, so check
-	// for its equality.
+	index := tx.GetMeta().Index
+	if index == nil {
+		return errors.New("No index is found in applyHistoricalTransaction")
+	}
+	block := s.bc.GetBlockByNumber(*index + 1)
+	if block == nil {
+		return fmt.Errorf("Block %d is not found", *index+1)
+	}
 	txs := block.Transactions()
 	if len(txs) != 1 {
-		log.Info("block", "txs", len(txs), "number", block.Number().Uint64())
-		return fmt.Errorf("More than 1 transaction in block")
+		return fmt.Errorf("More than one transaction found in block %d", *index+1)
 	}
-	if isCtcTxEqual(tx, txs[0]) {
-		log.Info("Matching transaction found", "index", *index)
-	} else {
-		log.Warn("Non matching transaction found", "index", *index)
+	if !isCtcTxEqual(tx, txs[0]) {
+		// TODO: this halts the chain when this happens
+		err := s.bc.SetHead(*index)
+		if err != nil {
+			return fmt.Errorf("Cannot reorganize in syncservice: %w", err)
+		}
+		return s.applyTransactionToTip(tx)
 	}
 	return nil
 }
 
-// Lower level API used to apply a transaction, must only be used with
-// transactions that came from L1.
-func (s *SyncService) applyTransaction(tx *types.Transaction) error {
+func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
+	s.txLock.Lock()
+	defer s.txLock.Unlock()
+	if tx.L1Timestamp() == 0 {
+		ts := s.GetLatestL1Timestamp()
+		bn := s.GetLatestL1BlockNumber()
+		tx.SetL1Timestamp(ts)
+		tx.SetL1BlockNumber(bn)
+	} else if tx.L1Timestamp() > s.GetLatestL1Timestamp() {
+		ts := tx.L1Timestamp()
+		bn := tx.L1BlockNumber()
+		s.SetLatestL1Timestamp(ts)
+		s.SetLatestL1BlockNumber(bn.Uint64())
+	}
+	// TODO: this breaks during historical sync
+	/*
+		} else if tx.L1Timestamp() < s.GetLatestL1Timestamp() {
+			return fmt.Errorf("Timestamp is less that latest timestamp")
+		}
+	*/
+
+	if tx.GetMeta().Index == nil {
+		index := s.GetLatestEnqueueIndex()
+		if index == nil {
+			tx.SetIndex(0)
+		} else {
+			tx.SetIndex(*index + 1)
+		}
+	}
+	s.SetLatestIndex(tx.GetMeta().Index)
+	if tx.GetMeta().QueueIndex != nil {
+		s.SetLatestEnqueueIndex(tx.GetMeta().QueueIndex)
+	}
+
 	tx = fixType(tx)
 	txs := types.Transactions{tx}
 	s.txFeed.Send(core.NewTxsEvent{Txs: txs})
 	return nil
 }
 
+func (s *SyncService) applyBatchedTransaction(tx *types.Transaction) error {
+	if tx == nil {
+		return errors.New("")
+	}
+	index := tx.GetMeta().Index
+	if index == nil {
+		return errors.New("")
+	}
+	err := s.applyIndexedTransaction(tx)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	s.SetLatestVerifiedIndex(index)
+	return nil
+}
+
 // Higher level API for applying transactions. Should only be called for
 // queue origin sequencer transactions, as the contracts on L1 manage the same
 // validity checks that are done here.
-func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
-	log.Debug("Sending transaction to sync service", "hash", tx.Hash().Hex())
-	s.txLock.Lock()
-	defer s.txLock.Unlock()
+func (s *SyncService) ValidateAndApplySequencerTransaction(tx *types.Transaction) error {
 	if s.verifier {
 		return errors.New("Verifier does not accept transactions out of band")
 	}
+	if tx == nil {
+		return errors.New("")
+	}
+	log.Debug("Sending transaction to sync service", "hash", tx.Hash().Hex())
+
+	s.txLock.Lock()
+	defer s.txLock.Unlock()
+
 	qo := tx.QueueOrigin()
 	if qo == nil {
 		return errors.New("invalid transaction with no queue origin")
@@ -661,8 +505,182 @@ func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
 		txRaw,
 	)
 	tx.SetTransactionMeta(newMeta)
-
 	return s.applyTransaction(tx)
+}
+
+// Syncing functions
+
+// syncTransactionsToTip will sync all of the transactions to the tip
+func (s *SyncService) syncTransactionsToTip() error {
+	latest, err := s.client.GetLatestTransaction()
+	if err != nil {
+		return fmt.Errorf("Cannot get latest transaction: %w", err)
+	}
+	if latest == nil {
+		log.Info("No transactions to sync")
+		return nil
+	}
+	latestIndex := latest.GetMeta().Index
+	if latestIndex == nil {
+		return errors.New("Latest index is nil")
+	}
+	nextIndex := s.GetNextIndex()
+
+	log.Info("Syncing transactions to tip", "start", *latestIndex, "end", nextIndex)
+	for *latestIndex != nextIndex {
+		for i := nextIndex; i <= *latestIndex; i++ {
+			tx, err := s.client.GetTransaction(i)
+			if err != nil {
+				log.Error("Cannot get latest transaction", "msg", err)
+				time.Sleep(time.Second * 2)
+				continue
+			}
+			if tx == nil {
+				return fmt.Errorf("Transaction %d is nil", i)
+			}
+			err = s.applyTransaction(tx)
+			if err != nil {
+				return fmt.Errorf("Cannot apply transaction: %w", err)
+			}
+		}
+		latest, err = s.client.GetLatestTransaction()
+		if err != nil {
+			return fmt.Errorf("Cannot get latest transaction: %w", err)
+		}
+		latestIndex = latest.GetMeta().Index
+		if latestIndex == nil {
+			return errors.New("Latest index is nil")
+		}
+	}
+	return nil
+}
+
+func (s *SyncService) syncTransactionBatchesToTip() error {
+	latest, _, err := s.client.GetLatestTransactionBatch()
+	if err != nil {
+		return fmt.Errorf("Cannot get latest transaction batch: %w", err)
+	}
+	if latest == nil {
+		log.Info("No transaction batches to sync")
+		return nil
+	}
+	latestIndex := latest.Index
+	nextIndex := s.GetNextVerifiedIndex()
+
+	for latestIndex != nextIndex {
+		for i := nextIndex; i <= latestIndex; i++ {
+			_, txs, err := s.client.GetTransactionBatch(i)
+			if err != nil {
+				//
+			}
+			for _, tx := range txs {
+				s.applyBatchedTransaction(tx)
+			}
+		}
+		latest, _, err := s.client.GetLatestTransactionBatch()
+		if err != nil {
+			//
+		}
+		latestIndex = latest.Index
+	}
+	return nil
+}
+
+func (s *SyncService) syncQueueToTip() error {
+	latest, err := s.client.GetLatestEnqueue()
+	if err != nil {
+		return fmt.Errorf("Cannot get latest enqueue transaction: %w", err)
+	}
+	if latest == nil {
+		log.Info("No enqueue transactions to sync")
+		return nil
+	}
+	latestIndex := latest.GetMeta().QueueIndex
+	if latestIndex == nil {
+		return errors.New("Latest queue transaction has no queue index")
+	}
+	nextIndex := s.GetNextEnqueueIndex()
+
+	log.Info("Syncing enqueue transactions to tip", "start", *latestIndex, "end", nextIndex)
+	for *latestIndex != nextIndex {
+		for i := nextIndex; i <= *latestIndex; i++ {
+			tx, err := s.client.GetEnqueue(i)
+			if err != nil {
+				log.Error("Cannot get latest enqueue transaction", "msg", err)
+				time.Sleep(time.Second * 2)
+				continue
+			}
+			if tx == nil {
+				return fmt.Errorf("Cannot get queue tx at index %d", i)
+			}
+			err = s.applyTransaction(tx)
+			if err != nil {
+				return fmt.Errorf("Cannot apply transaction: %w", err)
+			}
+		}
+		latest, err = s.client.GetLatestEnqueue()
+		if err != nil {
+			return fmt.Errorf("Cannot get latest transaction: %w", err)
+		}
+		latestIndex = latest.GetMeta().QueueIndex
+		if latestIndex == nil {
+			return errors.New("Latest queue index is nil")
+		}
+	}
+	return nil
+}
+
+// Update the execution context's timestamp and blocknumber
+// over time. This is only necessary for the sequencer.
+func (s *SyncService) updateEthContext() error {
+	context, err := s.client.GetLatestEthContext()
+	if err != nil {
+		return fmt.Errorf("Cannot get eth context: %w", err)
+	}
+	current := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
+	next := time.Unix(int64(context.Timestamp), 0)
+	if next.Sub(current) > s.timestampRefreshThreshold {
+		log.Info("Updating Eth Context", "timetamp", context.Timestamp, "blocknumber", context.BlockNumber)
+		s.SetLatestL1BlockNumber(context.BlockNumber)
+		s.SetLatestL1Timestamp(context.Timestamp)
+	}
+	return nil
+}
+
+func (s *SyncService) VerifierLoop() {
+	log.Info("Starting Verifier Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
+	for {
+		err := s.syncTransactionBatchesToTip()
+		if err != nil {
+			log.Error("Verifier cannot sync transaction batches", "msg", err)
+		}
+		time.Sleep(s.pollInterval)
+	}
+}
+
+func (s *SyncService) SequencerLoop() {
+	log.Info("Starting Sequencer Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
+	for {
+		err := s.syncQueueToTip()
+		if err != nil {
+			log.Error("Sequencer cannot sync queue", "msg", err)
+		}
+		err = s.syncTransactionBatchesToTip()
+		if err != nil {
+			log.Error("Sequencer cannot sync transaction batches", "msg", err)
+		}
+		err = s.updateEthContext()
+		if err != nil {
+			log.Error("Sequencer cannot update eth context", "msg", err)
+		}
+		time.Sleep(s.pollInterval)
+	}
+}
+
+// SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
+// starts sending event to the given channel.
+func (s *SyncService) SubscribeNewTxsEvent(ch chan<- core.NewTxsEvent) event.Subscription {
+	return s.scope.Track(s.txFeed.Subscribe(ch))
 }
 
 func getRawTransaction(tx *types.Transaction) ([]byte, error) {
@@ -753,4 +771,11 @@ func fixType(tx *types.Transaction) *types.Transaction {
 	fixed := types.NewTransactionMeta(meta.L1BlockNumber, meta.L1Timestamp, meta.L1MessageSender, meta.SignatureHashType, queueOrigin, meta.Index, meta.QueueIndex, raw)
 	tx.SetTransactionMeta(fixed)
 	return tx
+}
+
+func stringify(i *uint64) string {
+	if i == nil {
+		return "<nil>"
+	}
+	return strconv.FormatUint(*i, 10)
 }

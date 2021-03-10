@@ -86,11 +86,13 @@ type decoded struct {
 type RollupClient interface {
 	GetEnqueue(index uint64) (*types.Transaction, error)
 	GetLatestEnqueue() (*types.Transaction, error)
-	GetTransaction(index uint64) (*types.Transaction, error)
+	GetTransaction(uint64) (*types.Transaction, error)
 	GetLatestTransaction() (*types.Transaction, error)
-	GetEthContext(index uint64) (*EthContext, error)
+	GetEthContext(uint64) (*EthContext, error)
 	GetLatestEthContext() (*EthContext, error)
 	GetLastConfirmedEnqueue() (*types.Transaction, error)
+	GetLatestTransactionBatch() (*Batch, []*types.Transaction, error)
+	GetTransactionBatch(uint64) (*Batch, []*types.Transaction, error)
 	SyncStatus() (*SyncStatus, error)
 }
 
@@ -102,6 +104,11 @@ type Client struct {
 type TransactionResponse struct {
 	Transaction *transaction `json:"transaction"`
 	Batch       *Batch       `json:"batch"`
+}
+
+type TransactionBatchResponse struct {
+	Batch        *Batch         `json:"batch"`
+	Transactions []*transaction `json:"transactions"`
 }
 
 func NewClient(url string, chainID *big.Int) *Client {
@@ -217,45 +224,45 @@ func (c *Client) GetLatestEnqueue() (*types.Transaction, error) {
 	return tx, nil
 }
 
-func transactionResponseToTransaction(res *TransactionResponse, signer *types.OVMSigner) (*types.Transaction, error) {
+func transactionResponseToTransaction(res *transaction, signer *types.OVMSigner) (*types.Transaction, error) {
 	// `nil` transactions are not found
-	if res.Transaction == nil {
+	if res == nil {
 		return nil, nil
 	}
 	// The queue origin must be either sequencer of l1, otherwise
 	// it is considered an unknown queue origin and will not be processed
 	var queueOrigin types.QueueOrigin
-	if res.Transaction.QueueOrigin == "sequencer" {
+	if res.QueueOrigin == "sequencer" {
 		queueOrigin = types.QueueOriginSequencer
-	} else if res.Transaction.QueueOrigin == "l1" {
+	} else if res.QueueOrigin == "l1" {
 		queueOrigin = types.QueueOriginL1ToL2
 	} else {
-		return nil, fmt.Errorf("Unknown queue origin: %s", res.Transaction.QueueOrigin)
+		return nil, fmt.Errorf("Unknown queue origin: %s", res.QueueOrigin)
 	}
 	// The transaction type must be EIP155 or EthSign. Throughout this
 	// codebase, it is referred to as "sighash type" but it could actually
 	// be generalized to transaction type. Right now the only different
 	// types use a different signature hashing scheme.
 	var sighashType types.SignatureHashType
-	if res.Transaction.Type == "EIP155" {
+	if res.Type == "EIP155" {
 		sighashType = types.SighashEIP155
-	} else if res.Transaction.Type == "ETH_SIGN" {
+	} else if res.Type == "ETH_SIGN" {
 		sighashType = types.SighashEthSign
 	} else {
-		return nil, fmt.Errorf("Unknown transaction type: %s", res.Transaction.Type)
+		return nil, fmt.Errorf("Unknown transaction type: %s", res.Type)
 	}
 	// Transactions that have been decoded are
 	// Queue Origin Sequencer transactions
-	if res.Transaction.Decoded != nil {
-		nonce := res.Transaction.Decoded.Nonce
-		to := res.Transaction.Decoded.Target
+	if res.Decoded != nil {
+		nonce := res.Decoded.Nonce
+		to := res.Decoded.Target
 		value := new(big.Int)
 		// Note: there are two gas limits, one top level and
 		// another on the raw transaction itself. Maybe maxGasLimit
 		// for the top level?
-		gasLimit := res.Transaction.Decoded.GasLimit
-		gasPrice := new(big.Int).SetUint64(res.Transaction.Decoded.GasPrice)
-		data := res.Transaction.Decoded.Data
+		gasLimit := res.Decoded.GasLimit
+		gasPrice := new(big.Int).SetUint64(res.Decoded.GasPrice)
+		data := res.Decoded.Data
 
 		var tx *types.Transaction
 		if to == (common.Address{}) {
@@ -265,22 +272,22 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 		}
 
 		txMeta := types.NewTransactionMeta(
-			new(big.Int).SetUint64(res.Transaction.BlockNumber),
-			res.Transaction.Timestamp,
-			res.Transaction.Origin,
+			new(big.Int).SetUint64(res.BlockNumber),
+			res.Timestamp,
+			res.Origin,
 			sighashType,
 			queueOrigin,
-			&res.Transaction.Index,
-			res.Transaction.QueueIndex,
-			res.Transaction.Data,
+			&res.Index,
+			res.QueueIndex,
+			res.Data,
 		)
 		tx.SetTransactionMeta(txMeta)
 
-		r, s := res.Transaction.Decoded.Signature.R, res.Transaction.Decoded.Signature.S
+		r, s := res.Decoded.Signature.R, res.Decoded.Signature.S
 		sig := make([]byte, crypto.SignatureLength)
 		copy(sig[32-len(r):32], r)
 		copy(sig[64-len(s):64], s)
-		sig[64] = byte(res.Transaction.Decoded.Signature.V)
+		sig[64] = byte(res.Decoded.Signature.V)
 
 		tx, err := tx.WithSignature(signer, sig[:])
 		if err != nil {
@@ -293,26 +300,26 @@ func transactionResponseToTransaction(res *TransactionResponse, signer *types.OV
 	// The transaction is  either an L1 to L2 transaction or it does not have a
 	// known deserialization
 	nonce := uint64(0)
-	if res.Transaction.QueueOrigin == "l1" {
-		if res.Transaction.QueueIndex == nil {
+	if res.QueueOrigin == "l1" {
+		if res.QueueIndex == nil {
 			return nil, errors.New("Queue origin L1 to L2 without a queue index")
 		}
-		nonce = *res.Transaction.QueueIndex
+		nonce = *res.QueueIndex
 	}
-	target := res.Transaction.Target
-	gasLimit := res.Transaction.GasLimit
-	data := res.Transaction.Data
-	origin := res.Transaction.Origin
+	target := res.Target
+	gasLimit := res.GasLimit
+	data := res.Data
+	origin := res.Origin
 	tx := types.NewTransaction(nonce, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
 	txMeta := types.NewTransactionMeta(
-		new(big.Int).SetUint64(res.Transaction.BlockNumber),
-		res.Transaction.Timestamp,
+		new(big.Int).SetUint64(res.BlockNumber),
+		res.Timestamp,
 		origin,
 		sighashType,
 		queueOrigin,
-		&res.Transaction.Index,
-		res.Transaction.QueueIndex,
-		res.Transaction.Data,
+		&res.Index,
+		res.QueueIndex,
+		res.Data,
 	)
 	tx.SetTransactionMeta(txMeta)
 	return tx, nil
@@ -332,10 +339,9 @@ func (c *Client) GetTransaction(index uint64) (*types.Transaction, error) {
 	}
 	res, ok := response.Result().(*TransactionResponse)
 	if !ok {
-		return nil, errors.New("")
+		return nil, fmt.Errorf("Cannot get transaction %d", index)
 	}
-
-	return transactionResponseToTransaction(res, c.signer)
+	return transactionResponseToTransaction(res.Transaction, c.signer)
 }
 
 func (c *Client) GetLatestTransaction() (*types.Transaction, error) {
@@ -348,10 +354,10 @@ func (c *Client) GetLatestTransaction() (*types.Transaction, error) {
 	}
 	res, ok := response.Result().(*TransactionResponse)
 	if !ok {
-		return nil, errors.New("")
+		return nil, errors.New("Cannot get latest transaction")
 	}
 
-	return transactionResponseToTransaction(res, c.signer)
+	return transactionResponseToTransaction(res.Transaction, c.signer)
 }
 
 func (c *Client) GetEthContext(blockNumber uint64) (*EthContext, error) {
@@ -438,4 +444,54 @@ func (c *Client) SyncStatus() (*SyncStatus, error) {
 	}
 
 	return status, nil
+}
+
+func (c *Client) GetLatestTransactionBatch() (*Batch, []*types.Transaction, error) {
+	response, err := c.client.R().
+		SetResult(&TransactionBatchResponse{}).
+		Get("/batch/transaction/latest")
+
+	if err != nil {
+		return nil, nil, errors.New("Cannot get latest transaction batch")
+	}
+	txBatch, ok := response.Result().(*TransactionBatchResponse)
+	if !ok {
+		return nil, nil, fmt.Errorf("Cannot parse transaciton batch response")
+	}
+	return parseTransactionBatchResponse(txBatch, c.signer)
+}
+
+func (c *Client) GetTransactionBatch(index uint64) (*Batch, []*types.Transaction, error) {
+	str := strconv.FormatUint(index, 10)
+	response, err := c.client.R().
+		SetResult(&TransactionBatchResponse{}).
+		SetPathParams(map[string]string{
+			"index": str,
+		}).
+		Get("/batch/transaction/index/{index}")
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("Cannot get transaction batch %d", index)
+	}
+	txBatch, ok := response.Result().(*TransactionBatchResponse)
+	if !ok {
+		return nil, nil, fmt.Errorf("Cannot parse transaciton batch response")
+	}
+	return parseTransactionBatchResponse(txBatch, c.signer)
+}
+
+func parseTransactionBatchResponse(txBatch *TransactionBatchResponse, signer *types.OVMSigner) (*Batch, []*types.Transaction, error) {
+	if txBatch == nil {
+		return nil, nil, nil
+	}
+	batch := txBatch.Batch
+	txs := make([]*types.Transaction, len(txBatch.Transactions))
+	for i, tx := range txBatch.Transactions {
+		transaction, err := transactionResponseToTransaction(tx, signer)
+		if err != nil {
+			//
+		}
+		txs[i] = transaction
+	}
+	return batch, txs, nil
 }
