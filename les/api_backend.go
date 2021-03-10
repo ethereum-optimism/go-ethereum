@@ -281,6 +281,11 @@ func (b *LesApiBackend) SuggestPrice(ctx context.Context) (*big.Int, error) {
 	return b.gpo.SuggestPrice(ctx)
 }
 
+// NB: Non sequencer nodes cannot suggest L1 gas prices.
+func (b *LesApiBackend) SuggestDataPrice(ctx context.Context) (*big.Int, error) {
+	panic("not implemented")
+}
+
 func (b *LesApiBackend) ChainDb() ethdb.Database {
 	return b.eth.chainDb
 }
