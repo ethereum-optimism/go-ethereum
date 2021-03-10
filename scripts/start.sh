@@ -193,7 +193,7 @@ while (( "$#" )); do
 done
 
 cmd="$REPO/build/bin/geth"
-# cmd="$cmd --eth1.syncservice"
+cmd="$cmd --eth1.syncservice"
 cmd="$cmd --datadir $DATADIR"
 cmd="$cmd --eth1.chainid $ETH1_CHAIN_ID"
 cmd="$cmd --eth1.l1crossdomainmessengeraddress $ETH1_L1_CROSS_DOMAIN_MESSENGER_ADDRESS"
