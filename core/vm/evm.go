@@ -21,7 +21,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"math/big"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -32,6 +31,15 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rollup/dump"
 )
+
+// Will be removed when we update EM to return data in `run`.
+var deadPrefix, fortyTwoPrefix, zeroPrefix []byte
+
+func init() {
+	deadPrefix = hexutil.MustDecode("0xdeaddeaddeaddeaddeaddeaddeaddeaddead")
+	zeroPrefix = hexutil.MustDecode("0x000000000000000000000000000000000000")
+	fortyTwoPrefix = hexutil.MustDecode("0x420000000000000000000000000000000000")
+}
 
 // emptyCodeHash is used by create to ensure deployment is disallowed to already
 // deployed contract addresses (relevant after the account abstraction).
@@ -277,9 +285,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		}
 
 		if caller.Address() == evm.Context.OvmExecutionManager.Address &&
-			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0xdeaddeaddeaddeaddeaddeaddeaddeaddead") &&
-			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x000000000000000000000000000000000000") &&
-			!strings.HasPrefix(strings.ToLower(addr.Hex()), "0x420000000000000000000000000000000000") &&
+			!bytes.HasPrefix(addr.Bytes(), deadPrefix) &&
+			!bytes.HasPrefix(addr.Bytes(), zeroPrefix) &&
+			!bytes.HasPrefix(addr.Bytes(), fortyTwoPrefix) &&
 			evm.Context.OriginalTargetAddress == nil {
 			// Whew. Okay, so: we consider ourselves to be at a "target" as long as we were called
 			// by the execution manager, and we're not a precompile or "dead" address.
