@@ -234,8 +234,7 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 
-	// TODO: Provide configuration options for the L1 Gas Price oracle
-	eth.APIBackend.l1gpo = gasprice.NewL1Oracle()
+	eth.APIBackend.l1gpo = gasprice.NewL1Oracle(config.Rollup.L1GasPrice)
 	return eth, nil
 }
 
