@@ -63,10 +63,9 @@ func NewPublicEthereumAPI(b Backend) *PublicEthereumAPI {
 	return &PublicEthereumAPI{b}
 }
 
-// GasPrice returns a suggestion for a gas price.
+// GasPrice returns 1 gwei always. Rationale: https://github.com/ethereum-optimism/roadmap/issues/715
 func (s *PublicEthereumAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) {
-	price, err := s.b.SuggestPrice(ctx)
-	return (*hexutil.Big)(price), err
+	return (*hexutil.Big)(big.NewInt(defaultGasPrice)), nil
 }
 
 // ProtocolVersion returns the current Ethereum protocol version this node supports
