@@ -94,6 +94,7 @@ type Backend interface {
 	GetRollupContext() (uint64, uint64)
 	GasLimit() uint64
 	GetDiff(*big.Int) (diffdb.Diff, error)
+	SuggestDataPrice(ctx context.Context) (*big.Int, error)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
