@@ -895,7 +895,7 @@ func makeLog(size int) executionFunc {
 
 		d := memory.GetCopy(mStart.Int64(), mSize.Int64())
 		interpreter.evm.StateDB.AddLog(&types.Log{
-			Address: contract.Address(),
+			Address: interpreter.evm.OvmADDRESS(),
 			Topics:  topics,
 			Data:    d,
 			// This is a non-consensus field, but assigned here because

@@ -662,12 +662,7 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 			return nil, caller.Address(), 0, ErrOvmCreationFailed
 		}
 
-		// ovmADDRESS will be set by the execution manager to the target address whenever it's
-		// about to create a new contract. This value is currently stored at the [15] storage slot.
-		// Can pull this specific storage slot to get the address that the execution manager is
-		// trying to create to, and create to it.
-		slot := common.Hash{31: 0x0f}
-		contractAddr = common.BytesToAddress(evm.StateDB.GetState(evm.Context.OvmExecutionManager.Address, slot).Bytes())
+		contractAddr = evm.OvmADDRESS()
 
 		if evm.Context.EthCallSender == nil {
 			log.Debug("[EM] Creating contract.", "ID", evm.Id, "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
@@ -693,9 +688,7 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 			return nil, caller.Address(), 0, ErrOvmCreationFailed
 		}
 
-		// Same logic here as in Create, as seen above.
-		slot := common.Hash{31: 0x0f}
-		contractAddr = common.BytesToAddress(evm.StateDB.GetState(evm.Context.OvmExecutionManager.Address, slot).Bytes())
+		contractAddr = evm.OvmADDRESS()
 
 		if evm.Context.EthCallSender == nil {
 			log.Debug("[EM] Creating contract [create2].", "ID", evm.Id, "New contract address", contractAddr.Hex(), "Caller Addr", caller.Address().Hex(), "Caller nonce", evm.StateDB.GetNonce(caller.Address()))
@@ -707,3 +700,12 @@ func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *
 
 // ChainConfig returns the environment's chain configuration
 func (evm *EVM) ChainConfig() *params.ChainConfig { return evm.chainConfig }
+
+// OvmADDRESS will be set by the execution manager to the target address whenever it's
+// about to create a new contract. This value is currently stored at the [15] storage slot.
+// Can pull this specific storage slot to get the address that the execution manager is
+// trying to create to, and create to it.
+func (evm *EVM) OvmADDRESS() common.Address {
+	slot := common.Hash{31: 0x0f}
+	return common.BytesToAddress(evm.StateDB.GetState(evm.Context.OvmExecutionManager.Address, slot).Bytes())
+}
