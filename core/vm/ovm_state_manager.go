@@ -21,6 +21,7 @@ var funcs = map[string]stateManagerFunction{
 	"putContractStorage":                       putContractStorage,
 	"isAuthenticated":                          nativeFunctionTrue,
 	"hasAccount":                               nativeFunctionTrue,
+	"putAccountCode":                           nativeFunctionTrue,
 	"hasEmptyAccount":                          hasEmptyAccount,
 	"hasContractStorage":                       nativeFunctionTrue,
 	"testAndSetAccountLoaded":                  testAndSetAccount,
