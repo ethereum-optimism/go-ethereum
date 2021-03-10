@@ -1335,7 +1335,6 @@ func TestTransactionPoolRepricingKeepsLocals(t *testing.T) {
 //
 // Note, local transactions are never allowed to be dropped.
 func TestTransactionPoolUnderpricing(t *testing.T) {
-	t.Skip("OVM changes break this test")
 	t.Parallel()
 
 	// Create the pool to test the pricing enforcement with
