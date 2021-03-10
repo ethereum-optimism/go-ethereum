@@ -95,6 +95,7 @@ type Backend interface {
 	GasLimit() uint64
 	GetDiff(*big.Int) (diffdb.Diff, error)
 	SuggestDataPrice(ctx context.Context) (*big.Int, error)
+	SetL1GasPrice(context.Context, *big.Int)
 }
 
 func GetAPIs(apiBackend Backend) []rpc.API {
@@ -120,6 +121,10 @@ func GetAPIs(apiBackend Backend) []rpc.API {
 			Version:   "1.0",
 			Service:   NewPublicRollupAPI(apiBackend),
 			Public:    true,
+		}, {
+			Namespace: "rollup_personal",
+			Version:   "1.0",
+			Service:   NewPrivateRollupAPI(apiBackend),
 		}, {
 			Namespace: "txpool",
 			Version:   "1.0",
