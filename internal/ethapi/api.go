@@ -995,7 +995,48 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNrOr
 	return (hexutil.Bytes)(result), err
 }
 
+// Optimism note: The gasPrice in Optimism is modified to always return 1 gwei. We
+// use the gasLimit field to communicate the entire user fee. This is done for
+// for compatibility reasons with the existing Ethereum toolchain, so that the user
+// fees can compensate for the additional costs the sequencer pays for publishing the
+// transaction calldata
 func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap *big.Int) (hexutil.Uint64, error) {
+	// 1a. fetch the data price, depends on how the sequencer has chosen to update their values based on the
+	// l1 gas prices
+	dataPrice, err := b.SuggestDataPrice(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// 1b. Get the data length
+	// TODO: Should this instead be calculated by serializing the transaction?
+	dataLen := int64(96 + len(*args.Data))
+
+	// 1c. Multiply them together
+	dataFee := new(big.Int).Mul(dataPrice, big.NewInt(dataLen))
+
+	// 2a. fetch the execution gas price, by the typical mempool dynamics
+	executionPrice, err := b.SuggestPrice(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	// 2b. get the gas that would be used by the tx
+	gasUsed, err := legacyDoEstimateGas(ctx, b, args, blockNrOrHash, gasCap)
+	if err != nil {
+		return 0, err
+	}
+
+	// 2c. Multiply them together to get the execution fee
+	executionFee := new(big.Int).Mul(executionPrice, big.NewInt(int64(gasUsed)))
+
+	// 3. add them up
+	fee := new(big.Int).Add(dataFee, executionFee)
+
+	return (hexutil.Uint64)(fee.Uint64()), nil
+}
+
+func legacyDoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap *big.Int) (hexutil.Uint64, error) {
 	// Binary search the gas requirement, as it may be higher than the amount used
 	var (
 		lo  uint64 = params.TxGas - 1
