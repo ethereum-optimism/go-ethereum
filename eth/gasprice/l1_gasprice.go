@@ -2,19 +2,19 @@ package gasprice
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/params"
 	"math/big"
 )
 
 type L1Oracle struct {
+	gasPrice *big.Int
 }
 
-func NewL1Oracle() *L1Oracle {
-	return &L1Oracle{}
+func NewL1Oracle(gasPrice *big.Int) *L1Oracle {
+	return &L1Oracle{gasPrice}
 }
 
 /// SuggestDataPrice returns the gas price which should be charged per byte of published
 /// data by the sequencer.
 func (gpo *L1Oracle) SuggestDataPrice(ctx context.Context) (*big.Int, error) {
-	return big.NewInt(100 * params.GWei), nil
+	return gpo.gasPrice, nil
 }
