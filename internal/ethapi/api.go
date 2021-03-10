@@ -1974,6 +1974,24 @@ func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
 	}
 }
 
+// PrivatelRollupAPI provides private RPC methods to control the sequencer.
+// These methods can be abused by external users and must be considered insecure for use by untrusted users.
+type PrivateRollupAPI struct {
+	b Backend
+}
+
+// NewPrivateRollupAPI creates a new API definition for the rollup methods of the
+// Ethereum service.
+func NewPrivateRollupAPI(b Backend) *PrivateRollupAPI {
+	return &PrivateRollupAPI{b: b}
+}
+
+// SetGasPrice sets the gas price to be used when quoting calldata publishing costs
+// to users
+func (api *PrivateRollupAPI) SetL1GasPrice(ctx context.Context, gasPrice hexutil.Big) {
+	api.b.SetL1GasPrice(ctx, (*big.Int)(&gasPrice))
+}
+
 // PublicDebugAPI is the collection of Ethereum APIs exposed over the public
 // debugging endpoint.
 type PublicDebugAPI struct {

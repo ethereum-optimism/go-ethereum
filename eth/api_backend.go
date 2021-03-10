@@ -376,6 +376,10 @@ func (b *EthAPIBackend) SuggestDataPrice(ctx context.Context) (*big.Int, error) 
 	return b.l1gpo.SuggestDataPrice(ctx)
 }
 
+func (b *EthAPIBackend) SetL1GasPrice(ctx context.Context, gasPrice *big.Int) {
+	b.l1gpo.SetL1GasPrice(gasPrice)
+}
+
 func (b *EthAPIBackend) ChainDb() ethdb.Database {
 	return b.eth.ChainDb()
 }
