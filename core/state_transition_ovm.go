@@ -96,12 +96,17 @@ func AsOvmMessage(tx *types.Transaction, signer types.Signer, decompressor commo
 }
 
 func EncodeSimulatedMessage(msg Message, timestamp, blockNumber *big.Int, executionManager, stateManager dump.OvmDumpAccount) (Message, error) {
+	to := msg.To()
+	if to == nil {
+		to = &common.Address{0}
+	}
+
 	tx := ovmTransaction{
 		timestamp,
 		blockNumber, // TODO (what's the correct block number?)
 		uint8(msg.QueueOrigin().Uint64()),
 		*msg.L1MessageSender(),
-		*msg.To(),
+		*to,
 		big.NewInt(int64(msg.Gas())),
 		msg.Data(),
 	}
