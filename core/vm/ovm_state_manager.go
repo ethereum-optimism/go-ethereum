@@ -157,6 +157,22 @@ func putContractStorage(evm *EVM, contract *Contract, args map[string]interface{
 	return []interface{}{}, nil
 }
 
+func putAccountCode(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
+	address, ok := args["_address"].(common.Address)
+	if !ok {
+		return nil, errors.New("Could not parse _address arg in putAccountCode")
+	}
+	code, ok := args["_code"].([]byte)
+	if !ok {
+		return nil, errors.New("Could not parse _code arg in putAccountCode")
+	}
+
+	// evm.StateDB.SetState(address, key, val)
+	evm.StateDB.SetCode(address, code)
+
+	return []interface{}{}, nil
+}
+
 func testAndSetAccount(evm *EVM, contract *Contract, args map[string]interface{}) ([]interface{}, error) {
 	address, ok := args["_address"].(common.Address)
 	if !ok {
