@@ -1832,8 +1832,9 @@ type EthContext struct {
 	Timestamp   uint64 `json:"timestamp"`
 }
 type RollupContext struct {
-	Index      uint64 `json:"index"`
-	QueueIndex uint64 `json:"queueIndex"`
+	Index         uint64 `json:"index"`
+	QueueIndex    uint64 `json:"queueIndex"`
+	VerifiedIndex uint64 `json:"verifiedIndex"`
 }
 
 type rollupInfo struct {
@@ -1850,7 +1851,7 @@ func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
 	}
 	syncing := api.b.IsSyncing()
 	bn, ts := api.b.GetEthContext()
-	index, queueIndex := api.b.GetRollupContext()
+	index, queueIndex, verifiedIndex := api.b.GetRollupContext()
 
 	return rollupInfo{
 		Mode:    mode,
@@ -1860,8 +1861,9 @@ func (api *PublicRollupAPI) GetInfo(ctx context.Context) rollupInfo {
 			Timestamp:   ts,
 		},
 		RollupContext: RollupContext{
-			Index:      index,
-			QueueIndex: queueIndex,
+			Index:         index,
+			QueueIndex:    queueIndex,
+			VerifiedIndex: verifiedIndex,
 		},
 	}
 }
