@@ -79,6 +79,37 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	}
 }
 
+func TestSyncServiceL1GasPrice(t *testing.T) {
+	service, _, _, err := newTestSyncService(true)
+	setupMockClient(service, map[string]interface{}{})
+	service.l1gpo = gasprice.NewL1Oracle(big.NewInt(0))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gasBefore, err := service.l1gpo.SuggestDataPrice(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gasBefore.Cmp(big.NewInt(0)) != 0 {
+		t.Fatal("expected 0 gas price, got", gasBefore)
+	}
+
+	// run 1 iteration of the eloop
+	service.sequence()
+
+	gasAfter, err := service.l1gpo.SuggestDataPrice(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gasAfter.Cmp(big.NewInt(100*int64(params.GWei))) != 0 {
+		t.Fatal("expected 100 gas price, got", gasAfter)
+	}
+}
+
 // Pass true to set as a verifier
 func TestSyncServiceSync(t *testing.T) {
 	t.Skip("TODO unstick this")
