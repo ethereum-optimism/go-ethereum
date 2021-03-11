@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -240,6 +241,7 @@ type mockClient struct {
 func setupMockClient(service *SyncService, responses map[string]interface{}) {
 	client := newMockClient(responses)
 	service.client = client
+	service.l1gpo = gasprice.NewL1Oracle(big.NewInt(0))
 }
 
 func newMockClient(responses map[string]interface{}) *mockClient {
@@ -319,4 +321,8 @@ func (m *mockClient) SyncStatus() (*SyncStatus, error) {
 	return &SyncStatus{
 		Syncing: false,
 	}, nil
+}
+
+func (m *mockClient) GetL1GasPrice() (*big.Int, error) {
+	return big.NewInt(100 * int64(params.GWei)), nil
 }
