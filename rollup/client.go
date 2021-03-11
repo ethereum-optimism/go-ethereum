@@ -96,7 +96,7 @@ type RollupClient interface {
 
 type Client struct {
 	client *resty.Client
-	signer *types.OVMSigner
+	signer *types.EIP155Signer
 }
 
 type TransactionResponse struct {
@@ -107,7 +107,7 @@ type TransactionResponse struct {
 func NewClient(url string, chainID *big.Int) *Client {
 	client := resty.New()
 	client.SetHostURL(url)
-	signer := types.NewOVMSigner(chainID)
+	signer := types.NewEIP155Signer(chainID)
 
 	return &Client{
 		client: client,
@@ -217,7 +217,7 @@ func (c *Client) GetLatestEnqueue() (*types.Transaction, error) {
 	return tx, nil
 }
 
-func transactionResponseToTransaction(res *TransactionResponse, signer *types.OVMSigner) (*types.Transaction, error) {
+func transactionResponseToTransaction(res *TransactionResponse, signer *types.EIP155Signer) (*types.Transaction, error) {
 	// `nil` transactions are not found
 	if res.Transaction == nil {
 		return nil, nil
