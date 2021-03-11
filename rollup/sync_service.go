@@ -337,12 +337,22 @@ func (s *SyncService) VerifierLoop() {
 func (s *SyncService) SequencerLoop() {
 	log.Info("Starting Sequencer Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
 	for {
+		s.txLock.Lock()
+        err := s.sequence()
+        if err != nil {
+			log.Error("Could not sequence", "error", err)
+            continue
+        }
+		s.txLock.Unlock()
+        time.Sleep(s.pollInterval)
+    }
+}
+
+func (s *SyncService) sequence() error {
 		// Update to the latest L1 gas price
 		l1GasPrice, err := s.client.GetL1GasPrice()
 		if err != nil {
-			log.Error("Cannot get L1 gas price")
-			time.Sleep(s.pollInterval)
-			continue
+            return err
 		}
 		s.l1gpo.SetL1GasPrice(l1GasPrice)
 
@@ -351,24 +361,16 @@ func (s *SyncService) SequencerLoop() {
 		// transactions such that it makes for efficient batch submitting.
 		// Place as many L1ToL2 transactions in the same context as possible
 		// by executing them one after another.
-		// TODO: break this routine out into a function so that lock
-		// management is more simple. For now, be sure to unlock before
-		// each outer continue
-		s.txLock.Lock()
 		latest, err := s.client.GetLatestEnqueue()
 		if err != nil {
-			log.Error("Cannot get latest enqueue")
-			s.txLock.Unlock()
-			time.Sleep(s.pollInterval)
-			continue
+            return err
 		}
+
 		// This should never happen unless the backend is empty
 		if latest == nil {
-			log.Debug("No enqueue transactions found")
-			s.txLock.Unlock()
-			time.Sleep(s.pollInterval)
-			continue
+            return errors.New("No enqueue transactions found")
 		}
+
 		// Compare the remote latest queue index to the local latest
 		// queue index. If the remote latest queue index is greater
 		// than the local latest queue index, be sure to ingest more
@@ -428,14 +430,12 @@ func (s *SyncService) SequencerLoop() {
 				s.SetLatestIndex(enqueue.GetMeta().Index)
 			}
 		}
-		s.txLock.Unlock()
 
 		// Update the execution context's timestamp and blocknumber
 		// over time. This is only necessary for the sequencer.
 		context, err := s.client.GetLatestEthContext()
 		if err != nil {
-			log.Error("Cannot get latest eth context", "msg", err)
-			continue
+            return err
 		}
 		current := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
 		next := time.Unix(int64(context.Timestamp), 0)
@@ -444,8 +444,8 @@ func (s *SyncService) SequencerLoop() {
 			s.SetLatestL1BlockNumber(context.BlockNumber)
 			s.SetLatestL1Timestamp(context.Timestamp)
 		}
-		time.Sleep(s.pollInterval)
-	}
+        
+        return nil
 }
 
 // This function must sync all the way to the tip
