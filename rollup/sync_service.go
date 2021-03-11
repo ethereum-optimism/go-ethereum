@@ -44,10 +44,12 @@ type SyncService struct {
 	txpool                    *core.TxPool
 	client                    RollupClient
 	syncing                   atomic.Value
+	chainHeadSub              event.Subscription
 	OVMContext                OVMContext
 	confirmationDepth         uint64
 	pollInterval              time.Duration
 	timestampRefreshThreshold time.Duration
+	chainHeadCh               chan core.ChainHeadEvent
 }
 
 // NewSyncService returns an initialized sync service
@@ -93,12 +95,15 @@ func NewSyncService(ctx context.Context, cfg Config, txpool *core.TxPool, bc *co
 		syncing:                   atomic.Value{},
 		bc:                        bc,
 		txpool:                    txpool,
+		chainHeadCh:               make(chan core.ChainHeadEvent, 1),
 		eth1ChainId:               cfg.Eth1ChainId,
 		client:                    client,
 		db:                        db,
 		pollInterval:              pollInterval,
 		timestampRefreshThreshold: timestampRefreshThreshold,
 	}
+
+	service.chainHeadSub = service.bc.SubscribeChainHeadEvent(service.chainHeadCh)
 
 	// Initial sync service setup if it is enabled. This code depends on
 	// a remote server that indexes the layer one contracts. Place this
@@ -271,6 +276,8 @@ func (s *SyncService) IsSyncing() bool {
 // Stop will close the open channels and cancel the goroutines
 // started by this service.
 func (s *SyncService) Stop() error {
+	s.chainHeadSub.Unsubscribe()
+	close(s.chainHeadCh)
 	s.scope.Close()
 
 	if s.cancel != nil {
@@ -418,6 +425,7 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 	if *index < next {
 		return s.applyHistoricalTransaction(tx)
 	}
+	// TODO: maybe turn this into a log instead of returning an error
 	return fmt.Errorf("Received tx at index %d when looking for %d", *index, next)
 }
 
@@ -486,20 +494,23 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	tx = fixType(tx)
 	txs := types.Transactions{tx}
 	s.txFeed.Send(core.NewTxsEvent{Txs: txs})
+	// Block until the transaction has been added to the chain
+	<-s.chainHeadCh
+
 	return nil
 }
 
 func (s *SyncService) applyBatchedTransaction(tx *types.Transaction) error {
 	if tx == nil {
-		return errors.New("")
+		return errors.New("nil transaction passed into applyBatchedTransaction")
 	}
 	index := tx.GetMeta().Index
 	if index == nil {
-		return errors.New("")
+		return errors.New("No index found on transaction")
 	}
 	err := s.applyIndexedTransaction(tx)
 	if err != nil {
-		return fmt.Errorf("%w", err)
+		return fmt.Errorf("Cannot apply batched transaction: %w", err)
 	}
 	s.SetLatestVerifiedIndex(index)
 	return nil
@@ -615,7 +626,7 @@ func (s *SyncService) syncTransactionBatchesToTip() error {
 		for i := nextIndex; i <= latestIndex; i++ {
 			_, txs, err := s.client.GetTransactionBatch(i)
 			if err != nil {
-				//
+				// TODO
 			}
 			for _, tx := range txs {
 				s.applyBatchedTransaction(tx)
@@ -623,7 +634,7 @@ func (s *SyncService) syncTransactionBatchesToTip() error {
 		}
 		latest, _, err := s.client.GetLatestTransactionBatch()
 		if err != nil {
-			//
+			// TODO
 		}
 		latestIndex = latest.Index
 	}
