@@ -82,7 +82,7 @@ func (b *EthAPIBackend) GetRollupContext() (uint64, uint64, uint64) {
 	if queueIndex != nil {
 		q = *queueIndex
 	}
-	verifiedIndex := b.eth.syncService.GetVerifiedIndex()
+	verifiedIndex := b.eth.syncService.GetLatestVerifiedIndex()
 	if verifiedIndex != nil {
 		v = *verifiedIndex
 	}

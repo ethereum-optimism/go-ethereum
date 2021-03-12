@@ -13,12 +13,6 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-/**
- * GET /enqueue/index/{index}
- * GET /transaction/index/{index}
- * GET /eth/context/latest
- */
-
 type Batch struct {
 	Index             uint64         `json:"index"`
 	Root              common.Hash    `json:"root,omitempty"`
@@ -86,8 +80,8 @@ type decoded struct {
 type RollupClient interface {
 	GetEnqueue(index uint64) (*types.Transaction, error)
 	GetLatestEnqueue() (*types.Transaction, error)
-	GetTransaction(uint64) (*types.Transaction, error)
-	GetLatestTransaction() (*types.Transaction, error)
+	GetTransaction(uint64, string) (*types.Transaction, error)
+	GetLatestTransaction(string) (*types.Transaction, error)
 	GetEthContext(uint64) (*EthContext, error)
 	GetLatestEthContext() (*EthContext, error)
 	GetLastConfirmedEnqueue() (*types.Transaction, error)
@@ -122,7 +116,6 @@ func NewClient(url string, chainID *big.Int) *Client {
 	}
 }
 
-// This needs to return a transaction instead
 func (c *Client) GetEnqueue(index uint64) (*types.Transaction, error) {
 	str := strconv.FormatUint(index, 10)
 	response, err := c.client.R().
@@ -325,11 +318,14 @@ func transactionResponseToTransaction(res *transaction, signer *types.OVMSigner)
 	return tx, nil
 }
 
-func (c *Client) GetTransaction(index uint64) (*types.Transaction, error) {
+func (c *Client) GetTransaction(index uint64, backend string) (*types.Transaction, error) {
 	str := strconv.FormatUint(index, 10)
 	response, err := c.client.R().
 		SetPathParams(map[string]string{
 			"index": str,
+		}).
+		SetQueryParams(map[string]string{
+			"backend": backend,
 		}).
 		SetResult(&TransactionResponse{}).
 		Get("/transaction/index/{index}")
@@ -344,8 +340,11 @@ func (c *Client) GetTransaction(index uint64) (*types.Transaction, error) {
 	return transactionResponseToTransaction(res.Transaction, c.signer)
 }
 
-func (c *Client) GetLatestTransaction() (*types.Transaction, error) {
+func (c *Client) GetLatestTransaction(backend string) (*types.Transaction, error) {
 	response, err := c.client.R().
+		SetQueryParams(map[string]string{
+			"backend": backend,
+		}).
 		SetResult(&TransactionResponse{}).
 		Get("/transaction/latest")
 
@@ -377,7 +376,6 @@ func (c *Client) GetEthContext(blockNumber uint64) (*EthContext, error) {
 	if !ok {
 		return nil, errors.New("Cannot parse EthContext")
 	}
-
 	return context, nil
 }
 
@@ -489,7 +487,7 @@ func parseTransactionBatchResponse(txBatch *TransactionBatchResponse, signer *ty
 	for i, tx := range txBatch.Transactions {
 		transaction, err := transactionResponseToTransaction(tx, signer)
 		if err != nil {
-			//
+			return nil, nil, fmt.Errorf("Cannot parse transaction batch: %w", err)
 		}
 		txs[i] = transaction
 	}
