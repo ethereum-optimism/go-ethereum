@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -21,7 +22,7 @@ var funcs = map[string]stateManagerFunction{
 	"putContractStorage":                       putContractStorage,
 	"isAuthenticated":                          nativeFunctionTrue,
 	"hasAccount":                               nativeFunctionTrue,
-	"putAccountCode":                           nativeFunctionTrue,
+	"putAccountCode":                           putAccountCode,
 	"hasEmptyAccount":                          hasEmptyAccount,
 	"hasContractStorage":                       nativeFunctionTrue,
 	"testAndSetAccountLoaded":                  testAndSetAccount,
@@ -162,12 +163,14 @@ func putAccountCode(evm *EVM, contract *Contract, args map[string]interface{}) (
 	if !ok {
 		return nil, errors.New("Could not parse _address arg in putAccountCode")
 	}
+
 	code, ok := args["_code"].([]byte)
 	if !ok {
 		return nil, errors.New("Could not parse _code arg in putAccountCode")
 	}
 
-	// evm.StateDB.SetState(address, key, val)
+	log.Debug("Putting contract code", "address", address.Hex(), "code", hex.EncodeToString((code)))
+
 	evm.StateDB.SetCode(address, code)
 
 	return []interface{}{}, nil
