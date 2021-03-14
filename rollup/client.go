@@ -43,7 +43,7 @@ type SyncStatus struct {
 }
 
 type L1GasPrice struct {
-	GasPrice hexutil.Big `json:"gasPrice"`
+	GasPrice string `json:"gasPrice"`
 }
 
 type transaction struct {
@@ -459,5 +459,10 @@ func (c *Client) GetL1GasPrice() (*big.Int, error) {
 		return nil, fmt.Errorf("Cannot parse L1 gas price response")
 	}
 
-	return (*big.Int)(&gasPriceResp.GasPrice), nil
+	gasPrice, ok := new(big.Int).SetString(gasPriceResp.GasPrice, 10)
+	if !ok {
+		return nil, fmt.Errorf("Cannot parse response as big number")
+	}
+
+	return gasPrice, nil
 }
