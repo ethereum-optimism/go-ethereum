@@ -101,13 +101,16 @@ func EncodeSimulatedMessage(msg Message, timestamp, blockNumber *big.Int, execut
 		to = &common.Address{0}
 	}
 
+	// temp: hacking on extra gas on top of the calldata passed
+	extraGas := int64(len(msg.Data())*(16+16) + 250_000)
+	gas := new(big.Int).Add(big.NewInt(int64(msg.Gas())), big.NewInt(extraGas))
 	tx := ovmTransaction{
 		timestamp,
 		blockNumber, // TODO (what's the correct block number?)
 		uint8(msg.QueueOrigin().Uint64()),
 		*msg.L1MessageSender(),
 		*to,
-		big.NewInt(int64(msg.Gas())),
+		gas,
 		msg.Data(),
 	}
 
