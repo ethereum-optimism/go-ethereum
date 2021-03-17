@@ -13,19 +13,19 @@ import (
 var ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 type ovmTransaction struct {
-	Timestamp     *big.Int       "json:\"timestamp\""
-	BlockNumber   *big.Int       "json:\"blockNumber\""
-	L1QueueOrigin uint8          "json:\"l1QueueOrigin\""
-	L1TxOrigin    common.Address "json:\"l1TxOrigin\""
-	Entrypoint    common.Address "json:\"entrypoint\""
-	GasLimit      *big.Int       "json:\"gasLimit\""
-	Data          []uint8        "json:\"data\""
+	Timestamp     *big.Int       `json:"timestamp"`
+	BlockNumber   *big.Int       `json:"blockNumber"`
+	L1QueueOrigin uint8          `json:"l1QueueOrigin"`
+	L1TxOrigin    common.Address `json:"l1TxOrigin"`
+	Entrypoint    common.Address `json:"entrypoint"`
+	GasLimit      *big.Int       `json:"gasLimit"`
+	Data          []uint8        `json:"data"`
 }
 
 func toExecutionManagerRun(evm *vm.EVM, msg Message) (Message, error) {
 	tx := ovmTransaction{
 		evm.Context.Time,
-		evm.Context.BlockNumber, // TODO (what's the correct block number?)
+		msg.L1BlockNumber(),
 		uint8(msg.QueueOrigin().Uint64()),
 		*msg.L1MessageSender(),
 		*msg.To(),
