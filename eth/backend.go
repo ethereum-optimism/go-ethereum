@@ -233,7 +233,6 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 		gpoParams.Default = config.Miner.GasPrice
 	}
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
-
 	// create the L1 GPO and allow the API backend and the sync service to access it
 	l1Gpo := gasprice.NewL1Oracle(config.Rollup.L1GasPrice)
 	eth.APIBackend.l1gpo = l1Gpo
