@@ -44,7 +44,7 @@ type SyncService struct {
 	eth1ChainId               uint64
 	bc                        *core.BlockChain
 	txpool                    *core.TxPool
-	l1gpo                     *gasprice.L1Oracle
+	L1gpo                     *gasprice.L1Oracle
 	client                    RollupClient
 	syncing                   atomic.Value
 	OVMContext                OVMContext
@@ -365,7 +365,7 @@ func (s *SyncService) sequence() error {
 	if err != nil {
 		return err
 	}
-	s.l1gpo.SetL1GasPrice(l1GasPrice)
+	s.L1gpo.SetL1GasPrice(l1GasPrice)
 
 	// Only the sequencer needs to poll for enqueue transactions
 	// and then can choose when to apply them. We choose to apply
