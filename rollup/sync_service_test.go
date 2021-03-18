@@ -63,8 +63,12 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 		},
 	})
 
-	// Start up the main loop
-	go service.SequencerLoop()
+	// Run an iteration of the eloop
+	err = service.sequence()
+	if err != nil {
+		t.Fatal("sequencing failed", err)
+	}
+
 	// Wait for the tx to be confirmed into the chain and then
 	// make sure it is the transactions that was set up with in the mockclient
 	event := <-txCh
