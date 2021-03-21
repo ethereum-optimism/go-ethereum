@@ -74,7 +74,8 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 					} else {
 						log.Debug("Calling Known Contract", "ID", evm.Id, "Name", name, "Method", method.RawName)
 						if method.RawName == "ovmREVERT" {
-							log.Debug("Contract Threw Exception", "ID", evm.Id, "asciified", string(input))
+							hex := hexutil.Encode(input)
+							log.Debug("Contract Threw Exception", "ID", evm.Id, "asciified", hex)
 						}
 					}
 				}
