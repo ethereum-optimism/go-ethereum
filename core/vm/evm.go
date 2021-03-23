@@ -61,28 +61,7 @@ func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, err
 		// OVM_ENABLED
 		// Only log for non `eth_call`s
 		if evm.Context.EthCallSender == nil {
-			// Some simple logging here. First, check to see if we know about the address we're
-			// interacting with and try to log the input data.
-			var isUnknown = true
-			for name, account := range evm.chainConfig.StateDump.Accounts {
-				if contract.Address() == account.Address {
-					isUnknown = false
-					abi := &(account.ABI)
-					method, err := abi.MethodById(input)
-					if err != nil {
-						log.Debug("Calling Known Contract", "ID", evm.Id, "Name", name, "Message", err)
-					} else {
-						log.Debug("Calling Known Contract", "ID", evm.Id, "Name", name, "Method", method.RawName)
-						if method.RawName == "ovmREVERT" {
-							log.Debug("Contract Threw Exception", "ID", evm.Id, "asciified", string(input))
-						}
-					}
-				}
-			}
-			// We don't know the contract, so print some generic information.
-			if isUnknown {
-				log.Debug("Calling Unknown Contract", "ID", evm.Id, "Address", contract.Address().Hex())
-			}
+			log.Debug("Calling contract", "ID", evm.Id, "Address", contract.Address().Hex(), "Data", hexutil.Encode(input))
 		}
 
 		// Uncomment to make Safety checker always returns true.
