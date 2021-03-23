@@ -366,6 +366,7 @@ func (s *SyncService) sequence() error {
 		return err
 	}
 	s.L1gpo.SetL1GasPrice(l1GasPrice)
+	log.Info("Adjusted L1 Gas Price", "gasprice", l1GasPrice)
 
 	// Only the sequencer needs to poll for enqueue transactions
 	// and then can choose when to apply them. We choose to apply

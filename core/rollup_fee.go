@@ -16,7 +16,7 @@ func CalculateRollupFee(data []byte, gasUsed uint64, dataPrice, executionPrice *
 	dataLen := int64(ROLLUP_BASE_TX_SIZE + len(data))
 	// get the data fee
 	dataFee := new(big.Int).Mul(dataPrice, big.NewInt(dataLen))
-	executionFee := new(big.Int).Mul(executionPrice, big.NewInt(int64(gasUsed)))
+	executionFee := new(big.Int).Mul(executionPrice, new(big.Int).SetUint64(gasUsed))
 	fee := new(big.Int).Add(dataFee, executionFee)
 	return fee
 }
