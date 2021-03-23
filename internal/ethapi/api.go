@@ -63,7 +63,7 @@ func NewPublicEthereumAPI(b Backend) *PublicEthereumAPI {
 	return &PublicEthereumAPI{b}
 }
 
-// GasPrice returns 1 gwei always. Rationale: https://github.com/ethereum-optimism/roadmap/issues/715
+// GasPrice always returns 1 gwei. See `DoEstimateGas` below for context.
 func (s *PublicEthereumAPI) GasPrice(ctx context.Context) (*hexutil.Big, error) {
 	return (*hexutil.Big)(big.NewInt(defaultGasPrice)), nil
 }
@@ -1001,6 +1001,10 @@ func (s *PublicBlockChainAPI) Call(ctx context.Context, args CallArgs, blockNrOr
 // fees can compensate for the additional costs the sequencer pays for publishing the
 // transaction calldata
 func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap *big.Int) (hexutil.Uint64, error) {
+	if args.Data == nil {
+		return 0, errors.New("transaction data cannot be nil")
+	}
+
 	// 1. get the gas that would be used by the transaction
 	gasUsed, err := legacyDoEstimateGas(ctx, b, args, blockNrOrHash, gasCap)
 	if err != nil {
