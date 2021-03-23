@@ -84,8 +84,6 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 
 // Pass true to set as a verifier
 func TestSyncServiceSync(t *testing.T) {
-	t.Skip("TODO unstick this")
-
 	service, txCh, sub, err := newTestSyncService(true)
 	defer sub.Unsubscribe()
 	if err != nil {
@@ -119,7 +117,10 @@ func TestSyncServiceSync(t *testing.T) {
 		},
 	})
 
-	go service.VerifierLoop()
+	err = service.verify()
+	if err != nil {
+		t.Fatal("verification failed", err)
+	}
 
 	event := <-txCh
 	if len(event.Txs) != 1 {

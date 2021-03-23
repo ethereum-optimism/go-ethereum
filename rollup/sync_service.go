@@ -293,42 +293,49 @@ func (s *SyncService) Stop() error {
 func (s *SyncService) VerifierLoop() {
 	log.Info("Starting Verifier Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
 	for {
-		// The verifier polls for ctc transactions.
-		// the ctc transactions are extending the chain.
-		latest, err := s.client.GetLatestTransaction()
-		if err != nil {
-			log.Error("Cannot fetch transaction")
-			continue
-		}
-
-		if latest == nil {
-			time.Sleep(s.pollInterval)
-			continue
-		}
-
-		var start uint64
-		if s.GetLatestIndex() == nil {
-			start = 0
-		} else {
-			start = *s.GetLatestIndex() + 1
-		}
-		end := *latest.GetMeta().Index
-		log.Info("Polling transactions", "start", start, "end", end)
-		for i := start; i <= end; i++ {
-			tx, err := s.client.GetTransaction(i)
-			if err != nil {
-				log.Error("Cannot get tx in loop", "index", i)
-				continue
-			}
-			log.Debug("Applying transaction", "index", i)
-			err = s.maybeApplyTransaction(tx)
-			if err != nil {
-				log.Error("Cannot apply transaction", "msg", err)
-			}
-			s.SetLatestIndex(&i)
+		if err := s.verify(); err != nil {
+			log.Error("Could not verify", "error", err)
 		}
 		time.Sleep(s.pollInterval)
 	}
+}
+
+func (s *SyncService) verify() error {
+	// The verifier polls for ctc transactions.
+	// the ctc transactions are extending the chain.
+	latest, err := s.client.GetLatestTransaction()
+	if err != nil {
+		return err
+	}
+
+	if latest == nil {
+		return errors.New("latest transaction not found")
+	}
+
+	var start uint64
+	if s.GetLatestIndex() == nil {
+		start = 0
+	} else {
+		start = *s.GetLatestIndex() + 1
+	}
+	end := *latest.GetMeta().Index
+	log.Info("Polling transactions", "start", start, "end", end)
+	for i := start; i <= end; i++ {
+		tx, err := s.client.GetTransaction(i)
+		if err != nil {
+			log.Error("cannot get tx in loop", "error", err)
+			continue
+		}
+
+		log.Debug("Applying transaction", "index", i)
+		err = s.maybeApplyTransaction(tx)
+		if err != nil {
+			log.Error("could not apply transaction", "error", err)
+		}
+		s.SetLatestIndex(&i)
+	}
+
+	return nil
 }
 
 func (s *SyncService) SequencerLoop() {
