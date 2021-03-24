@@ -347,6 +347,11 @@ func (s *SyncService) SequencerLoop() {
 			log.Error("Could not sequence", "error", err)
 		}
 		s.txLock.Unlock()
+
+		if s.updateContext() != nil {
+			log.Error("Could not update execution context", "error", err)
+		}
+
 		time.Sleep(s.pollInterval)
 	}
 }
@@ -427,8 +432,12 @@ func (s *SyncService) sequence() error {
 		}
 	}
 
-	// Update the execution context's timestamp and blocknumber
-	// over time. This is only necessary for the sequencer.
+	return nil
+}
+
+/// Update the execution context's timestamp and blocknumber
+/// over time. This is only necessary for the sequencer.
+func (s *SyncService) updateContext() error {
 	context, err := s.client.GetLatestEthContext()
 	if err != nil {
 		return err
