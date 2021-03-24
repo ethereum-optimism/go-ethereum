@@ -324,14 +324,13 @@ func (s *SyncService) verify() error {
 	for i := start; i <= end; i++ {
 		tx, err := s.client.GetTransaction(i)
 		if err != nil {
-			log.Error("cannot get tx in loop", "error", err)
-			continue
+			return fmt.Errorf("cannot get tx in loop: %w", err)
 		}
 
 		log.Debug("Applying transaction", "index", i)
 		err = s.maybeApplyTransaction(tx)
 		if err != nil {
-			log.Error("could not apply transaction", "error", err)
+			return fmt.Errorf("could not apply transaction: %w", err)
 		}
 		s.SetLatestIndex(&i)
 	}
@@ -390,19 +389,16 @@ func (s *SyncService) sequence() error {
 	for i := start; i <= end; i++ {
 		enqueue, err := s.client.GetEnqueue(i)
 		if err != nil {
-			log.Error("Cannot get enqueue in loop", "index", i, "message", err)
-			continue
+			return fmt.Errorf("Cannot get enqueue in loop %d: %w", i, err)
 		}
 
 		if enqueue == nil {
-			log.Debug("No enqueue transaction found")
-			break
+			return errors.New("No enqueue transaction found")
 		}
 
 		// This should never happen
 		if enqueue.L1BlockNumber() == nil {
-			log.Error("No blocknumber for enqueue", "index", i, "timestamp", enqueue.L1Timestamp(), "blocknumber", enqueue.L1BlockNumber())
-			continue
+			return fmt.Errorf("No blocknumber for enqueue idx %d, timestamp %d, blocknumber %d", i, enqueue.L1Timestamp(), enqueue.L1BlockNumber())
 		}
 
 		// Update the timestamp and blocknumber based on the enqueued
@@ -418,7 +414,7 @@ func (s *SyncService) sequence() error {
 		log.Debug("Applying enqueue transaction", "index", i)
 		err = s.applyTransaction(enqueue)
 		if err != nil {
-			log.Error("Cannot apply transaction", "msg", err)
+			return fmt.Errorf("could not apply transaction: %w", err)
 		}
 
 		s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)

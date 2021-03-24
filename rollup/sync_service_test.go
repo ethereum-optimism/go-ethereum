@@ -98,9 +98,9 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	// The L1 blocknumber for the transaction's evm context
 	l1BlockNumber := big.NewInt(100)
 	// The queue index of the L1 to L2 transaction
-	queueIndex := uint64(100)
-	//The index in the ctc
-	index := uint64(120)
+	queueIndex := uint64(0)
+	// The index in the ctc
+	index := uint64(5)
 
 	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
 	txMeta := types.NewTransactionMeta(
