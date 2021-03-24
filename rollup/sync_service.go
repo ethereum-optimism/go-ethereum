@@ -309,7 +309,8 @@ func (s *SyncService) verify() error {
 	}
 
 	if latest == nil {
-		return errors.New("latest transaction not found")
+		log.Debug("latest transaction not found")
+		return nil
 	}
 
 	var start uint64
@@ -369,7 +370,8 @@ func (s *SyncService) sequence() error {
 
 	// This should never happen unless the backend is empty
 	if latest == nil {
-		return errors.New("No enqueue transactions found")
+		log.Debug("No enqueue transactions found")
+		return nil
 	}
 
 	// Compare the remote latest queue index to the local latest
