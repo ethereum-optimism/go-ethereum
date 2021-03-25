@@ -393,7 +393,8 @@ func (s *SyncService) sequence() error {
 		}
 
 		if enqueue == nil {
-			return errors.New("No enqueue transaction found")
+			log.Debug("No enqueue transaction found")
+			return nil
 		}
 
 		// This should never happen

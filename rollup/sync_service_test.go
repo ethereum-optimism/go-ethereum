@@ -36,6 +36,16 @@ func setupLatestEthContextTest() (*SyncService, *EthContext) {
 func TestSyncServiceContextUpdated(t *testing.T) {
 	service, resp := setupLatestEthContextTest()
 
+	// should get the expected context
+	expectedCtx := &OVMContext{
+		blockNumber: 0,
+		timestamp:   0,
+	}
+
+	if service.OVMContext != *expectedCtx {
+		t.Fatal("context was not instantiated to the expected value")
+	}
+
 	// run the update context call once
 	err := service.updateContext()
 	if err != nil {
@@ -43,7 +53,7 @@ func TestSyncServiceContextUpdated(t *testing.T) {
 	}
 
 	// should get the expected context
-	expectedCtx := &OVMContext{
+	expectedCtx = &OVMContext{
 		blockNumber: resp.BlockNumber,
 		timestamp:   resp.Timestamp,
 	}
