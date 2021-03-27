@@ -2,9 +2,10 @@ package rollup
 
 import (
 	"fmt"
-	"github.com/jarcoal/httpmock"
 	"math/big"
 	"testing"
+
+	"github.com/jarcoal/httpmock"
 )
 
 func TestRollupClientGetL1GasPrice(t *testing.T) {
