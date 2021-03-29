@@ -1052,8 +1052,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	}
 
 	// Fudging to account for gas required to verify signatures + pass around data.
-	og := hi
-	hi = hi + 700000 + uint64(len([]byte(*args.Data)))*192
+	hi = hi + 1000000
 	if hi > cap {
 		hi = cap - 1
 	}
@@ -1064,7 +1063,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 			return 0, fmt.Errorf("gas required exceeds allowance (%d) or always failing transaction", cap)
 		}
 	}
-	log.Debug("Returning gas estimate", "og", og, "estimate", hi, "data length", uint64(len([]byte(*args.Data))))
 	return hexutil.Uint64(hi), nil
 }
 
