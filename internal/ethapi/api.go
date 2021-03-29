@@ -1053,9 +1053,9 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 
 	// Fudging to account for gas required to verify signatures + pass around data.
 	og := hi
-	hi = hi + 1000000 + uint64(len([]byte(*args.Data)))*16
+	hi = hi + 200000 + uint64(len([]byte(*args.Data)))*192
 	if hi > cap {
-		hi = cap
+		hi = cap - 1
 	}
 
 	// Reject the transaction as invalid if it still fails at the highest allowance
