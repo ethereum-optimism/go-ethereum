@@ -1063,7 +1063,8 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	// gas isn't actually spent during execution but needs to be provided to avoid a revert.
 	hi = hi + 1000000 + uint64(len([]byte(*args.Data)))*128
 	if hi > cap {
-		hi = cap
+		// Use cap-1 so we don't trigger the error below.
+		hi = cap-1
 	}
 
 	// Reject the transaction as invalid if it still fails at the highest allowance
