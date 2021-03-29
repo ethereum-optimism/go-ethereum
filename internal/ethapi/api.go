@@ -1052,6 +1052,15 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	}
 
 	// Fudging to account for gas required to verify signatures + pass around data.
+	// Specifically, this line accounts for the fact that there's a bit of computation performed in
+	// a "real" transaction that won't be covered by an eth_call:
+	// 	1. Going into the OVM_SequencerEntrypoint.
+	//  2. Going into the OVM_ProxyEOA + OVM_ECDSAContractAccount.
+	//  3. Verify signatures in various places.
+	// eth_call skips all of this and therefore won't correctly estimate gas by default. We need to
+	// tweak the gas estimate to account for this discrepancy. Cost is quite high here because of
+	// the EVM limitation that CALL can only pass 63/64 of total gas available -- so most of this
+	// gas isn't actually spent during execution but needs to be provided to avoid a revert.
 	hi = hi + 1000000 + uint64(len([]byte(*args.Data)))*128
 	if hi > cap {
 		hi = cap
