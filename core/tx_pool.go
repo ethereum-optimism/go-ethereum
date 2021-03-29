@@ -17,7 +17,6 @@
 package core
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -185,6 +184,10 @@ func (config *TxPoolConfig) sanitize() TxPoolConfig {
 		log.Warn("Sanitizing invalid txpool journal time", "provided", conf.Rejournal, "updated", time.Second)
 		conf.Rejournal = time.Second
 	}
+	if conf.PriceLimit < 1 {
+		log.Warn("Sanitizing invalid txpool price limit", "provided", conf.PriceLimit, "updated", DefaultTxPoolConfig.PriceLimit)
+		conf.PriceLimit = DefaultTxPoolConfig.PriceLimit
+	}
 	if conf.PriceBump < 1 {
 		log.Warn("Sanitizing invalid txpool price bump", "provided", conf.PriceBump, "updated", DefaultTxPoolConfig.PriceBump)
 		conf.PriceBump = DefaultTxPoolConfig.PriceBump
@@ -228,7 +231,6 @@ type TxPool struct {
 	scope       event.SubscriptionScope
 	signer      types.Signer
 	mu          sync.RWMutex
-	rmu         sync.Mutex // Used for locking addRemotes for sequencer reorgs
 
 	istanbul bool // Fork indicator whether we are in the istanbul stage.
 
@@ -257,7 +259,6 @@ type TxPool struct {
 
 type txpoolResetRequest struct {
 	oldHead, newHead *types.Header
-	tx               *types.Transaction
 }
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
@@ -271,7 +272,7 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		config:          config,
 		chainconfig:     chainconfig,
 		chain:           chain,
-		signer:          types.NewOVMSigner(chainconfig.ChainID),
+		signer:          types.NewEIP155Signer(chainconfig.ChainID),
 		pending:         make(map[common.Address]*txList),
 		queue:           make(map[common.Address]*txList),
 		beats:           make(map[common.Address]time.Time),
@@ -284,7 +285,6 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		reorgShutdownCh: make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 	}
-
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range config.Locals {
 		log.Info("Setting new local account", "address", addr)
@@ -341,12 +341,7 @@ func (pool *TxPool) loop() {
 		// Handle ChainHeadEvent
 		case ev := <-pool.chainHeadCh:
 			if ev.Block != nil {
-				txs := ev.Block.Transactions()
-				var tx *types.Transaction
-				if len(txs) > 0 {
-					tx = txs[0]
-				}
-				pool.requestReset(head.Header(), ev.Block.Header(), tx)
+				pool.requestReset(head.Header(), ev.Block.Header())
 				head = ev.Block
 			}
 
@@ -410,16 +405,6 @@ func (pool *TxPool) Stop() {
 		pool.journal.close()
 	}
 	log.Info("Transaction pool stopped")
-}
-
-// LockAddRemote
-func (pool *TxPool) LockAddRemote() {
-	pool.rmu.Lock()
-}
-
-// UnlockAddRemote
-func (pool *TxPool) UnlockAddRemote() {
-	pool.rmu.Unlock()
 }
 
 // SubscribeNewTxsEvent registers a subscription of NewTxsEvent and
@@ -779,8 +764,6 @@ func (pool *TxPool) AddLocal(tx *types.Transaction) error {
 // This method is used to add transactions from the p2p network and does not wait for pool
 // reorganization and internal event propagation.
 func (pool *TxPool) AddRemotes(txs []*types.Transaction) []error {
-	pool.LockAddRemote()
-	defer pool.UnlockAddRemote()
 	return pool.addTxs(txs, false, false)
 }
 
@@ -943,9 +926,9 @@ func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) {
 
 // requestPromoteExecutables requests a pool reset to the new head block.
 // The returned channel is closed when the reset has occurred.
-func (pool *TxPool) requestReset(oldHead *types.Header, newHead *types.Header, tx *types.Transaction) chan struct{} {
+func (pool *TxPool) requestReset(oldHead *types.Header, newHead *types.Header) chan struct{} {
 	select {
-	case pool.reqResetCh <- &txpoolResetRequest{oldHead, newHead, tx}:
+	case pool.reqResetCh <- &txpoolResetRequest{oldHead, newHead}:
 		return <-pool.reorgDoneCh
 	case <-pool.reorgShutdownCh:
 		return pool.reorgShutdownCh
@@ -1081,12 +1064,8 @@ func (pool *TxPool) runReorg(done chan struct{}, reset *txpoolResetRequest, dirt
 	// If a new block appeared, validate the pool of pending transactions. This will
 	// remove any transaction that has been included in the block or was invalidated
 	// because of another transaction (e.g. higher gas price).
-	var tx *types.Transaction
 	if reset != nil {
-		tx = reset.tx
-	}
-	if reset != nil {
-		pool.demoteUnexecutables(tx)
+		pool.demoteUnexecutables()
 	}
 	// Ensure pool.queue and pool.pending sizes stay within the configured limits.
 	pool.truncatePending()
@@ -1187,14 +1166,10 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.pendingNonces = newTxNoncer(statedb)
 	pool.currentMaxGas = newHead.GasLimit
 
-	// OVM Change. Do not reinject reorganized transactions
-	// into the mempool.
-	if vm.UsingOVM {
-		// Inject any transactions discarded due to reorgs
-		log.Debug("Reinjecting stale transactions", "count", len(reinject))
-		senderCacher.recover(pool.signer, reinject)
-		pool.addTxsLocked(reinject, false)
-	}
+	// Inject any transactions discarded due to reorgs
+	log.Debug("Reinjecting stale transactions", "count", len(reinject))
+	senderCacher.recover(pool.signer, reinject)
+	pool.addTxsLocked(reinject, false)
 
 	// Update all fork indicator by next pending block number.
 	next := new(big.Int).Add(newHead.Number, big.NewInt(1))
@@ -1231,22 +1206,7 @@ func (pool *TxPool) promoteExecutables(accounts []common.Address) []*types.Trans
 		queuedNofundsMeter.Mark(int64(len(drops)))
 
 		// Gather all executable transactions and promote them
-		nonce := pool.pendingNonces.get(addr)
-		var readies types.Transactions
-		// QueueOriginL1ToL2 transactions do not increment the nonce
-		// and the sender is the zero address, always promote them.
-		if vm.UsingOVM {
-			if addr == (common.Address{}) {
-				readies = list.Flatten()
-				for _, tx := range readies {
-					list.Remove(tx)
-				}
-			} else {
-				readies = list.Ready(nonce)
-			}
-		} else {
-			readies = list.Ready(nonce)
-		}
+		readies := list.Ready(pool.pendingNonces.get(addr))
 		for _, tx := range readies {
 			hash := tx.Hash()
 			if pool.promoteTx(addr, hash, tx) {
@@ -1416,16 +1376,11 @@ func (pool *TxPool) truncateQueue() {
 // demoteUnexecutables removes invalid and processed transactions from the pools
 // executable/pending queue and any subsequent transactions that become unexecutable
 // are moved back into the future queue.
-func (pool *TxPool) demoteUnexecutables(txn *types.Transaction) {
+func (pool *TxPool) demoteUnexecutables() {
 	// Iterate over all accounts and demote any non-executable transactions
 	for addr, list := range pool.pending {
 		nonce := pool.currentState.GetNonce(addr)
-		if vm.UsingOVM {
-			from, _ := types.Sender(pool.signer, txn)
-			if txn != nil && bytes.Equal(from.Bytes(), addr.Bytes()) {
-				nonce = txn.Nonce() + 1
-			}
-		}
+
 		// Drop all transactions that are deemed too old (low nonce)
 		olds := list.Forward(nonce)
 		for _, tx := range olds {

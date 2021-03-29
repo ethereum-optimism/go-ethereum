@@ -332,7 +332,7 @@ func (c *Client) GetTransaction(index uint64) (*types.Transaction, error) {
 	}
 	res, ok := response.Result().(*TransactionResponse)
 	if !ok {
-		return nil, errors.New("")
+		return nil, fmt.Errorf("could not get tx with index %d", index)
 	}
 
 	return transactionResponseToTransaction(res, c.signer)

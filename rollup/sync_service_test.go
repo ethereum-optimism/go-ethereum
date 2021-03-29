@@ -18,6 +18,74 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
+func setupLatestEthContextTest() (*SyncService, *EthContext) {
+	service, _, _, _ := newTestSyncService(false)
+	resp := &EthContext{
+		BlockNumber: uint64(10),
+		BlockHash:   common.Hash{},
+		Timestamp:   uint64(service.timestampRefreshThreshold.Seconds()) + 1,
+	}
+	setupMockClient(service, map[string]interface{}{
+		"GetLatestEthContext": resp,
+	})
+
+	return service, resp
+}
+
+// Test that if applying a transaction fails
+func TestSyncServiceContextUpdated(t *testing.T) {
+	service, resp := setupLatestEthContextTest()
+
+	// should get the expected context
+	expectedCtx := &OVMContext{
+		blockNumber: 0,
+		timestamp:   0,
+	}
+
+	if service.OVMContext != *expectedCtx {
+		t.Fatal("context was not instantiated to the expected value")
+	}
+
+	// run the update context call once
+	err := service.updateContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// should get the expected context
+	expectedCtx = &OVMContext{
+		blockNumber: resp.BlockNumber,
+		timestamp:   resp.Timestamp,
+	}
+
+	if service.OVMContext != *expectedCtx {
+		t.Fatal("context was not updated to the expected response even though enough time passed")
+	}
+
+	// updating the context should be a no-op if time advanced by less than
+	// the refresh period
+	resp.BlockNumber += 1
+	resp.Timestamp += uint64(service.timestampRefreshThreshold.Seconds())
+	setupMockClient(service, map[string]interface{}{
+		"GetLatestEthContext": resp,
+	})
+
+	// call it again
+	err = service.updateContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// should not get the context from the response because it was too soon
+	unexpectedCtx := &OVMContext{
+		blockNumber: resp.BlockNumber,
+		timestamp:   resp.Timestamp,
+	}
+	if service.OVMContext == *unexpectedCtx {
+		t.Fatal("context should not be updated because not enough time passed")
+	}
+}
+
 // Test that the `RollupTransaction` ends up in the transaction cache
 // after the transaction enqueued event is emitted. Set `false` as
 // the argument to start as a sequencer
@@ -40,9 +108,9 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 	// The L1 blocknumber for the transaction's evm context
 	l1BlockNumber := big.NewInt(100)
 	// The queue index of the L1 to L2 transaction
-	queueIndex := uint64(100)
-	//The index in the ctc
-	index := uint64(120)
+	queueIndex := uint64(0)
+	// The index in the ctc
+	index := uint64(5)
 
 	tx := types.NewTransaction(0, target, big.NewInt(0), gasLimit, big.NewInt(0), data)
 	txMeta := types.NewTransactionMeta(
@@ -63,8 +131,12 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 		},
 	})
 
-	// Start up the main loop
-	go service.SequencerLoop()
+	// Run an iteration of the eloop
+	err = service.sequence()
+	if err != nil {
+		t.Fatal("sequencing failed", err)
+	}
+
 	// Wait for the tx to be confirmed into the chain and then
 	// make sure it is the transactions that was set up with in the mockclient
 	event := <-txCh
@@ -80,8 +152,6 @@ func TestSyncServiceTransactionEnqueued(t *testing.T) {
 
 // Pass true to set as a verifier
 func TestSyncServiceSync(t *testing.T) {
-	t.Skip("TODO unstick this")
-
 	service, txCh, sub, err := newTestSyncService(true)
 	defer sub.Unsubscribe()
 	if err != nil {
@@ -115,7 +185,10 @@ func TestSyncServiceSync(t *testing.T) {
 		},
 	})
 
-	go service.VerifierLoop()
+	err = service.verify()
+	if err != nil {
+		t.Fatal("verification failed", err)
+	}
 
 	event := <-txCh
 	if len(event.Txs) != 1 {
@@ -235,6 +308,7 @@ type mockClient struct {
 	getTransaction          []*types.Transaction
 	getEthContextCallCount  int
 	getEthContext           []*EthContext
+	getLatestEthContext     *EthContext
 }
 
 func setupMockClient(service *SyncService, responses map[string]interface{}) {
@@ -246,6 +320,7 @@ func newMockClient(responses map[string]interface{}) *mockClient {
 	getEnqueueResponses := []*types.Transaction{}
 	getTransactionResponses := []*types.Transaction{}
 	getEthContextResponses := []*EthContext{}
+	getLatestEthContextResponse := &EthContext{}
 
 	enqueue, ok := responses["GetEnqueue"]
 	if ok {
@@ -259,10 +334,15 @@ func newMockClient(responses map[string]interface{}) *mockClient {
 	if ok {
 		getEthContextResponses = getCtx.([]*EthContext)
 	}
+	getLatestCtx, ok := responses["GetLatestEthContext"]
+	if ok {
+		getLatestEthContextResponse = getLatestCtx.(*EthContext)
+	}
 	return &mockClient{
-		getEnqueue:     getEnqueueResponses,
-		getTransaction: getTransactionResponses,
-		getEthContext:  getEthContextResponses,
+		getEnqueue:          getEnqueueResponses,
+		getTransaction:      getTransactionResponses,
+		getEthContext:       getEthContextResponses,
+		getLatestEthContext: getLatestEthContextResponse,
 	}
 }
 
@@ -308,7 +388,7 @@ func (m *mockClient) GetEthContext(index uint64) (*EthContext, error) {
 }
 
 func (m *mockClient) GetLatestEthContext() (*EthContext, error) {
-	return &EthContext{}, nil
+	return m.getLatestEthContext, nil
 }
 
 func (m *mockClient) GetLastConfirmedEnqueue() (*types.Transaction, error) {

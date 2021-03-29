@@ -293,147 +293,163 @@ func (s *SyncService) Stop() error {
 func (s *SyncService) VerifierLoop() {
 	log.Info("Starting Verifier Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
 	for {
-		// The verifier polls for ctc transactions.
-		// the ctc transactions are extending the chain.
-		latest, err := s.client.GetLatestTransaction()
-		if err != nil {
-			log.Error("Cannot fetch transaction")
-			continue
-		}
-
-		if latest == nil {
-			time.Sleep(s.pollInterval)
-			continue
-		}
-
-		var start uint64
-		if s.GetLatestIndex() == nil {
-			start = 0
-		} else {
-			start = *s.GetLatestIndex() + 1
-		}
-		end := *latest.GetMeta().Index
-		log.Info("Polling transactions", "start", start, "end", end)
-		for i := start; i <= end; i++ {
-			tx, err := s.client.GetTransaction(i)
-			if err != nil {
-				log.Error("Cannot get tx in loop", "index", i)
-				continue
-			}
-			log.Debug("Applying transaction", "index", i)
-			err = s.maybeApplyTransaction(tx)
-			if err != nil {
-				log.Error("Cannot apply transaction", "msg", err)
-			}
-			s.SetLatestIndex(&i)
+		if err := s.verify(); err != nil {
+			log.Error("Could not verify", "error", err)
 		}
 		time.Sleep(s.pollInterval)
 	}
 }
 
+func (s *SyncService) verify() error {
+	// The verifier polls for ctc transactions.
+	// the ctc transactions are extending the chain.
+	latest, err := s.client.GetLatestTransaction()
+	if err != nil {
+		return err
+	}
+
+	if latest == nil {
+		log.Debug("latest transaction not found")
+		return nil
+	}
+
+	var start uint64
+	if s.GetLatestIndex() == nil {
+		start = 0
+	} else {
+		start = *s.GetLatestIndex() + 1
+	}
+	end := *latest.GetMeta().Index
+	log.Info("Polling transactions", "start", start, "end", end)
+	for i := start; i <= end; i++ {
+		tx, err := s.client.GetTransaction(i)
+		if err != nil {
+			return fmt.Errorf("cannot get tx in loop: %w", err)
+		}
+
+		log.Debug("Applying transaction", "index", i)
+		err = s.maybeApplyTransaction(tx)
+		if err != nil {
+			return fmt.Errorf("could not apply transaction: %w", err)
+		}
+		s.SetLatestIndex(&i)
+	}
+
+	return nil
+}
+
 func (s *SyncService) SequencerLoop() {
 	log.Info("Starting Sequencer Loop", "poll-interval", s.pollInterval, "timestamp-refresh-threshold", s.timestampRefreshThreshold)
 	for {
-		// Only the sequencer needs to poll for enqueue transactions
-		// and then can choose when to apply them. We choose to apply
-		// transactions such that it makes for efficient batch submitting.
-		// Place as many L1ToL2 transactions in the same context as possible
-		// by executing them one after another.
-		// TODO: break this routine out into a function so that lock
-		// management is more simple. For now, be sure to unlock before
-		// each outer continue
 		s.txLock.Lock()
-		latest, err := s.client.GetLatestEnqueue()
+		err := s.sequence()
 		if err != nil {
-			log.Error("Cannot get latest enqueue")
-			s.txLock.Unlock()
-			time.Sleep(s.pollInterval)
-			continue
-		}
-		// This should never happen unless the backend is empty
-		if latest == nil {
-			log.Debug("No enqueue transactions found")
-			s.txLock.Unlock()
-			time.Sleep(s.pollInterval)
-			continue
-		}
-		// Compare the remote latest queue index to the local latest
-		// queue index. If the remote latest queue index is greater
-		// than the local latest queue index, be sure to ingest more
-		// enqueued transactions
-		var start uint64
-		if s.GetLatestEnqueueIndex() == nil {
-			start = 0
-		} else {
-			start = *s.GetLatestEnqueueIndex() + 1
-		}
-		end := *latest.GetMeta().QueueIndex
-
-		log.Info("Polling enqueued transactions", "start", start, "end", end)
-		for i := start; i <= end; i++ {
-			enqueue, err := s.client.GetEnqueue(i)
-			if err != nil {
-				log.Error("Cannot get enqueue in loop", "index", i, "message", err)
-				continue
-			}
-
-			if enqueue == nil {
-				log.Debug("No enqueue transaction found")
-				break
-			}
-
-			// This should never happen
-			if enqueue.L1BlockNumber() == nil {
-				log.Error("No blocknumber for enqueue", "index", i, "timestamp", enqueue.L1Timestamp(), "blocknumber", enqueue.L1BlockNumber())
-				continue
-			}
-
-			// Update the timestamp and blocknumber based on the enqueued
-			// transactions
-			if enqueue.L1Timestamp() > s.GetLatestL1Timestamp() {
-				ts := enqueue.L1Timestamp()
-				bn := enqueue.L1BlockNumber().Uint64()
-				s.SetLatestL1Timestamp(ts)
-				s.SetLatestL1BlockNumber(bn)
-				log.Info("Updated Eth Context from enqueue", "index", i, "timestamp", ts, "blocknumber", bn)
-			}
-
-			log.Debug("Applying enqueue transaction", "index", i)
-			err = s.applyTransaction(enqueue)
-			if err != nil {
-				log.Error("Cannot apply transaction", "msg", err)
-			}
-
-			s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
-			if enqueue.GetMeta().Index == nil {
-				latest := s.GetLatestIndex()
-				index := uint64(0)
-				if latest != nil {
-					index = *latest + 1
-				}
-				s.SetLatestIndex(&index)
-			} else {
-				s.SetLatestIndex(enqueue.GetMeta().Index)
-			}
+			log.Error("Could not sequence", "error", err)
 		}
 		s.txLock.Unlock()
 
-		// Update the execution context's timestamp and blocknumber
-		// over time. This is only necessary for the sequencer.
-		context, err := s.client.GetLatestEthContext()
-		if err != nil {
-			log.Error("Cannot get latest eth context", "msg", err)
-			continue
+		if s.updateContext() != nil {
+			log.Error("Could not update execution context", "error", err)
 		}
-		current := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
-		next := time.Unix(int64(context.Timestamp), 0)
-		if next.Sub(current) > s.timestampRefreshThreshold {
-			log.Info("Updating Eth Context", "timetamp", context.Timestamp, "blocknumber", context.BlockNumber)
-			s.SetLatestL1BlockNumber(context.BlockNumber)
-			s.SetLatestL1Timestamp(context.Timestamp)
-		}
+
 		time.Sleep(s.pollInterval)
 	}
+}
+
+func (s *SyncService) sequence() error {
+	// Only the sequencer needs to poll for enqueue transactions
+	// and then can choose when to apply them. We choose to apply
+	// transactions such that it makes for efficient batch submitting.
+	// Place as many L1ToL2 transactions in the same context as possible
+	// by executing them one after another.
+	latest, err := s.client.GetLatestEnqueue()
+	if err != nil {
+		return err
+	}
+
+	// This should never happen unless the backend is empty
+	if latest == nil {
+		log.Debug("No enqueue transactions found")
+		return nil
+	}
+
+	// Compare the remote latest queue index to the local latest
+	// queue index. If the remote latest queue index is greater
+	// than the local latest queue index, be sure to ingest more
+	// enqueued transactions
+	var start uint64
+	if s.GetLatestEnqueueIndex() == nil {
+		start = 0
+	} else {
+		start = *s.GetLatestEnqueueIndex() + 1
+	}
+	end := *latest.GetMeta().QueueIndex
+
+	log.Info("Polling enqueued transactions", "start", start, "end", end)
+	for i := start; i <= end; i++ {
+		enqueue, err := s.client.GetEnqueue(i)
+		if err != nil {
+			return fmt.Errorf("Cannot get enqueue in loop %d: %w", i, err)
+		}
+
+		if enqueue == nil {
+			log.Debug("No enqueue transaction found")
+			return nil
+		}
+
+		// This should never happen
+		if enqueue.L1BlockNumber() == nil {
+			return fmt.Errorf("No blocknumber for enqueue idx %d, timestamp %d, blocknumber %d", i, enqueue.L1Timestamp(), enqueue.L1BlockNumber())
+		}
+
+		// Update the timestamp and blocknumber based on the enqueued
+		// transactions
+		if enqueue.L1Timestamp() > s.GetLatestL1Timestamp() {
+			ts := enqueue.L1Timestamp()
+			bn := enqueue.L1BlockNumber().Uint64()
+			s.SetLatestL1Timestamp(ts)
+			s.SetLatestL1BlockNumber(bn)
+			log.Info("Updated Eth Context from enqueue", "index", i, "timestamp", ts, "blocknumber", bn)
+		}
+
+		log.Debug("Applying enqueue transaction", "index", i)
+		err = s.applyTransaction(enqueue)
+		if err != nil {
+			return fmt.Errorf("could not apply transaction: %w", err)
+		}
+
+		s.SetLatestEnqueueIndex(enqueue.GetMeta().QueueIndex)
+		if enqueue.GetMeta().Index == nil {
+			latest := s.GetLatestIndex()
+			index := uint64(0)
+			if latest != nil {
+				index = *latest + 1
+			}
+			s.SetLatestIndex(&index)
+		} else {
+			s.SetLatestIndex(enqueue.GetMeta().Index)
+		}
+	}
+
+	return nil
+}
+
+/// Update the execution context's timestamp and blocknumber
+/// over time. This is only necessary for the sequencer.
+func (s *SyncService) updateContext() error {
+	context, err := s.client.GetLatestEthContext()
+	if err != nil {
+		return err
+	}
+	current := time.Unix(int64(s.GetLatestL1Timestamp()), 0)
+	next := time.Unix(int64(context.Timestamp), 0)
+	if next.Sub(current) > s.timestampRefreshThreshold {
+		log.Info("Updating Eth Context", "timetamp", context.Timestamp, "blocknumber", context.BlockNumber)
+		s.SetLatestL1BlockNumber(context.BlockNumber)
+		s.SetLatestL1Timestamp(context.Timestamp)
+	}
+
+	return nil
 }
 
 // This function must sync all the way to the tip
