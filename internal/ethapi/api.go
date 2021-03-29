@@ -1061,7 +1061,10 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 	// tweak the gas estimate to account for this discrepancy. Cost is quite high here because of
 	// the EVM limitation that CALL can only pass 63/64 of total gas available -- so most of this
 	// gas isn't actually spent during execution but needs to be provided to avoid a revert.
-	hi = hi + 1000000 + uint64(len([]byte(*args.Data)))*128
+	hi += 1000000
+	if args.Data != nil {
+		hi += uint64(len([]byte(*args.Data))) * 128
+	}
 	if hi > cap {
 		hi = cap
 	}
