@@ -1063,7 +1063,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 			return 0, fmt.Errorf("gas required exceeds allowance (%d) or always failing transaction", cap)
 		}
 	}
-	log.Debug("Returning gas estimate", "estimate", hi)
+	log.Debug("Returning gas estimate", "estimate", hi, "data length", uint64(len([]byte(*args.Data))))
 	return hexutil.Uint64(hi), nil
 }
 
