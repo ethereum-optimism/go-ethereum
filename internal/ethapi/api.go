@@ -1024,9 +1024,9 @@ func DoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash 
 		return 0, err
 	}
 
-	// 3. calculate the fee
-	fee := core.CalculateRollupFee(*args.Data, uint64(gasUsed), dataPrice, executionPrice)
-	return (hexutil.Uint64)(fee.Uint64()), nil
+	// 3. calculate the fee and normalize by the default gas price
+	fee := core.CalculateRollupFee(*args.Data, uint64(gasUsed), dataPrice, executionPrice).Uint64() / defaultGasPrice
+	return (hexutil.Uint64)(fee), nil
 }
 
 func legacyDoEstimateGas(ctx context.Context, b Backend, args CallArgs, blockNrOrHash rpc.BlockNumberOrHash, gasCap *big.Int) (hexutil.Uint64, error) {

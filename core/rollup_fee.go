@@ -7,7 +7,7 @@ import (
 /// ROLLUP_BASE_TX_SIZE is the encoded rollup transaction's compressed size excluding
 /// the variable length data.
 /// Ref: https://github.com/ethereum-optimism/contracts/blob/409f190518b90301db20d0d4f53760021bc203a8/contracts/optimistic-ethereum/OVM/precompiles/OVM_SequencerEntrypoint.sol#L47
-var ROLLUP_BASE_TX_SIZE int = 96
+const ROLLUP_BASE_TX_SIZE int = 96
 
 /// CalculateFee calculates the fee that must be paid to the Rollup sequencer, taking into
 /// account the cost of publishing data to L1.
