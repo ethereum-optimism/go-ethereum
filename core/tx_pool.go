@@ -92,8 +92,9 @@ var (
 )
 
 var (
-	evictionInterval    = time.Minute     // Time interval to check for evictable transactions
-	statsReportInterval = 8 * time.Second // Time interval to report transaction pool stats
+	evictionInterval    = time.Minute             // Time interval to check for evictable transactions
+	statsReportInterval = 8 * time.Second         // Time interval to report transaction pool stats
+	gwei                = big.NewInt(params.GWei) // 1 gwei, used as a flag for "rollup" transactions
 )
 
 var (
@@ -537,10 +538,14 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.Value().Sign() < 0 {
 		return ErrNegativeValue
 	}
+
 	// Ensure the transaction doesn't exceed the current block limit gas.
-	if pool.currentMaxGas < tx.Gas() {
+	// We skip this condition check if the transaction's gasPrice is set to 1gwei,
+	// which indicates a "rollup" transaction that's paying for its data.
+	if pool.currentMaxGas < tx.Gas() && tx.GasPrice().Cmp(gwei) != 0 {
 		return ErrGasLimit
 	}
+
 	// Make sure the transaction is signed properly
 	from, err := types.Sender(pool.signer, tx)
 	if err != nil {
