@@ -25,11 +25,11 @@ $ make geth
 
 ### Running a Sequencer
 
-Running a sequencer requires the [Data Transport Layer](https://github.com/ethereum-optimism/data-transport-layer)
-to be synced. The data transport layer is responsible for indexing transactions
-from Layer One concurrently. The sequencer pulls in transactions from the data
-transport layer and executes them. The URL of the data transport layer should be
-used for the sequencer config option `--rollup.clienthttp`.
+Running a sequencer requires the [`transaction-indexer`](https://github.com/ethereum-optimism/transaction-indexer)
+to be synced. The `transaction-indexer` is responsible for indexing transactions
+from Layer One concurrently. The sequencer pulls in transactions from the
+`transaction-indexer` and executes them. The URL of the `transaction-indexer` 
+should be used for the sequencer config option `--rollup.clienthttp`.
 
 See the script `scripts/start.sh`. It sets many of the config options
 and accepts CLI flags. For usage, run the command:

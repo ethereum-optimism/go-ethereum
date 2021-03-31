@@ -2,7 +2,8 @@
 
 ## v0.1.3
 
-- Integrate data transport layer
+
+- Integrate data transport layer <!-- Addendum 2021-03-30: "data transport layer" was renamed to "transaction-indexer" -->
 - Refactor `SyncService`
 - New RPC Endpoint `eth_getBlockRange`
 
