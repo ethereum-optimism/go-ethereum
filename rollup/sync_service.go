@@ -441,6 +441,7 @@ func (s *SyncService) applyIndexedTransaction(tx *types.Transaction) error {
 	if index == nil {
 		return errors.New("No index found in applyIndexedTransaction")
 	}
+	log.Debug("Applying indexed transaction", "index", *index)
 	next := s.GetNextIndex()
 	if *index == next {
 		return s.applyTransactionToTip(tx)
@@ -475,6 +476,7 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 }
 
 func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
+	log.Debug("Applying transaction to tip")
 	s.txLock.Lock()
 	defer s.txLock.Unlock()
 	if tx.L1Timestamp() == 0 {
