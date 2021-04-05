@@ -469,11 +469,7 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("More than one transaction found in block %d", *index+1)
 	}
 	if !isCtcTxEqual(tx, txs[0]) {
-		err := s.bc.SetHead(*index)
-		if err != nil {
-			return fmt.Errorf("Cannot reorganize in syncservice: %w", err)
-		}
-		return s.applyTransactionToTip(tx)
+		log.Error("Mismatched transaction", "index", index)
 	}
 	return nil
 }
