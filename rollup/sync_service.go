@@ -477,8 +477,6 @@ func (s *SyncService) applyHistoricalTransaction(tx *types.Transaction) error {
 
 func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	log.Debug("Applying transaction to tip")
-	s.txLock.Lock()
-	defer s.txLock.Unlock()
 	if tx.L1Timestamp() == 0 {
 		ts := s.GetLatestL1Timestamp()
 		bn := s.GetLatestL1BlockNumber()
@@ -510,6 +508,7 @@ func (s *SyncService) applyTransactionToTip(tx *types.Transaction) error {
 	txs := types.Transactions{tx}
 	s.txFeed.Send(core.NewTxsEvent{Txs: txs})
 	// Block until the transaction has been added to the chain
+	log.Debug("Waiting for transaction to be added to chain")
 	<-s.chainHeadCh
 
 	return nil

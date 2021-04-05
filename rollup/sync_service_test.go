@@ -47,7 +47,7 @@ func TestSyncServiceContextUpdated(t *testing.T) {
 	}
 
 	// run the update context call once
-	err := service.updateContext()
+	err := service.updateEthContext()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestSyncServiceContextUpdated(t *testing.T) {
 	})
 
 	// call it again
-	err = service.updateContext()
+	err = service.updateEthContext()
 	if err != nil {
 		t.Fatal(err)
 	}
