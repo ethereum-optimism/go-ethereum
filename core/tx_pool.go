@@ -537,9 +537,11 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if tx.Value().Sign() < 0 {
 		return ErrNegativeValue
 	}
-	// Ensure the transaction doesn't exceed the current block limit gas.
-	if pool.currentMaxGas < tx.Gas() {
-		return ErrGasLimit
+	if !vm.UsingOVM {
+		// Ensure the transaction doesn't exceed the current block limit gas.
+		if pool.currentMaxGas < tx.Gas() {
+			return ErrGasLimit
+		}
 	}
 	// Make sure the transaction is signed properly
 	from, err := types.Sender(pool.signer, tx)
@@ -558,6 +560,14 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// Transactor should have enough funds to cover the costs
 	// cost == V + GP * GL
 	if vm.UsingOVM {
+		// TODO: Update syntax to add rejection logic
+		// gasLimit = api.DoEstimateGas(tx)
+		// if tx.GasPrice() < fixedGasPrice {
+		// 	return ErrInsufficientFunds
+		// }
+		// if tx.GasLimit < gasLimit {
+		// 	return ErrInsufficientFunds
+		// }
 		if pool.currentState.GetOVMBalance(from).Cmp(tx.Cost()) < 0 {
 			return ErrInsufficientFunds
 		}
