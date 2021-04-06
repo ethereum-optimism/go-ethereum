@@ -371,7 +371,7 @@ func (m *mockClient) GetTransaction(index uint64) (*types.Transaction, error) {
 	return nil, errors.New("")
 }
 
-func (m *mockClient) GetLatestTransaction() (*types.Transaction, error) {
+func (m *mockClient) GetLatestTransaction(backend string) (*types.Transaction, error) {
 	if len(m.getTransaction) == 0 {
 		return nil, errors.New("")
 	}
