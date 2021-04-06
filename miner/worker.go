@@ -863,32 +863,14 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	tstart := time.Now()
 
 	parent := w.chain.CurrentBlock()
-	// The L1Timestamp will always be set for a transaction
-	// coming from a batch submission because the transaction
-	// has been included in the canonical transaction chain.
-	// The only time that L1Timestamp is zero is for queue
-	// origin sequencer transactions that have yet to be included
-	// in the canonical transaction chain, meaning this code
-	// path is only relevant for the sequencer.
-	if tx.L1Timestamp() == 0 {
-		ts := w.eth.SyncService().GetLatestL1Timestamp()
-		bn := w.eth.SyncService().GetLatestL1BlockNumber()
-		tx.SetL1Timestamp(ts)
-		tx.SetL1BlockNumber(bn)
-	}
 	timestamp := tx.L1Timestamp()
+	if timestamp < parent.Time() {
+		log.Error("Monotonicity violation detected", "index", parent.NumberU64())
+	}
 
 	num := parent.Number()
-	// Fill in the index field in the tx meta if it is `nil`.
-	// This should only ever happen in the case of the sequencer
-	// receiving a queue origin sequencer transaction. The verifier
-	// should always receive transactions with an index as they
-	// have already been confirmed in the canonical transaction chain.
-	// Use the parent's block number because the CTC is 0 indexed.
 	if meta := tx.GetMeta(); meta.Index == nil {
-		index := num.Uint64()
-		meta.Index = &index
-		tx.SetTransactionMeta(meta)
+		log.Error("Index not found on transaction")
 	}
 	header := &types.Header{
 		ParentHash: parent.Hash(),
