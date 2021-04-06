@@ -1177,7 +1177,6 @@ type RPCTransaction struct {
 	L1Timestamp      hexutil.Uint64  `json:"l1Timestamp"`
 	Index            *hexutil.Uint64 `json:"index"`
 	QueueIndex       *hexutil.Uint64 `json:"queueIndex"`
-	RawTransaction   hexutil.Bytes   `json:"rawTransaction"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -1207,7 +1206,6 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 	}
 
 	if meta := tx.GetMeta(); meta != nil {
-		result.RawTransaction = meta.RawTransaction
 		result.L1TxOrigin = meta.L1MessageSender
 		result.L1Timestamp = (hexutil.Uint64)(meta.L1Timestamp)
 		if meta.L1BlockNumber != nil {
@@ -1545,12 +1543,12 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	}
 	if args.To == nil {
 		tx := types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
-		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, nil, types.SighashEIP155, types.QueueOriginSequencer, nil, nil, nil)
+		txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, nil, types.SighashEIP155, types.QueueOriginSequencer, nil, nil)
 		tx.SetTransactionMeta(txMeta)
 		return tx
 	}
 	tx := types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), uint64(*args.Gas), (*big.Int)(args.GasPrice), input)
-	txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, args.L1MessageSender, args.SignatureHashType, types.QueueOriginSequencer, nil, nil, nil)
+	txMeta := types.NewTransactionMeta(args.L1BlockNumber, 0, args.L1MessageSender, args.SignatureHashType, types.QueueOriginSequencer, nil, nil)
 	tx.SetTransactionMeta(txMeta)
 	return tx
 }
@@ -1649,7 +1647,7 @@ func (s *PublicTransactionPoolAPI) SendRawTransaction(ctx context.Context, encod
 		return common.Hash{}, errors.New("Gas price must be a multiple of 1,000,000 wei")
 	}
 	// L1Timestamp and L1BlockNumber will be set by the miner
-	txMeta := types.NewTransactionMeta(nil, 0, nil, types.SighashEIP155, types.QueueOriginSequencer, nil, nil, nil)
+	txMeta := types.NewTransactionMeta(nil, 0, nil, types.SighashEIP155, types.QueueOriginSequencer, nil, nil)
 	tx.SetTransactionMeta(txMeta)
 	return SubmitTransaction(ctx, s.b, tx)
 }
@@ -1676,7 +1674,7 @@ func (s *PublicTransactionPoolAPI) SendRawEthSignTransaction(ctx context.Context
 		return common.Hash{}, errors.New("Gas price must be a multiple of 1,000,000 wei")
 	}
 	// L1Timestamp and L1BlockNumber will be set by the miner
-	txMeta := types.NewTransactionMeta(nil, 0, nil, types.SighashEthSign, types.QueueOriginSequencer, nil, nil, nil)
+	txMeta := types.NewTransactionMeta(nil, 0, nil, types.SighashEthSign, types.QueueOriginSequencer, nil, nil)
 	tx.SetTransactionMeta(txMeta)
 	return SubmitTransaction(ctx, s.b, tx)
 }

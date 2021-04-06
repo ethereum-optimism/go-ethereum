@@ -141,7 +141,7 @@ func TestOVMSigner(t *testing.T) {
 	key, _ := defaultTestKey()
 
 	tx := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
-	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil, nil)
+	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil)
 	tx.SetTransactionMeta(txMeta)
 
 	var err error
@@ -175,7 +175,7 @@ func TestOVMSignerHash(t *testing.T) {
 
 	// The signature hash should be different when using `SighashEthSign`
 	txEthSign := NewTransaction(0, common.Address{}, new(big.Int), 0, new(big.Int), nil)
-	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil, nil)
+	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil)
 	txEthSign.SetTransactionMeta(txMeta)
 
 	hashEthSign := signer.Hash(txEthSign)
@@ -216,7 +216,7 @@ func TestOVMSignerSender(t *testing.T) {
 	// Create a transaction with EthSign signature hash, sign the transaction,
 	// recover the address and assert that the address matches the key.
 	txEthSign := NewTransaction(0, addr, new(big.Int), 0, new(big.Int), nil)
-	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil, nil)
+	txMeta := NewTransactionMeta(nil, 0, nil, SighashEthSign, QueueOriginSequencer, nil, nil)
 	txEthSign.SetTransactionMeta(txMeta)
 
 	txEthSign, err = SignTx(txEthSign, signer, key)

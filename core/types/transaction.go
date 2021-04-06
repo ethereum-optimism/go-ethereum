@@ -95,7 +95,7 @@ func newTransaction(nonce uint64, to *common.Address, amount *big.Int, gasLimit 
 		data = common.CopyBytes(data)
 	}
 
-	meta := NewTransactionMeta(nil, 0, nil, SighashEIP155, QueueOriginSequencer, nil, nil, nil)
+	meta := NewTransactionMeta(nil, 0, nil, SighashEIP155, QueueOriginSequencer, nil, nil)
 
 	d := txdata{
 		AccountNonce: nonce,

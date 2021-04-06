@@ -14,60 +14,53 @@ var (
 	l1BlockNumber = big.NewInt(0)
 
 	txMetaSerializationTests = []struct {
-		l1BlockNumber  *big.Int
-		l1Timestamp    uint64
-		msgSender      *common.Address
-		sighashType    SignatureHashType
-		queueOrigin    QueueOrigin
-		rawTransaction []byte
+		l1BlockNumber *big.Int
+		l1Timestamp   uint64
+		msgSender     *common.Address
+		sighashType   SignatureHashType
+		queueOrigin   QueueOrigin
 	}{
 		{
-			l1BlockNumber:  l1BlockNumber,
-			l1Timestamp:    100,
-			msgSender:      &addr,
-			sighashType:    SighashEthSign,
-			queueOrigin:    QueueOriginL1ToL2,
-			rawTransaction: []byte{255, 255, 255, 255},
+			l1BlockNumber: l1BlockNumber,
+			l1Timestamp:   100,
+			msgSender:     &addr,
+			sighashType:   SighashEthSign,
+			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
-			l1BlockNumber:  nil,
-			l1Timestamp:    45,
-			msgSender:      &addr,
-			sighashType:    SighashEthSign,
-			queueOrigin:    QueueOriginL1ToL2,
-			rawTransaction: []byte{42, 69, 42, 69},
+			l1BlockNumber: nil,
+			l1Timestamp:   45,
+			msgSender:     &addr,
+			sighashType:   SighashEthSign,
+			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
-			l1BlockNumber:  l1BlockNumber,
-			l1Timestamp:    0,
-			msgSender:      nil,
-			sighashType:    SighashEthSign,
-			queueOrigin:    QueueOriginSequencer,
-			rawTransaction: []byte{0, 0, 0, 0},
+			l1BlockNumber: l1BlockNumber,
+			l1Timestamp:   0,
+			msgSender:     nil,
+			sighashType:   SighashEthSign,
+			queueOrigin:   QueueOriginSequencer,
 		},
 		{
-			l1BlockNumber:  l1BlockNumber,
-			l1Timestamp:    0,
-			msgSender:      &addr,
-			sighashType:    SighashEthSign,
-			queueOrigin:    QueueOriginSequencer,
-			rawTransaction: []byte{0, 0, 0, 0},
+			l1BlockNumber: l1BlockNumber,
+			l1Timestamp:   0,
+			msgSender:     &addr,
+			sighashType:   SighashEthSign,
+			queueOrigin:   QueueOriginSequencer,
 		},
 		{
-			l1BlockNumber:  nil,
-			l1Timestamp:    0,
-			msgSender:      nil,
-			sighashType:    SighashEthSign,
-			queueOrigin:    QueueOriginL1ToL2,
-			rawTransaction: []byte{0, 0, 0, 0},
+			l1BlockNumber: nil,
+			l1Timestamp:   0,
+			msgSender:     nil,
+			sighashType:   SighashEthSign,
+			queueOrigin:   QueueOriginL1ToL2,
 		},
 		{
-			l1BlockNumber:  l1BlockNumber,
-			l1Timestamp:    0,
-			msgSender:      &addr,
-			sighashType:    SighashEthSign,
-			queueOrigin:    QueueOriginL1ToL2,
-			rawTransaction: []byte{0, 0, 0, 0},
+			l1BlockNumber: l1BlockNumber,
+			l1Timestamp:   0,
+			msgSender:     &addr,
+			sighashType:   SighashEthSign,
+			queueOrigin:   QueueOriginL1ToL2,
 		},
 	}
 
@@ -88,7 +81,7 @@ var (
 
 func TestTransactionMetaEncode(t *testing.T) {
 	for _, test := range txMetaSerializationTests {
-		txmeta := NewTransactionMeta(test.l1BlockNumber, test.l1Timestamp, test.msgSender, test.sighashType, test.queueOrigin, nil, nil, test.rawTransaction)
+		txmeta := NewTransactionMeta(test.l1BlockNumber, test.l1Timestamp, test.msgSender, test.sighashType, test.queueOrigin, nil, nil)
 
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
@@ -105,7 +98,7 @@ func TestTransactionMetaEncode(t *testing.T) {
 
 func TestTransactionSighashEncode(t *testing.T) {
 	for _, test := range txMetaSighashEncodeTests {
-		txmeta := NewTransactionMeta(l1BlockNumber, 0, &addr, test.input, QueueOriginSequencer, nil, nil, nil)
+		txmeta := NewTransactionMeta(l1BlockNumber, 0, &addr, test.input, QueueOriginSequencer, nil, nil)
 		encoded := TxMetaEncode(txmeta)
 		decoded, err := TxMetaDecode(encoded)
 
