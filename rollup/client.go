@@ -108,6 +108,7 @@ type TransactionBatchResponse struct {
 func NewClient(url string, chainID *big.Int) *Client {
 	client := resty.New()
 	client.SetHostURL(url)
+	client.SetHeader("User-Agent", "sequencer")
 	signer := types.NewOVMSigner(chainID)
 
 	return &Client{
