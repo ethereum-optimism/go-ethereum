@@ -660,6 +660,13 @@ func (s *SyncService) ApplyTransaction(tx *types.Transaction) error {
 		return fmt.Errorf("invalid transaction: %w", err)
 	}
 
+	if tx.L1Timestamp() == 0 {
+		ts := s.GetLatestL1Timestamp()
+		bn := s.GetLatestL1BlockNumber()
+		tx.SetL1Timestamp(ts)
+		tx.SetL1BlockNumber(bn)
+	}
+
 	// Set the raw transaction data in the meta
 	txRaw, err := getRawTransaction(tx)
 	if err != nil {
