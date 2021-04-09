@@ -866,8 +866,15 @@ func (w *worker) commitNewTx(tx *types.Transaction) error {
 	timestamp := tx.L1Timestamp()
 	num := parent.Number()
 
+	// Preserve liveliness as best as possible. Must panic on L1 to L2
+	// transactions as the timestamp cannot be malleated
 	if parent.Time() > timestamp {
 		log.Error("Monotonicity violation", "index", num)
+		if tx.QueueOrigin().Uint64() == uint64(types.QueueOriginSequencer) {
+			tx.SetL1Timestamp(parent.Time())
+		} else {
+			panic("Monotonicity violation")
+		}
 	}
 
 	// Fill in the index field in the tx meta if it is `nil`.
