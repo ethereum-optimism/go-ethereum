@@ -20,7 +20,7 @@ type Config struct {
 	Eth1ChainId uint64
 	// Gas Limit
 	GasLimit uint64
-	// HTTP endpoint of the data transport layer
+	// HTTP endpoint of the transaction-indexer
 	RollupClientHttp              string
 	L1CrossDomainMessengerAddress common.Address
 	AddressManagerOwnerAddress    common.Address
